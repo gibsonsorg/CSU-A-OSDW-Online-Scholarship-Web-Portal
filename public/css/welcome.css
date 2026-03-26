@@ -1,0 +1,813 @@
+* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    background-color: #f5f5f5;
+    font-family: sans-serif;
+}
+
+/* Navigation Styles */
+nav {
+    background: linear-gradient(135deg, #C85A00, #E07B00, #F0A500);;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 10;
+    padding: 0.8rem 2rem;
+    height: 70px; /* Fixed height helps stability */
+    width: 100%;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    z-index: 20; /* Ensure logo stays above mobile menu */
+}
+
+.logo img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-right: 1rem;
+}
+
+.logo h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Hamburger Menu Button */
+.hamburger-menu {
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 30px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 100;
+}
+
+.hamburger-menu span {
+    display: block;
+    height: 3px;
+    width: 100%;
+    background-color: #333;
+    border-radius: 3px;
+    transition: all 0.3s ease;
+}
+
+.hamburger-menu.active span:nth-child(1) {
+    transform: translateY(10.5px) rotate(45deg);
+}
+
+.hamburger-menu.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger-menu.active span:nth-child(3) {
+    transform: translateY(-10.5px) rotate(-45deg);
+}
+
+.hero {
+    background-color:orange;
+    padding: 0.5rem;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.hero h1 {
+    font-size: clamp(1.1rem, 2.2vw, 1.8rem);
+    margin: 0;
+    padding: 0 1rem;
+    line-height: 1.5;
+    color: #333;
+    font-weight: 600;
+    max-width: 100%;
+    word-wrap: break-word;
+    text-align: center;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+}
+
+/* Desktop - keep on one line if possible */
+@media (min-width: 1400px) {
+    .hero {
+        padding: 2.5rem 2rem;
+    }
+    
+    .hero h1 {
+        font-size: 1.9rem;
+        max-width: 1600px;
+    }
+}
+
+/* Laptop/Tablet landscape */
+@media (max-width: 1199px) {
+    .hero {
+        padding: 2rem 1.5rem;
+    }
+    
+    .hero h1 {
+        font-size: clamp(1rem, 2.5vw, 1.6rem);
+    }
+}
+
+/* Tablet portrait */
+@media (max-width: 768px) {
+    .hero {
+        padding: 1.75rem 1rem;
+        min-height: 100px;
+    }
+    
+    .hero h1 {
+        font-size: clamp(0.95rem, 3.5vw, 1.4rem);
+        padding: 0 0.75rem;
+        line-height: 1.4;
+    }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    .hero {
+        padding: 1.5rem 0.75rem;
+        min-height: 90px;
+    }
+    
+    .hero h1 {
+        font-size: clamp(0.85rem, 4.5vw, 1.1rem);
+        padding: 0 0.5rem;
+        line-height: 1.35;
+    }
+}
+
+/* Extra large screens - single line */
+@media (min-width: 1788px) {
+    .hero h1 {
+        font-size: 2rem;
+        white-space: nowrap;
+    }
+}
+
+
+
+
+/* =========================================
+   DESKTOP STYLES (Min-width: 769px)
+   ========================================= */
+@media (min-width: 769px) {
+    /* 1. The wrapper (.nav-center) becomes static so its children 
+          can position themselves relative to the main <nav> 
+    */
+    .nav-center {
+        display: contents; /* Removes this container from formatting effectively */
+    }
+
+    /* Hide mobile menu on desktop */
+    .mobile-menu {
+        display: none;
+    }
+
+    /* 2. Centering the Links:
+       We use absolute positioning to ignore the logo's width 
+       and place links exactly in the center of the navbar.
+    */
+    .nav-links {
+        display: flex;
+        gap: 2rem;
+        position: absolute;
+        left: 55%;
+        transform: translateX(-50%);
+        z-index: 15;
+    }
+
+    .nav-links a {
+        text-decoration: none;
+        color: #333;
+        font-weight: 500;
+        transition: color 0.3s;
+        position: relative;
+    }
+
+    .nav-links a:hover {
+        color:white;
+    }
+
+    .nav-links a::after {
+        content: '';
+        position: absolute;
+        bottom: -5px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 2px;
+        background-color:white;
+        transition: width 0.3s;
+    }
+
+    .nav-links a:hover::after {
+        width: 100%;
+    }
+
+    /* 3. Positioning Auth Buttons:
+       Pinned to the far right.
+    */
+    .nav-auth {
+        display: flex;
+        gap: 1.5rem;
+        position: absolute;
+        right: 6rem;
+        z-index: 15;
+    }
+
+    .nav-auth a {
+        text-decoration: none;
+        color: #333;
+        font-weight: 500;
+        transition: color 0.3s;
+    }
+
+    .nav-auth a:hover {
+        color:#FFC107;
+    }
+}
+
+/* =========================================
+   MOBILE STYLES (Max-width: 768px)
+   ========================================= */
+@media (max-width: 768px) {
+    nav {
+        padding: 0 1rem;
+    }
+
+    .logo img {
+        width: 40px;
+        height: 40px;
+    }
+
+    .hamburger-menu {
+        display: flex;
+    }
+
+    /* Hide desktop navigation on mobile */
+    .nav-links,
+    .nav-auth {
+        display: none !important;
+    }
+
+    /* Show and style mobile menu container */
+    .nav-center {
+        display: block;
+    }
+
+    /* Half-Screen Menu Container */
+    .mobile-menu {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 50%;
+        height: 100vh;
+        background-color: white;
+        box-shadow: 2px 0 15px rgba(0, 0, 0, 0.15);
+        overflow-y: auto;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 999;
+    }
+
+    /* When Menu is Active */
+    .nav-center.active .mobile-menu {
+        transform: translateX(0);
+    }
+
+    /* Menu Header with Close Button */
+    .menu-header {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .menu-close {
+        background: none;
+        border: none;
+        font-size: 2.5rem;
+        color: #333;
+        cursor: pointer;
+        padding: 0;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.3s ease;
+    }
+
+    .menu-close:hover {
+        color: #FFC107;
+    }
+
+    /* Menu Items Container */
+    .menu-items {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        padding: 0;
+    }
+
+    /* Individual Menu Items */
+    .menu-item {
+        display: flex;
+        align-items: center;
+        padding: 20px 25px;
+        text-decoration: none;
+        color: #333;
+        font-weight: 500;
+        font-size: 1rem;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background-color 0.2s, color 0.2s, border-left 0.2s;
+        border-left: 4px solid transparent;
+    }
+
+    .menu-item i {
+        margin-right: 15px;
+        width: 24px;
+        text-align: center;
+        font-size: 1.2rem;
+        color: #FFC107;
+    }
+
+    .menu-item:hover {
+        background-color: #f8f9fa;
+        color: #FFC107;
+    }
+
+    .menu-item.active {
+        background-color: #f0f0f0;
+        color: #FFC107;
+        border-left-color: #FFC107;
+    }
+
+    /* Menu Divider */
+    .menu-divider {
+        height: 1px;
+        background-color: #e0e0e0;
+        margin: 10px 0;
+    }
+
+    /* Auth Items (Login & Register) */
+    .auth-item {
+        margin-top: auto;
+        padding: 18px 25px;
+        border-top: 1px solid #e0e0e0;
+        border-bottom: none;
+    }
+
+    .login-item {
+        color: #333;
+        background-color: transparent;
+    }
+
+    .login-item:hover {
+        background-color: #f8f9fa;
+        color: #FFC107;
+    }
+
+    .register-item {
+        background-color: #FFC107;
+        color: #333;
+        border-bottom: none;
+        border-left: none;
+    }
+
+    .register-item:hover {
+        background-color: #FFB300;
+        color: #fff;
+    }
+
+    .register-item i {
+        color: #333;
+    }
+
+    /* Menu Backdrop Overlay */
+    .menu-backdrop {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.4);
+        z-index: 998;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .menu-backdrop.active {
+        display: block;
+        opacity: 1;
+    }
+}
+/* --*/
+/* Add to your existing welcome.css */
+
+/* Container */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+/* Welcome Section */
+.welcome-section {
+    padding: 4rem 0;
+    /* ensure correct file extension and path */
+    background-image: url('../images/backgroundepotangina.jpg');
+    /* make sure the image always spans the full width without cropping
+       the sides: set width to 100% and let height scale automatically */
+    background-size: 100% auto;
+    background-position: center top;
+    background-repeat: no-repeat;
+    /* remove fixed attachment for more predictable scaling on mobile */
+    background-attachment: scroll;
+    background-color: #f5f5f5;
+    text-align: center;
+    position: relative;
+    min-height: 500px;
+}
+
+
+
+.welcome-section .container {
+    position: relative;
+    z-index: 2;
+}
+
+.welcome-content h2 {
+    font-size: 2.5rem;
+    color:#333;
+    margin-bottom: 1rem;
+    font-weight: 700;
+ 
+}
+
+.welcome-content p {
+    font-size: 1.1rem;
+    color: #333;
+    max-width: 800px;
+    margin: 0 auto 2rem;
+    line-height: 1.6;
+    
+}
+
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 0.875rem 2rem;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.btn-primary {
+    background-color: #FFC107;
+    color: #333;
+}
+
+.btn-primary:hover {
+    background-color: #FFB300;
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background-color: #333;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #555;
+    transform: translateY(-2px);
+}
+
+/* Services Section */
+.services-section {
+    padding: 4rem 0;
+    background-color: white;
+}
+
+.services-section h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.section-subtitle {
+    text-align: center;
+    color: #666;
+    font-size: 1.1rem;
+    margin-bottom: 3rem;
+}
+
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.service-card {
+    background: #f8f9fa;
+    padding: 2rem;
+    border-radius: 10px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.service-card .icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.service-card h3 {
+    color: #333;
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+}
+
+.service-card p {
+    color: #666;
+    line-height: 1.6;
+}
+
+/* How It Works Section */
+.how-it-works {
+    padding: 4rem 0;
+    background-color: #f8f9fa;
+}
+
+.how-it-works h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.steps-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.step {
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.step-number {
+    width: 60px;
+    height: 60px;
+    background-color: #FFC107;
+    color: #333;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin: 0 auto 1rem;
+}
+
+.step h3 {
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.step p {
+    color: #666;
+    line-height: 1.6;
+}
+
+/* About Section */
+.about-section {
+    padding: 4rem 0;
+    background-color: white;
+}
+
+.about-content h2 {
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 1.5rem;
+}
+
+.about-text p {
+    color: #666;
+    line-height: 1.8;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+}
+
+.stat-item h3 {
+    font-size: 2.5rem;
+    color: #FFC107;
+    margin-bottom: 0.5rem;
+}
+
+.stat-item p {
+    color: #666;
+    font-weight: 500;
+}
+
+/* Contact Section */
+.contact-section {
+    padding: 4rem 0;
+    background-color: #f8f9fa;
+}
+
+.contact-section h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.contact-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.contact-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.contact-card h3 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.contact-card p {
+    color: #666;
+    line-height: 1.6;
+}
+
+/* CTA Section */
+.cta-section {
+    padding: 4rem 0;
+background: linear-gradient(135deg, #C85A00, #E07B00, #F0A500);
+    color: white;
+    text-align: center;
+}
+
+.cta-content h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.cta-content p {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+}
+
+.btn-large {
+    padding: 1rem 3rem;
+    font-size: 1.1rem;
+    color:  #FFC107;
+}
+
+/* Footer */
+footer {
+   background: linear-gradient(135deg, #C85A00, #E07B00, #F0A500);
+    color: white;
+    padding: 3rem 0 1rem;
+}
+
+.footer-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.footer-section h3 {
+    color: #FFC107;
+    margin-bottom: 1rem;
+}
+
+.footer-section p {
+    line-height: 1.8;
+    opacity: 0.9;
+}
+
+.footer-section ul {
+    list-style: none;
+    padding: 0;
+}
+
+.footer-section ul li {
+    margin-bottom: 0.5rem;
+}
+
+.footer-section ul li a {
+    color: white;
+    text-decoration: none;
+    opacity: 0.9;
+    transition: opacity 0.3s ease;
+}
+
+.footer-section ul li a:hover {
+    opacity: 1;
+    color: #FFC107;
+}
+
+.footer-bottom {
+    text-align: center;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.footer-bottom p {
+    opacity: 0.7;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .welcome-content h2,
+    .services-section h2,
+    .how-it-works h2,
+    .about-content h2,
+    .contact-section h2,
+    .cta-content h2 {
+        font-size: 2rem;
+    }
+
+    .services-grid,
+    .steps-container,
+    .contact-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cta-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .btn {
+        width: 100%;
+        max-width: 300px;
+    }
+}
