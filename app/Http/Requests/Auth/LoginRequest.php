@@ -26,8 +26,17 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
+        $loginType = $this->input('login_type', 'student');
+
+        if ($loginType === 'admin') {
+            return [
+                'email' => ['required', 'string', 'email'],
+                'password' => ['required', 'string'],
+            ];
+        }
+
         return [
-            'email' => ['required', 'string', 'email'],
+            'student_id' => ['required', 'string', 'regex:/^[0-9]{1,2}-[0-9]{1,5}$/'],
             'password' => ['required', 'string'],
         ];
     }
@@ -41,12 +50,26 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+        $loginType = $this->input('login_type', 'student');
+        
+        if ($loginType === 'admin') {
+            // Admin login using email
+            if (! Auth::attempt(['email' => $this->input('email'), 'password' => $this->input('password')], $this->boolean('remember'))) {
+                RateLimiter::hit($this->throttleKey());
 
-            throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
-            ]);
+                throw ValidationException::withMessages([
+                    'email' => 'Invalid email or password.',
+                ]);
+            }
+        } else {
+            // Student login using student_id
+            if (! Auth::attempt(['student_id' => $this->input('student_id'), 'password' => $this->input('password')], $this->boolean('remember'))) {
+                RateLimiter::hit($this->throttleKey());
+
+                throw ValidationException::withMessages([
+                    'student_id' => 'Invalid Student ID or password.',
+                ]);
+            }
         }
 
         RateLimiter::clear($this->throttleKey());
@@ -68,7 +91,7 @@ class LoginRequest extends FormRequest
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'email' => trans('auth.throttle', [
+            'student_id' => trans('auth.throttle', [
                 'seconds' => $seconds,
                 'minutes' => ceil($seconds / 60),
             ]),
@@ -80,6 +103,7 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return Str::transliterate(Str::lower($this->string('student_id')).'|'.$this->ip());
     }
 }
+

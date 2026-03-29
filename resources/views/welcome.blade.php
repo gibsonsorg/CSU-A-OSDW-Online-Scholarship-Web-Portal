@@ -88,7 +88,7 @@
             <p>Your gateway to educational opportunities and community support programs. We are committed to helping residents access scholarships, financial assistance, and other essential services through our streamlined online platform.</p>
             <div class="cta-buttons">
                 <a href="{{ route('register') }}" class="btn btn-primary">Get Started</a>
-                <a href="#services" class="btn btn-secondary">Learn More</a>
+                
             </div>
         </div>
     </div>
@@ -105,15 +105,11 @@
                 <h3>Scholarship Programs</h3>
                 <p>Access various scholarship opportunities for students from elementary to college level. Supporting academic excellence in our community.</p>
             </div>
+           
             <div class="service-card">
                 <div class="icon"></div>
-                <h3>Financial Assistance</h3>
-                <p>Get support for medical expenses, burial assistance, and emergency financial needs through our assistance programs.</p>
-            </div>
-            <div class="service-card">
-                <div class="icon"></div>
-                <h3>Automated Profiling</h3>
-                <p>Our AI-powered system ensures fair and efficient beneficiary assessment, making the process faster and more transparent.</p>
+                <h3>Our System</h3>
+                <p>Our  system ensures fair and efficient beneficiary assessment, making the process faster and more transparent.</p>
             </div>
             <div class="service-card">
                 <div class="icon"></div>
@@ -142,8 +138,8 @@
             </div>
             <div class="step">
                 <div class="step-number">3</div>
-                <h3>Automated Review</h3>
-                <p>Our system evaluates your eligibility based on set criteria</p>
+                <h3>Review By Admin</h3>
+                <p>Our Admin evaluates your eligibility based on set criteria</p>
             </div>
             <div class="step">
                 <div class="step-number">4</div>
@@ -159,9 +155,9 @@
     <div class="container">
         <div class="about-content">
             <div class="about-text">
-                <h2>About Our Portal</h2>
+                <h2 align="center";>About Our Portal</h2>
                 <p>The CSU Aparri OSDW Assistance and Scholarship Recommendation Portal is designed to streamline the process of applying for and receiving government assistance and educational support.</p>
-                <p>Our automated beneficiary profiling system uses advanced technology to ensure that assistance reaches those who need it most, while maintaining transparency and efficiency in the selection process.</p>
+          
                 <div class="stats-row">
                     <div class="stat-item">
                         <h3>500+</h3>
@@ -169,7 +165,7 @@
                     </div>
                     <div class="stat-item">
                         <h3>1,200+</h3>
-                        <p>Families Assisted</p>
+                        <p>Student Assisted</p>
                     </div>
                     <div class="stat-item">
                         <h3>95%</h3>

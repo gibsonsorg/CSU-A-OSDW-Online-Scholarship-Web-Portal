@@ -451,6 +451,11 @@ tr:hover td {
 .badge-red    { background: #fde8ea; color: var(--maroon); }
 .badge-blue   { background: #dceeff; color: #1a4a8b; }
 .badge-gray   { background: var(--gray-light); color: var(--gray); }
+.docs-badge   { background: #d4f5e4; color: #1a6b3c; font-weight: 700; }
+.no-docs      { background: #f2ede6; color: #9a8f82; }
+.approved     { background: #d4f5e4; color: #1a6b3c; font-weight: 700; }
+.rejected     { background: #fde8ea; color: var(--maroon); font-weight: 700; }
+.pending      { background: #fff3d4; color: #8b6000; font-weight: 700; }
 
 /* ── BUTTONS ── */
 .btn {

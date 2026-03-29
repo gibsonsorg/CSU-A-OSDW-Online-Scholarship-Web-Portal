@@ -60,12 +60,13 @@ btn.addEventListener('click', function(){
             html += field('Email', app.email);
             html += field('Contact Number', app.contact_number);
             html += field('Course', app.course);
+            html += field('Year Level', app.year_level);
             html += field('Scholarship Name', app.scholarship_name);
             html += field('Scholarship Type', app.scholarship_type);
             html += field('Home Address', app.home_address);
             
             if (app.uploads && Array.isArray(app.uploads) && app.uploads.length){
-                let uploadLinks = app.uploads.map(u=>(`<a href="/storage/${u}" target="_blank" style="color:#007bff; text-decoration:none; margin-right:8px;">📄 View File</a>`)).join('');
+                let uploadLinks = app.uploads.map(u=>(`<a href="/storage/${u}" target="_blank" style="color:#007bff; text-decoration:none; margin-right:8px;">View File</a>`)).join('');
                 html += `<div style="display:flex; flex-direction:column; grid-column:1/-1;">
                     <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">Uploaded Files</label>
                     <div style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px;">${uploadLinks}</div>

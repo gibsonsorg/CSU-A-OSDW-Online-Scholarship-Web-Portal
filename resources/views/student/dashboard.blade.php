@@ -486,6 +486,93 @@
 
 @endif
 
+@if ($section === 'status')
+    <!-- ==================== APPLICATION STATUS ==================== -->
+    <div class="status-container">
+        <div class="status-card">
+            <div class="status-header">
+                <h1 class="status-title">My Application Status</h1>
+                
+            </div>
+
+            @php
+                $userApplications = \App\Models\StudentProfile::orderBy('created_at', 'desc')->get();
+                $latestApp = $userApplications->first();
+            @endphp
+
+            @if($latestApp)
+                <div class="progress-tracker">
+                    <!-- Step 1: Application Submitted -->
+                    <div class="progress-step">
+                        <div class="step-indicator step-completed">
+                            <span class="step-number">✓</span>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-title">Application Submitted</div>
+                            <div class="step-date">{{ $latestApp->created_at->format('M d') }} - Completed</div>
+                        </div>
+                    </div>
+
+                    <!-- Connector -->
+                    <div class="progress-connector {{ $latestApp->application_status !== 'pending' ? 'step-completed' : '' }}"></div>
+
+                    <!-- Step 2: Application Review -->
+                    <div class="progress-step">
+                        <div class="step-indicator {{ $latestApp->application_status === 'pending' ? 'step-active' : 'step-completed' }}">
+                            <span class="step-number">{{ $latestApp->application_status === 'pending' ? '2' : '✓' }}</span>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-title">Application Review</div>
+                            <div class="step-date">{{ $latestApp->created_at->format('M d') }} - {{ $latestApp->application_status === 'pending' ? 'Active' : 'Completed' }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Connector -->
+                    <div class="progress-connector {{ in_array($latestApp->application_status, ['approved', 'rejected']) ? 'step-completed' : '' }}"></div>
+
+                    <!-- Step 3: Admin Decision -->
+                    <div class="progress-step">
+                        <div class="step-indicator {{ $latestApp->application_status === 'approved' ? 'step-completed' : ($latestApp->application_status === 'rejected' ? 'step-rejected' : '') }}">
+                            <span class="step-number">{{ $latestApp->application_status === 'approved' ? '✓' : ($latestApp->application_status === 'rejected' ? '✕' : '3') }}</span>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-title">Admin Decision</div>
+                            <div class="step-date">{{ $latestApp->created_at->format('M d') }} - {{ in_array($latestApp->application_status, ['approved', 'rejected']) ? ucfirst($latestApp->application_status) : 'Not Started' }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="application-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Scholarship:</span>
+                        <span class="detail-value">{{ $latestApp->scholarship_name }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Type:</span>
+                        <span class="detail-value">{{ $latestApp->scholarship_type }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Course:</span>
+                        <span class="detail-value">{{ $latestApp->course }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value status-badge status-{{ $latestApp->application_status }}">{{ ucfirst($latestApp->application_status) }}</span>
+                    </div>
+                </div>
+            @else
+                <div class="no-applications">
+                    <div class="empty-state">
+                        <p class="empty-message">No applications yet</p>
+                        <p class="empty-submessage">Submit your first scholarship application to track its progress</p>
+                    </div>
+                </div>
+            @endif
+        </div>
+    </div>
+
+@endif
+
 </div>
     <!-- Apply Modal -->
     <div id="applyModal" class="apply-modal" role="dialog" aria-hidden="true">
@@ -493,10 +580,20 @@
             <button class="modal-close" id="applyModalClose">✕</button>
             <h1 class="form-title">Scholarship Application</h1>
             @if(session('success'))
-                <div style="background:#e6ffed;padding:8px;border-radius:6px;margin-bottom:8px;color:#1f6f3a;">{{ session('success') }}</div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        document.getElementById('submitSuccessMessage').innerHTML = '{{ session('success') }}';
+                        document.getElementById('submitSuccessPopup').style.display = 'flex';
+                    });
+                </script>
             @endif
             @if(session('error'))
-                <div style="background:#ffe6e6;padding:8px;border-radius:6px;margin-bottom:8px;color:#8b1a1a;">{{ session('error') }}</div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        document.getElementById('errorMessage').innerHTML = '<p>{{ session('error') }}</p>';
+                        document.getElementById('errorPopup').style.display = 'flex';
+                    });
+                </script>
             @endif
             
                 <form id="applyForm" method="POST" action="{{ route('student-profiles.store') }}" enctype="multipart/form-data">
@@ -558,6 +655,16 @@
                         </select>
                     </div>
                     <div>
+                        <label>Year Level</label>
+                        <select name="year_level" class="input" required>
+                            <option value="">Select year level</option>
+                            <option value="1st Year">1st Year</option>
+                            <option value="2nd Year">2nd Year</option>
+                            <option value="3rd Year">3rd Year</option>
+                            <option value="4th Year">4th Year</option>
+                        </select>
+                    </div>
+                    <div>
                         <label>Name of scholarship</label>
                         <select id="scholarship_name" name="scholarship_name" class="input" required>
                             <option value="">Select scholarship</option>
@@ -592,17 +699,208 @@
                         </select>
                     </div>
                     <div class="full">
-                        <label>Upload files (pdf,jpg,png,doc)</label><br>
-                        <input type="file" name="uploads[]" multiple>
+                        <label>Upload files</label>
+                        <div style="background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:8px; border:1px solid #e5e5e5; font-size:0.85rem;">
+                            <p style="margin:0 0 8px 0; font-weight:600; color:#333;">Supported file types & sizes:</p>
+                            <ul style="margin:0; padding-left:20px; color:#666;">
+                                <li><strong>Documents:</strong> PDF, DOCX (max 2MB)</li>
+                                <li><strong>Images:</strong> JPG, PNG (max 1MB)</li>
+                            </ul>
+                        </div>
+                        <input type="file" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Submit Application</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Submit Application</button>
                 </div>
             </form>
+
+            <!-- Error Popup Alert -->
+            <div id="errorPopup" class="error-popup" style="display: none;">
+                <div class="error-popup-content">
+                    <div class="error-popup-header">File Upload Error</div>
+                    <div class="error-popup-body" id="errorMessage"></div>
+                    <button class="error-popup-btn" onclick="closeErrorPopup()">OK</button>
+                </div>
+            </div>
+
+            <!-- Success Popup Alert -->
+            <div id="successPopup" class="success-popup" style="display: none;">
+                <div class="success-popup-content">
+                    <div class="success-popup-header">Files Validated Successfully</div>
+                    <div class="success-popup-body" id="successMessage"></div>
+                    <button class="success-popup-btn" onclick="submitForm()">Submit Application</button>
+                    <button class="success-popup-cancel" onclick="closeSuccessPopup()">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Submission Success Popup -->
+            <div id="submitSuccessPopup" class="submit-success-popup" style="display: none;">
+                <div class="submit-success-content">
+                    <div class="submit-success-header">SUCCESS</div>
+                    <div class="submit-success-body" id="submitSuccessMessage"></div>
+                    <p style="text-align: center; color: #999; font-size: 13px; margin-top: 15px;">Redirecting...</p>
+                    <button class="submit-success-btn" onclick="location.reload()">OK</button>
+                </div>
+            </div>
         </div>
     </div>
 
   <script src="{{ asset('js/users.js') }}"></script>
+
+  <!-- File Validation Script -->
+  <script>
+    // File validation configuration
+    const fileValidationRules = {
+      document: {
+        extensions: ['pdf', 'docx', 'doc'],
+        maxSize: 2 * 1024 * 1024, // 2MB in bytes
+        displaySize: '2MB'
+      },
+      image: {
+        extensions: ['jpg', 'jpeg', 'png'],
+        maxSize: 1 * 1024 * 1024, // 1MB in bytes
+        displaySize: '1MB'
+      }
+    };
+
+    // Get file category
+    function getFileCategory(extension) {
+      ext = extension.toLowerCase();
+      if (fileValidationRules.document.extensions.includes(ext)) {
+        return 'document';
+      }
+      if (fileValidationRules.image.extensions.includes(ext)) {
+        return 'image';
+      }
+      return null;
+    }
+
+    // Validate files on form submission
+    document.getElementById('applyForm').addEventListener('submit', function(e) {
+      // Allow submission if flag is set
+      if (allowSubmit) {
+        allowSubmit = false;
+        return true;
+      }
+
+      const fileInput = document.querySelector('input[name="uploads[]"]');
+      const files = fileInput.files;
+
+      if (files.length === 0) {
+        // No files selected - allow form submission
+        allowSubmit = true;
+        return true;
+      }
+
+      e.preventDefault();
+
+      let errors = [];
+      let successFiles = [];
+
+      // Validate each file
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileName = file.name;
+        const fileSize = file.size;
+        const fileExt = fileName.split('.').pop();
+        const category = getFileCategory(fileExt);
+
+        // Check file type
+        if (!category) {
+          errors.push(`"${fileName}" - Unsupported format. Allowed: PDF, DOCX, JPG, PNG`);
+          continue;
+        }
+
+        // Check file size
+        const maxSize = fileValidationRules[category].maxSize;
+        const displaySize = fileValidationRules[category].displaySize;
+        const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
+
+        if (fileSize > maxSize) {
+          errors.push(`"${fileName}" - Size: ${fileSizeMB}MB exceeds limit of ${displaySize}`);
+        } else {
+          successFiles.push(`"${fileName}" - ${fileSizeMB}MB (${category})`);
+        }
+      }
+
+      // If there are errors, show error popup
+      if (errors.length > 0) {
+        const errorList = errors.map(err => `<p>${err}</p>`).join('');
+        document.getElementById('errorMessage').innerHTML = errorList;
+        document.getElementById('errorPopup').style.display = 'flex';
+        return false;
+      }
+
+      // If all files are valid, show success popup
+      if (successFiles.length > 0) {
+        const successList = successFiles.map(file => `<p>${file}</p>`).join('');
+        document.getElementById('successMessage').innerHTML = 
+          `<p>All files validated successfully and are ready to upload:</p>\n` + successList;
+        document.getElementById('successPopup').style.display = 'flex';
+        return false;
+      }
+
+      return true;
+    });
+
+    // Show file count when files are selected
+    document.querySelector('input[name="uploads[]"]').addEventListener('change', function(e) {
+      const fileCount = this.files.length;
+      if (fileCount > 0) {
+        let totalSize = 0;
+        for (let i = 0; i < this.files.length; i++) {
+          totalSize += this.files[i].size;
+        }
+        const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+        console.log(`Selected ${fileCount} file(s), Total size: ${totalSizeMB}MB`);
+      }
+    });
+  </script>
+
+  <!-- Error Popup Styles -->
+  <style>
+   
+  </style>
+
+  <script>
+    let allowSubmit = false;
+
+    function closeErrorPopup() {
+      document.getElementById('errorPopup').style.display = 'none';
+    }
+
+    function closeSuccessPopup() {
+      document.getElementById('successPopup').style.display = 'none';
+    }
+
+    function closeSubmitSuccessPopup() {
+      document.getElementById('submitSuccessPopup').style.display = 'none';
+    }
+
+    function submitForm() {
+      allowSubmit = true;
+      document.getElementById('applyForm').submit();
+    }
+
+    // Close popup when clicking outside
+    document.getElementById('errorPopup').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeErrorPopup();
+      }
+    });
+
+    document.getElementById('successPopup').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeSuccessPopup();
+      }
+    });
+
+    document.getElementById('submitSuccessPopup').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeSubmitSuccessPopup();
+      }
+    });
+  </script>
 </body>
 </html>
