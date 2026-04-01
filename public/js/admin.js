@@ -106,7 +106,7 @@ btn.addEventListener('click', function(){
             confirmModal.style.display = 'none';
             confirmResolve = null;
         }
-
+        // updates status to approved student sees checkmark
         confirmYesBtn.addEventListener('click', function () {
             if (confirmResolve) confirmResolve(true);
             closeConfirm();
