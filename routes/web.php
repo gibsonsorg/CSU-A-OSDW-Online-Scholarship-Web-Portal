@@ -50,10 +50,11 @@ Route::get('/admin/applications/{id}', function($id){
 
 // Approve application endpoint
 // From: app/Http/Controllers/AdminController - approval handler
-Route::post('/admin/applications/{id}/approve', function($id){
-    $p = StudentProfile::find($id);
-    if ($p) { $p->application_status = 'approved'; $p->save(); return response()->json(['status'=>'ok']); }
-    return response()->json(['status'=>'not_found'], 404);
+Route::post('admin/applications{$id}/approve',function($id)
+{
+    $p =StudentProfile::find($id);
+    if ($p) {$p->application_status ='approved'; $p->save(); return response()->json(['status'=>'ok']);}
+    return response()->json(['status'=>'not found'],404);
 })->middleware(['auth']);
 
 // Reject application endpoint

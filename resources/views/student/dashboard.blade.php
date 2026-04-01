@@ -531,7 +531,7 @@
                     <div class="progress-connector {{ in_array($latestApp->application_status, ['approved', 'rejected']) ? 'step-completed' : '' }}"></div>
 
                     <!-- Step 3: Admin Decision -->
-                    <div class="progress-step">
+                        <div class="progress-step">
                         <div class="step-indicator {{ $latestApp->application_status === 'approved' ? 'step-completed' : ($latestApp->application_status === 'rejected' ? 'step-rejected' : '') }}">
                             <span class="step-number">{{ $latestApp->application_status === 'approved' ? '✓' : ($latestApp->application_status === 'rejected' ? '✕' : '3') }}</span>
                         </div>
