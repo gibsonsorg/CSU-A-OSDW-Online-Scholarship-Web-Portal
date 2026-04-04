@@ -52,6 +52,13 @@ btn.addEventListener('click', function(){
                 </div>`;
             };
             
+            // Helper function to format date
+            const formatDate = (dateString) => {
+                if (!dateString) return 'N/A';
+                const date = new Date(dateString);
+                return date.toISOString().split('T')[0];
+            };
+            
             html += field('First Name', app.first_name);
             html += field('Middle Name', app.middle_name);
             html += field('Last Name', app.last_name);
@@ -64,6 +71,15 @@ btn.addEventListener('click', function(){
             html += field('Scholarship Name', app.scholarship_name);
             html += field('Scholarship Type', app.scholarship_type);
             html += field('Home Address', app.home_address);
+            
+            // Academic-specific fields
+            if (app.grant_type === 'academic') {
+                html += field('Program', app.program);
+                html += field('ID Number', app.id_number);
+                html += field('Birthdate', formatDate(app.birthdate));
+                html += field('Birthplace', app.birthplace);
+                html += field('Religion', app.religion);
+            }
             
             if (app.uploads && Array.isArray(app.uploads) && app.uploads.length){
                 let uploadLinks = app.uploads.map(u=>(`<a href="/storage/${u}" target="_blank" style="color:#007bff; text-decoration:none; margin-right:8px;">View File</a>`)).join('');
