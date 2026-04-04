@@ -747,6 +747,156 @@
         </div>
     </div>
 
+    <!-- Academic Grants Application Modal -->
+    <div id="academicApplyModal" class="apply-modal" role="dialog" aria-hidden="true">
+        <div class="modal-card">
+            <button class="modal-close" id="academicApplyModalClose">✕</button>
+            <h1 class="form-title">Academic Scholarship Application</h1>
+            
+            <form id="academicApplyForm" method="POST" action="{{ route('student-profiles.store') }}" enctype="multipart/form-data">
+                @csrf
+                <div class="apply-row">
+                    <div>
+                        <label>Name of Scholarship/Name of Sponsor</label>
+                        <select id="academic_scholarship_name" name="scholarship_name" class="input" required>
+                            <option value="">Select scholarship</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Last name</label>
+                        <input class="input" type="text" name="last_name" required>
+                    </div>
+                    <div>
+                        <label>First name</label>
+                        <input class="input" type="text" name="first_name" required>
+                    </div>
+                    <div>
+                        <label>Middle name</label>
+                        <input class="input" type="text" name="middle_name">
+                    </div>
+                    <div>
+                        <label>Course</label>
+                        <select name="course" class="input" required>
+                            <option value="">Select course</option>
+                            <option>BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY</option>
+                            <option>BACHELOR OF SCIENCE IN CRIMINOLOGY</option>
+                            <option>BACHELOR OF SCIENCE IN FISHERIES</option>
+                            <option>BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY</option>
+                            <option>BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT</option>
+                            <option>BACHELOR OF SECONDARY EDUCATION</option>
+                            <option>BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Year Level</label>
+                        <select name="year_level" class="input" required>
+                            <option value="">Select year level</option>
+                            <option value="1st Year">1st Year</option>
+                            <option value="2nd Year">2nd Year</option>
+                            <option value="3rd Year">3rd Year</option>
+                            <option value="4th Year">4th Year</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Sex</label>
+                        <select name="sex" class="input" required>
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Program</label>
+                        <input class="input" type="text" name="program" required>
+                    </div>
+                    <div>
+                        <label>ID Number</label>
+                        <input class="input" type="text" name="id_number" required>
+                    </div>
+                    <div>
+                        <label>Birthdate</label>
+                        <input class="input" type="date" name="birthdate" required>
+                    </div>
+                    <div>
+                        <label>Birthplace</label>
+                        <input class="input" type="text" name="birthplace" required>
+                    </div>
+                    <div>
+                        <label>Status</label>
+                        <select name="status" class="input" required>
+                            <option value="">Select</option>
+                            <option>Single</option>
+                            <option>Married</option>
+                            <option>In a Relationship</option>
+                            <option>Widowed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Religion</label>
+                        <input class="input" type="text" name="religion" required>
+                    </div>
+                    <div>
+                        <label>Contact number</label>
+                        <input class="input" type="text" name="contact_number" required>
+                    </div>
+                    <div class="full">
+                        <label>Home Address</label>
+                        <textarea name="home_address" class="input" rows="2" required></textarea>
+                    </div>
+                    <div class="full">
+                        <label>Types of Scholarship</label>
+                        <select id="academic_scholarship_type" name="scholarship_type" class="input" required>
+                            <option value="">Select type</option>
+                        </select>
+                    </div>
+                    <div class="full">
+                        <label>Upload files</label>
+                        <div style="background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:8px; border:1px solid #e5e5e5; font-size:0.85rem;">
+                            <p style="margin:0 0 8px 0; font-weight:600; color:#333;">Supported file types & sizes:</p>
+                            <ul style="margin:0; padding-left:20px; color:#666;">
+                                <li><strong>Documents:</strong> PDF, DOCX (max 2MB)</li>
+                                <li><strong>Images:</strong> JPG, PNG (max 1MB)</li>
+                            </ul>
+                        </div>
+                        <input type="file" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="academicSubmitBtn">Submit Application</button>
+                </div>
+            </form>
+
+            <!-- Error Popup Alert -->
+            <div id="academicErrorPopup" class="error-popup" style="display: none;">
+                <div class="error-popup-content">
+                    <div class="error-popup-header">File Upload Error</div>
+                    <div class="error-popup-body" id="academicErrorMessage"></div>
+                    <button class="error-popup-btn" onclick="closeAcademicErrorPopup()">OK</button>
+                </div>
+            </div>
+
+            <!-- Success Popup Alert -->
+            <div id="academicSuccessPopup" class="success-popup" style="display: none;">
+                <div class="success-popup-content">
+                    <div class="success-popup-header">Files Validated Successfully</div>
+                    <div class="success-popup-body" id="academicSuccessMessage"></div>
+                    <button class="success-popup-btn" onclick="submitAcademicForm()">Submit Application</button>
+                    <button class="success-popup-cancel" onclick="closeAcademicSuccessPopup()">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Submission Success Popup -->
+            <div id="academicSubmitSuccessPopup" class="submit-success-popup" style="display: none;">
+                <div class="submit-success-content">
+                    <div class="submit-success-header">SUCCESS</div>
+                    <div class="submit-success-body" id="academicSubmitSuccessMessage"></div>
+                    <p style="text-align: center; color: #999; font-size: 13px; margin-top: 15px;">Redirecting...</p>
+                    <button class="submit-success-btn" onclick="location.reload()">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
   <script src="{{ asset('js/users.js') }}"></script>
 
   <!-- File Validation Script -->
