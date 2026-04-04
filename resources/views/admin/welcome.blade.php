@@ -193,6 +193,7 @@
         <h2>Applicant Profile</h2>
         <div id="profileBody">Loading…</div>
         <div class="modal-actions">
+            <button id="editProfile" class="btn">Edit</button>
             <button id="approveProfile" class="btn">✓ Approve</button>
             <button id="rejectProfile" class="btn">✕ Reject</button>
             <button id="deleteProfile" class="btn">Delete</button>

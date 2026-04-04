@@ -625,6 +625,11 @@ tr:hover td {
     background: #28a745;
 }
 
+/* Edit Button */
+#editProfile {
+    background: #28a745;
+}
+
 /* Reject Button */
 #rejectProfile {
     background: #dc3545;

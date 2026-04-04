@@ -63,6 +63,9 @@ Route::get('/admin/applications/{id}', function($id){
 // Reject application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/reject', [AdminController::class, 'reject'])->middleware(['auth']);
 
+// Update application endpoint - uses AdminController
+Route::post('/admin/applications/{id}/update', [AdminController::class, 'update'])->middleware(['auth']);
+
 // Delete application endpoint - uses AdminController with DELETE method
 Route::delete('/admin/applications/{id}', [AdminController::class, 'destroy'])->middleware(['auth']);
 

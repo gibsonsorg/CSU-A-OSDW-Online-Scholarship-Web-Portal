@@ -30,10 +30,14 @@ function postJson(url, data, method = 'POST'){
     });
 }
 
+let currentProfileData = null;
+let isEditMode = false;
+
 document.querySelectorAll('.view-profile-btn').forEach(btn=>{
 btn.addEventListener('click', function(){
     const id = this.dataset.id;
     currentAppId = id;
+    isEditMode = false;
     const modal = document.getElementById('profileModal');
     const body = document.getElementById('profileBody');
     body.innerHTML = 'Loading…';
@@ -42,13 +46,26 @@ btn.addEventListener('click', function(){
         .then(r=>{ if(!r.ok) throw r; return r.json(); })
         .then(json=>{
             const app = json.data || json;
+            currentProfileData = app;
             let html = '';
             
             // Helper function to create a field
-            const field = (label, value) => {
-                return `<div style="display:flex; flex-direction:column;">
+            const field = (label, value, fieldName) => {
+                return `<div style="display:flex; flex-direction:column;" data-field="${fieldName}">
                     <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">${label}</label>
-                    <span style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px; word-break:break-word;">${value || 'N/A'}</span>
+                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px; word-break:break-word;">${value || 'N/A'}</span>
+                    <input type="text" class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="${value || ''}">
+                </div>`;
+            };
+            
+            const selectField = (label, value, fieldName, options) => {
+                let optionsHtml = options.map(opt => `<option value="${opt}"${value === opt ? ' selected' : ''}>${opt}</option>`).join('');
+                return `<div style="display:flex; flex-direction:column;" data-field="${fieldName}">
+                    <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">${label}</label>
+                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px;">${value || 'N/A'}</span>
+                    <select class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+                        <option value="">Select...</option>${optionsHtml}
+                    </select>
                 </div>`;
             };
             
@@ -59,26 +76,30 @@ btn.addEventListener('click', function(){
                 return date.toISOString().split('T')[0];
             };
             
-            html += field('First Name', app.first_name);
-            html += field('Middle Name', app.middle_name);
-            html += field('Last Name', app.last_name);
-            html += field('Sex', app.sex);
-            html += field('Status', app.status);
-            html += field('Email', app.email);
-            html += field('Contact Number', app.contact_number);
-            html += field('Course', app.course);
-            html += field('Year Level', app.year_level);
-            html += field('Scholarship Name', app.scholarship_name);
-            html += field('Scholarship Type', app.scholarship_type);
-            html += field('Home Address', app.home_address);
+            html += field('First Name', app.first_name, 'first_name');
+            html += field('Middle Name', app.middle_name, 'middle_name');
+            html += field('Last Name', app.last_name, 'last_name');
+            html += selectField('Sex', app.sex, 'sex', ['Male', 'Female']);
+            html += field('Status', app.status, 'status');
+            html += field('Email', app.email, 'email');
+            html += field('Contact Number', app.contact_number, 'contact_number');
+            html += field('Course', app.course, 'course');
+            html += selectField('Year Level', app.year_level, 'year_level', ['1st Year', '2nd Year', '3rd Year', '4th Year']);
+            html += field('Scholarship Name', app.scholarship_name, 'scholarship_name');
+            html += field('Scholarship Type', app.scholarship_type, 'scholarship_type');
+            html += field('Home Address', app.home_address, 'home_address');
             
             // Academic-specific fields
             if (app.grant_type === 'academic') {
-                html += field('Program', app.program);
-                html += field('ID Number', app.id_number);
-                html += field('Birthdate', formatDate(app.birthdate));
-                html += field('Birthplace', app.birthplace);
-                html += field('Religion', app.religion);
+                html += field('Program', app.program, 'program');
+                html += field('ID Number', app.id_number, 'id_number');
+                html += `<div style="display:flex; flex-direction:column;" data-field="birthdate">
+                    <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">Birthdate</label>
+                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px;">${formatDate(app.birthdate)}</span>
+                    <input type="date" class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="${app.birthdate ? app.birthdate.split('T')[0] : ''}">
+                </div>`;
+                html += field('Birthplace', app.birthplace, 'birthplace');
+                html += field('Religion', app.religion, 'religion');
             }
             
             if (app.uploads && Array.isArray(app.uploads) && app.uploads.length){
@@ -102,6 +123,117 @@ btn.addEventListener('click', function(){
     })
     .catch(()=>{ body.innerHTML = '<span style="grid-column:1/-1; color:#dc3545;">Unable to load profile.</span>'; });
 });
+});
+
+// Edit profile button
+document.getElementById('editProfile').addEventListener('click', function(){
+    if (!currentAppId || !currentProfileData) return;
+    isEditMode = !isEditMode;
+    const body = document.getElementById('profileBody');
+    const fields = body.querySelectorAll('[data-field]');
+    
+    fields.forEach(field => {
+        const fieldName = field.getAttribute('data-field');
+        const valueSpan = field.querySelector('.field-value');
+        const input = field.querySelector('.field-input');
+        
+        if (isEditMode) {
+            valueSpan.style.display = 'none';
+            input.style.display = 'block';
+        } else {
+            valueSpan.style.display = 'block';
+            input.style.display = 'none';
+        }
+    });
+    
+    // Toggle Save button visibility
+    const actionButtons = document.querySelector('.modal-actions');
+    let saveBtn = document.getElementById('saveProfileBtn');
+    let cancelBtn = document.getElementById('cancelEditBtn');
+    
+    if (isEditMode) {
+        this.style.display = 'none';
+        
+        if (!saveBtn) {
+            saveBtn = document.createElement('button');
+            saveBtn.id = 'saveProfileBtn';
+            saveBtn.className = 'btn';
+            saveBtn.style.background = '#28a745';
+            saveBtn.textContent = 'Save Changes';
+            actionButtons.insertBefore(saveBtn, actionButtons.firstChild);
+        } else {
+            saveBtn.style.display = 'block';
+        }
+        
+        if (!cancelBtn) {
+            cancelBtn = document.createElement('button');
+            cancelBtn.id = 'cancelEditBtn';
+            cancelBtn.className = 'btn';
+            cancelBtn.style.background = '#6c757d';
+            cancelBtn.textContent = 'Cancel';
+            actionButtons.insertBefore(cancelBtn, saveBtn.nextSibling);
+        } else {
+            cancelBtn.style.display = 'block';
+        }
+    } else {
+        this.style.display = 'block';
+        if (saveBtn) saveBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+    }
+});
+
+// Save profile changes
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'saveProfileBtn') {
+        if (!currentAppId) return;
+        
+        const body = document.getElementById('profileBody');
+        const fields = body.querySelectorAll('[data-field]');
+        const updateData = {};
+        
+        fields.forEach(field => {
+            const fieldName = field.getAttribute('data-field');
+            const input = field.querySelector('.field-input');
+            if (input) {
+                updateData[fieldName] = input.value;
+            }
+        });
+        
+        postJson('/admin/applications/'+currentAppId+'/update', updateData)
+            .then(response => {
+                alert('Profile updated successfully!');
+                isEditMode = false;
+                // Reload profile
+                document.querySelector('.view-profile-btn[data-id="'+currentAppId+'"]').click();
+            })
+            .catch(err => {
+                alert('Error updating profile: ' + err.message);
+            });
+    }
+});
+
+// Cancel edit
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'cancelEditBtn') {
+        isEditMode = false;
+        const body = document.getElementById('profileBody');
+        const fields = body.querySelectorAll('[data-field]');
+        
+        fields.forEach(field => {
+            const valueSpan = field.querySelector('.field-value');
+            const input = field.querySelector('.field-input');
+            valueSpan.style.display = 'block';
+            input.style.display = 'none';
+        });
+        
+        const editBtn = document.getElementById('editProfile');
+        editBtn.style.display = 'block';
+        
+        const saveBtn = document.getElementById('saveProfileBtn');
+        const cancelBtn = document.getElementById('cancelEditBtn');
+        if (saveBtn) saveBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+    }
 });
 
         const confirmModal = document.getElementById('confirmActionModal');

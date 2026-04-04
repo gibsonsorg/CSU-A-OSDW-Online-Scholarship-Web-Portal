@@ -73,6 +73,29 @@ class AdminController extends Controller
     }
 
     /**
+     * Update student profile
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            $application = StudentProfile::findOrFail($id);
+            
+            $updateData = $request->only([
+                'first_name', 'middle_name', 'last_name', 'sex', 'status', 'email',
+                'contact_number', 'course', 'year_level', 'scholarship_name',
+                'scholarship_type', 'home_address', 'program', 'id_number',
+                'birthdate', 'birthplace', 'religion'
+            ]);
+            
+            $application->update($updateData);
+            
+            return response()->json(['status' => 'ok', 'message' => 'Profile updated successfully', 'data' => $application]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Delete an application
      */
     public function destroy($id)
