@@ -31,7 +31,7 @@
 
         <div class="nav-label">Main</div>
 
-        <a href="admin"
+        <a href="/admin"
            class="nav-item ">
             <span class="nav-icon"></span> Dashboard
         </a>
