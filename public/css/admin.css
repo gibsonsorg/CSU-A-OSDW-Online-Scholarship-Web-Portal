@@ -1,8 +1,7 @@
 /* ============================================================
    CSU Grants Management System — Admin Dashboard Stylesheet
    ============================================================ */
-
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
 
 /* ── RESET & ROOT ── */
 *,
@@ -11,6 +10,7 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    font-family: 'Poppins', sans-serif;
 }
 
 :root {
@@ -378,9 +378,9 @@ body {
 }
 
 .card-title {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 1.1rem;
-    color: var(--maroon);
+    
+    font-size: 1.3rem;
+    color: var(--text);
     margin-bottom: 16px;
     display: flex;
     align-items: center;
@@ -394,6 +394,7 @@ body {
     cursor: pointer;
     font-weight: 500;
     text-decoration: none;
+    display: flex;
 }
 
 .card-action:hover {
