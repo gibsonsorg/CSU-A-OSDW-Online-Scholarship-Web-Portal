@@ -13,7 +13,8 @@ class AdminController extends Controller
     public function dashboard()
     {
         $recentApplications = StudentProfile::orderBy('created_at', 'desc')->take(10)->get();
-        return view('admin.welcome', compact('recentApplications'));
+        $filterType = 'all';
+        return view('admin.welcome', compact('recentApplications', 'filterType'));
     }
 
     /**
@@ -25,7 +26,8 @@ class AdminController extends Controller
             ->orderBy('created_at', 'desc')
             ->take(10)
             ->get();
-        return view('admin.welcome', compact('recentApplications'));
+        $filterType = 'academic';
+        return view('admin.welcome', compact('recentApplications', 'filterType'));
     }
 
     /**
@@ -37,7 +39,8 @@ class AdminController extends Controller
             ->orderBy('created_at', 'desc')
             ->take(10)
             ->get();
-        return view('admin.welcome', compact('recentApplications'));
+        $filterType = 'non-academic';
+        return view('admin.welcome', compact('recentApplications', 'filterType'));
     }
 
     /**

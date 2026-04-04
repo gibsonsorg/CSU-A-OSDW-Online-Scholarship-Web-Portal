@@ -128,7 +128,13 @@
 <div class="grid-2"> 
 <div class="card">
     <div class="card-title">
-        Recent Applications
+        @if($filterType === 'academic')
+            Academic Grants
+        @elseif($filterType === 'non-academic')
+            Non-Academic Grants
+        @else
+            Recent Applications
+        @endif
         <a href="http://127.0.0.1:8000/admin/applications" class="card-action">View All →</a>
     </div>
     <table>
