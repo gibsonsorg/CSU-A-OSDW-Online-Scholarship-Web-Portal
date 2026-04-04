@@ -560,6 +560,12 @@
                         <span class="detail-label">Status:</span>
                         <span class="detail-value status-badge status-{{ $latestApp->application_status }}">{{ ucfirst($latestApp->application_status) }}</span>
                     </div>
+                    @if($latestApp->application_status === 'rejected' && $latestApp->rejection_reason)
+                    <div class="detail-row">
+                        <span class="detail-label">Reason for Decision:</span>
+                        <span class="detail-value">{{ $latestApp->rejection_reason }}</span>
+                    </div>
+                    @endif
                 </div>
             @else
                 <div class="no-applications">

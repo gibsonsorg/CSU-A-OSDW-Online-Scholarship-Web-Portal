@@ -145,9 +145,60 @@ btn.addEventListener('click', function(){
             if (!currentAppId) return;
             showConfirm('Are you sure you want to REJECT this application?').then(confirmed => {
                 if (!confirmed) return;
-                postJson('/admin/applications/'+currentAppId+'/reject', {}).then(()=> location.reload());
+                showRejectionReasonModal();
             });
         });
+
+        // Rejection reason modal
+        function showRejectionReasonModal() {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+            
+            // Create modal content
+            const modal = document.createElement('div');
+            modal.style.cssText = 'background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);';
+            modal.innerHTML = `
+                <button style="float: right; background: none; border: none; font-size: 24px; cursor: pointer; color: #999;" id="closeRejectModal">✕</button>
+                <h2 style="margin: 0 0 10px 0; color: #333; font-size: 24px;">Rejection Reason</h2>
+                <p style="color: #666; margin: 0 0 15px 0;">Please provide a reason for rejecting this application:</p>
+                <textarea id="rejectionReasonInput" placeholder="Enter rejection reason..." style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-family: Arial; font-size: 14px; box-sizing: border-box; resize: vertical;"></textarea>
+                <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;">
+                    <button id="confirmRejectionBtn" style="padding: 10px 30px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Reject Application</button>
+                </div>
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            
+            // Focus on textarea
+            setTimeout(() => {
+                document.getElementById('rejectionReasonInput').focus();
+            }, 100);
+            
+            // Close handlers
+            function closeModal() {
+                overlay.remove();
+            }
+            
+            document.getElementById('closeRejectModal').addEventListener('click', closeModal);
+            
+            // Confirm handler
+            document.getElementById('confirmRejectionBtn').addEventListener('click', function(){
+                const reason = document.getElementById('rejectionReasonInput').value.trim();
+                if (!reason) {
+                    alert('Please enter a rejection reason');
+                    return;
+                }
+                closeModal();
+                postJson('/admin/applications/'+currentAppId+'/reject', {reason: reason}).then(()=> location.reload());
+            });
+            
+            // Close on overlay click
+            overlay.addEventListener('click', function(e){
+                if (e.target === overlay) closeModal();
+            });
+        }
 
         document.getElementById('deleteProfile').addEventListener('click', function(){
             if (!currentAppId) {

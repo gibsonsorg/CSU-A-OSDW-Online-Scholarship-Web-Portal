@@ -60,11 +60,12 @@ class AdminController extends Controller
     /**
      * Reject an application
      */
-    public function reject($id)
+    public function reject(Request $request, $id)
     {
         $application = StudentProfile::find($id);
         if ($application) {
             $application->application_status = 'rejected';
+            $application->rejection_reason = $request->input('reason', '');
             $application->save();
             return response()->json(['status' => 'ok', 'message' => 'Application rejected']);
         }
