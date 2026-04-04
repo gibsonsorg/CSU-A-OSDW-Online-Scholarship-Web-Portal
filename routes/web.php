@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentProfileController;
+use App\Http\Controllers\AdminController;
 use Illuminate\Support\Facades\Route;
 
 //HOME ROUTE
@@ -33,11 +34,13 @@ use App\Models\StudentProfile;
 
 //ADMIN DASHBOARD ROUTE 
 // Admin dashboard - shows recent applications
-// From: App\Http\Controllers\AdminController (conceptual)
-Route::get('/admin', function () {
-    $recentApplications = StudentProfile::orderBy('created_at', 'desc')->take(10)->get();
-    return view('admin.welcome', compact('recentApplications'));
-})->middleware(['auth', 'verified'])->name('admin.dashboard');
+Route::get('/admin', [AdminController::class, 'dashboard'])->middleware(['auth', 'verified'])->name('admin.dashboard');
+
+// Admin dashboard filtered by academic grants
+Route::get('/admin/academic', [AdminController::class, 'academicDashboard'])->middleware(['auth', 'verified'])->name('admin.academic');
+
+// Admin dashboard filtered by non-academic grants
+Route::get('/admin/non-academic', [AdminController::class, 'nonAcademicDashboard'])->middleware(['auth', 'verified'])->name('admin.non_academic');
 
 // ADMIN APPLICATION MANAGEMENT ROUTES
 // Fetch single application details as JSON
@@ -48,48 +51,17 @@ Route::get('/admin/applications/{id}', function($id){
     return response()->json($p);
 })->middleware(['auth']);
 
-// Approve application endpoint
-// From: app/Http/Controllers/AdminController - approval handler
-Route::post('admin/applications{$id}/approve',function($id)
-{
-    $p =StudentProfile::find($id);
-    if ($p) {$p->application_status ='approved'; $p->save(); return response()->json(['status'=>'ok']);}
-    return response()->json(['status'=>'not found'],404);
-})->middleware(['auth']);
+// Approve application endpoint - uses AdminController
+Route::post('/admin/applications/{id}/approve', [AdminController::class, 'approve'])->middleware(['auth']);
 
-// Reject application endpoint
-// From: app/Http/Controllers/AdminController - rejection handler
-Route::post('/admin/applications/{id}/reject', function($id){
-    $p = StudentProfile::find($id);
-    if ($p) { $p->application_status = 'rejected'; $p->save(); return response()->json(['status'=>'ok']); }
-    return response()->json(['status'=>'not_found'], 404);
-})->middleware(['auth']);
+// Reject application endpoint - uses AdminController
+Route::post('/admin/applications/{id}/reject', [AdminController::class, 'reject'])->middleware(['auth']);
 
-// Delete application endpoint (POST for current JS)
-// From: app/Http/Controllers/AdminController - delete handler
-Route::post('/admin/applications/{id}/delete', function($id){
-    try {
-        \Log::info('Delete request received for ID: ' . $id);
-        
-        $p = StudentProfile::findOrFail($id);
-        \Log::info('Found profile: ' . $p->id);
-        
-        $p->delete();
-        \Log::info('Profile deleted successfully');
-        
-        return response()->json(['status'=>'ok', 'message' => 'Application deleted successfully']);
-    } catch (\Exception $e) {
-        \Log::error('Delete profile error: ' . $e->getMessage(), ['id' => $id, 'trace' => $e->getTraceAsString()]);
-        return response()->json(['status'=>'error', 'error' => $e->getMessage()], 500);
-    }
-})->middleware(['auth']);
+// Delete application endpoint - uses AdminController with DELETE method
+Route::delete('/admin/applications/{id}', [AdminController::class, 'destroy'])->middleware(['auth']);
 
-// Delete application endpoint (DELETE for REST semantics)
-Route::delete('/admin/applications/{id}', function($id){
-    $p = StudentProfile::find($id);
-    if ($p) { $p->delete(); return response()->json(['status'=>'ok']); }
-    return response()->json(['status'=>'not_found'], 404);
-})->middleware(['auth']);
+// Delete application endpoint - POST alias for compatibility
+Route::post('/admin/applications/{id}/delete', [AdminController::class, 'destroy'])->middleware(['auth']);
 
 //USER PROFILE ROUTES 
 // Grouped routes for authenticated users only

@@ -38,13 +38,13 @@
 
         <div class="nav-label">Grants</div>
 
-        <a href="/admin"
+        <a href="/admin/academic"
            class="nav-item ">
             <span class="nav-icon"></span> Academic Grants
             <span class="nav-badge">0</span>
         </a>
 
-        <a href="/admin"
+        <a href="/admin/non-academic"
            class="nav-item ">
             <span class="nav-icon"></span> Non-Academic
             <span class="nav-badge">0</span>
@@ -95,7 +95,6 @@
                 <h1>Admin Dashboard</h1>
                 <p>CSU Grants Management — System Overview</p>
             </div>
-           
         </div>
 
         <div class="content">

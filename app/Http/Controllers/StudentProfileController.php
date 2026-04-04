@@ -108,21 +108,44 @@ class StudentProfileController extends Controller
     public function store(Request $request)
     {
         try {
-            // Basic validation for non-file fields
-            $data = $request->validate([
+            // Detect if this is an academic or non-academic scholarship form
+            $isAcademic = $request->has('program') || $request->has('id_number') || $request->has('birthdate');
+            
+            // Build validation rules dynamically based on form type
+            $validationRules = [
                 'first_name' => 'required|string|max:255',
                 'middle_name' => 'nullable|string|max:255',
                 'last_name' => 'required|string|max:255',
                 'sex' => 'required|in:Male,Female',
                 'status' => 'required|in:Single,Married,In a Relationship,Divorced',
-                'email' => 'required|email|max:255',
+                'email' => $isAcademic ? 'nullable|email|max:255' : 'required|email|max:255',
                 'home_address' => 'nullable|string',
                 'contact_number' => 'nullable|string|max:50',
                 'course' => 'required|string',
                 'year_level' => 'required|in:1st Year,2nd Year,3rd Year,4th Year',
                 'scholarship_name' => 'required|string',
                 'scholarship_type' => 'required|string',
-            ]);
+            ];
+            
+            // Add academic-specific fields if this is an academic form
+            if ($isAcademic) {
+                $validationRules['program'] = 'required|string|max:255';
+                $validationRules['id_number'] = 'required|string|max:255';
+                $validationRules['birthdate'] = 'required|date';
+                $validationRules['birthplace'] = 'required|string|max:255';
+                $validationRules['religion'] = 'required|string|max:255';
+            }
+
+            // Basic validation for non-file fields
+            $data = $request->validate($validationRules);
+            
+            // If academic form and no email provided, use authenticated user's email
+            if ($isAcademic && (empty($data['email']) || !isset($data['email']))) {
+                $data['email'] = auth()->user()->email ?? 'no-email@scholarship.local';
+            }
+            
+            // Assign grant type
+            $data['grant_type'] = $isAcademic ? 'academic' : 'non-academic';
 
             // Check if user has already applied for this scholarship
             $existingApplication = StudentProfile::where('email', $data['email'])

@@ -9,7 +9,7 @@ class StudentProfile extends Model
     use HasFactory;
 
     protected $fillable = [
-        'first_name','middle_name','last_name','sex','status','email','home_address','contact_number','course','year_level','program','id_number','birthdate','birthplace','religion','scholarship_name','scholarship_type','uploads','application_status'
+        'first_name','middle_name','last_name','sex','status','email','home_address','contact_number','course','year_level','program','id_number','birthdate','birthplace','religion','scholarship_name','scholarship_type','uploads','application_status','grant_type'
     ];
 
     protected $casts = [

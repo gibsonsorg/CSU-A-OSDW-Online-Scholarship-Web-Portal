@@ -775,6 +775,10 @@
                         <input class="input" type="text" name="middle_name">
                     </div>
                     <div>
+                        <label>Email</label>
+                        <input class="input" type="email" name="email" placeholder="{{ auth()->user()->email ?? 'your@email.com' }}">
+                    </div>
+                    <div>
                         <label>Course</label>
                         <select name="course" class="input" required>
                             <option value="">Select course</option>
