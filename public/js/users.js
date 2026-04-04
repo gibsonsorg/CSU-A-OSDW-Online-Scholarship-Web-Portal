@@ -335,3 +335,14 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     }
 });
+
+confirmYesBtn.addEventListener('click',function()
+{
+ if (confirmResolve) confirmResolve(true);
+  closeConfirm();
+});
+
+confirmCancelBtn.addEventListener('click',function()
+{
+if (confirmResolve) comfirmResolve(false);
+});

@@ -51,8 +51,14 @@ Route::get('/admin/applications/{id}', function($id){
     return response()->json($p);
 })->middleware(['auth']);
 
-// Approve application endpoint - uses AdminController
-Route::post('/admin/applications/{id}/approve', [AdminController::class, 'approve'])->middleware(['auth']);
+// Approve application endpoint 
+//from: app/Http/Controllers/AdminController approval handler
+ Route::post('/admin/applications/{id}/approve', function($id)
+ {
+   $p = StudentProfile::find($id);
+   if($p) {$p->application_status ='approved'; $p->save(); return response()->json(['status' =>'ok']);}
+   return response()->json(['status'=>'not found'],404);
+ })->middleware(['auth']);
 
 // Reject application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/reject', [AdminController::class, 'reject'])->middleware(['auth']);
