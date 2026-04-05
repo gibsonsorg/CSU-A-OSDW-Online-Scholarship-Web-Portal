@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>System Settings — CSU GMS</title>
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+    <script src="{{ asset('js/backup.js') }}" defer></script>
     <style>
         * {
             margin: 0;
@@ -478,21 +479,42 @@
                         <div class="dropdowns-container">
                             <div class="dropdown-group">
                                 <label class="dropdown-label">Frequency</label>
-                                <select class="dropdown-select">
-                                    <option>Daily</option>
-                                    <option>Weekly</option>
-                                    <option>Monthly</option>
+                                <select id="frequencySelect" class="dropdown-select">
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
                                 </select>
                             </div>
 
                             <div class="dropdown-group">
                                 <label class="dropdown-label">Time Picker</label>
-                                <input type="time" class="dropdown-select" value="03:00" style="padding-right: 14px; background-image: none;">
+                                <input type="time" id="timeInput" class="dropdown-select" value="03:00" style="padding-right: 14px; background-image: none;">
+                            </div>
+
+                            <div class="dropdown-group" id="daySelectGroup" style="display: none;">
+                                <label class="dropdown-label">Day of Week</label>
+                                <select id="daySelect" class="dropdown-select">
+                                    <option value="monday">Monday</option>
+                                    <option value="tuesday">Tuesday</option>
+                                    <option value="wednesday">Wednesday</option>
+                                    <option value="thursday">Thursday</option>
+                                    <option value="friday">Friday</option>
+                                    <option value="saturday">Saturday</option>
+                                    <option value="sunday">Sunday</option>
+                                </select>
                             </div>
                         </div>
 
-                        <p class="text-muted">Configure the automated, behind-the-scenes system scheduler for secure daily backups. Next run: Tomorrow at 03:00 AM.</p>
+                        <p class="text-muted" id="nextRunInfo">Configure the automated, behind-the-scenes system scheduler for secure daily backups. Next run: Tomorrow at 03:00 AM.</p>
                         <p class="text-muted">Automatic backups are stored on a secure, separate server.</p>
+                    </div>
+                </div>
+
+                <!-- Backup History Section -->
+                <div class="backup-history-section table-section">
+                    <h2>Backup History</h2>
+                    <div class="empty-state">
+                        <p>Loading backup history...</p>
                     </div>
                 </div>
 
@@ -557,22 +579,7 @@
     </div>
 
     <script>
-        document.getElementById('manualBackupForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            alert('Backup generated successfully! Downloading now...');
-        });
-
-        document.getElementById('autoBackupToggle').addEventListener('change', function() {
-            const statusText = this.parentElement.nextElementSibling;
-            if (this.checked) {
-                statusText.textContent = 'On';
-                statusText.style.color = '#4caf50';
-            } else {
-                statusText.textContent = 'Off';
-                statusText.style.color = '#d4a76a';
-            }
-        });
-
+        // Applicant restore functionality
         document.querySelectorAll('.btn-restore').forEach(button => {
             button.addEventListener('click', async function() {
                 const id = this.dataset.id;
@@ -595,7 +602,6 @@
                     
                     if (data.status === 'ok') {
                         alert('✓ ' + data.message);
-                        // Reload the page to refresh the table
                         setTimeout(() => {
                             location.reload();
                         }, 500);
