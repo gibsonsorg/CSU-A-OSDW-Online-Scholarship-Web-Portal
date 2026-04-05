@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\BackupSettingsController;
+use App\Http\Controllers\BackupController;
 use Illuminate\Support\Facades\Route;
 
 //HOME ROUTE
@@ -101,4 +102,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/backup/update-settings', [BackupSettingsController::class, 'updateAutoBackupSettings'])->name('backup.update-auto-settings');
     Route::post('/admin/backup/restore/{id}', [BackupSettingsController::class, 'restoreApplicant'])->name('backup.restore-applicant');
     Route::get('/admin/backup/applicant-info/{id}', [BackupSettingsController::class, 'getApplicantInfo'])->name('backup.applicant-info');
+});
+
+// BACKUP API ROUTES
+Route::middleware(['auth', 'verified'])->prefix('api/backup')->group(function () {
+    Route::post('/create', [BackupController::class, 'create']);
+    Route::get('/list', [BackupController::class, 'list']);
+    Route::get('/{id}/download', [BackupController::class, 'download']);
+    Route::post('/{id}/restore', [BackupController::class, 'restore']);
+    Route::delete('/{id}', [BackupController::class, 'delete']);
+    Route::get('/schedule/get', [BackupController::class, 'getSchedule']);
+    Route::post('/schedule/update', [BackupController::class, 'updateSchedule']);
 });
