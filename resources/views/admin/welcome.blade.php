@@ -70,7 +70,7 @@
 
             <a href="/admin"
                class="nav-item ">
-                <span class="nav-icon"></span> Analytics
+                <span class="nav-icon"></span>Settings
             </a>
 
         
