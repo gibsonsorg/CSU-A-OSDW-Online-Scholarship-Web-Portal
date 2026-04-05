@@ -81,7 +81,7 @@
             <!-- Sign In Header -->
             <div class="auth-header">
                 <h2>Sign in</h2>
-                <p>Sign in to access your Municipality Portal account</p>
+                <p>Sign in to access your Scholarship Portal account</p>
             </div>
 
             <!-- Tabs -->
