@@ -174,7 +174,7 @@
                         @endif
                     </td>
                     <td>
-                        <button class="btn small view-profile-btn" data-id="{{ $app->id }}">View Profile</button>
+                        <button class="btn small view-profile-btn" data-id="{{ $app->id }}">Applicant info</button>
                     </td>
                 </tr>
             @endforeach

@@ -103,7 +103,7 @@
             <div class="service-card">
                 <div class="icon"></div>
                 <h3>Scholarship Programs</h3>
-                <p>Access various scholarship opportunities for students from elementary to college level. Supporting academic excellence in our community.</p>
+                <p>Access various scholarship opportunities for students from  college level. Supporting academic excellence in our community.</p>
             </div>
            
             <div class="service-card">
@@ -129,7 +129,7 @@
             <div class="step">
                 <div class="step-number">1</div>
                 <h3>Register</h3>
-                <p>Create your account with your basic information and valid email address</p>
+                <p>Create your account with your basic information and valid Student ID number</p>
             </div>
             <div class="step">
                 <div class="step-number">2</div>
