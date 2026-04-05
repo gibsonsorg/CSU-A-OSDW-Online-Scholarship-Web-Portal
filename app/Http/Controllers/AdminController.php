@@ -12,7 +12,7 @@ class AdminController extends Controller
      */
     public function dashboard()
     {
-        $recentApplications = StudentProfile::orderBy('created_at', 'desc')->take(10)->get();
+        $recentApplications = StudentProfile::whereNull('deleted_at')->orderBy('created_at', 'desc')->take(10)->get();
         $filterType = 'all';
         return view('admin.welcome', compact('recentApplications', 'filterType'));
     }
@@ -23,6 +23,7 @@ class AdminController extends Controller
     public function academicDashboard()
     {
         $recentApplications = StudentProfile::where('grant_type', 'academic')
+            ->whereNull('deleted_at')
             ->orderBy('created_at', 'desc')
             ->take(10)
             ->get();
@@ -36,6 +37,7 @@ class AdminController extends Controller
     public function nonAcademicDashboard()
     {
         $recentApplications = StudentProfile::where('grant_type', 'non-academic')
+            ->whereNull('deleted_at')
             ->orderBy('created_at', 'desc')
             ->take(10)
             ->get();

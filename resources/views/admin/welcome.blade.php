@@ -68,7 +68,7 @@
                 <span class="nav-icon"></span> Users
             </a>
 
-            <a href="/admin"
+            <a href="/admin/settings"
                class="nav-item ">
                 <span class="nav-icon"></span>Settings
             </a>

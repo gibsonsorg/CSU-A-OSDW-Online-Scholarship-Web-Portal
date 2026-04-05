@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\BackupSettingsController;
 use Illuminate\Support\Facades\Route;
 
 //HOME ROUTE
@@ -92,3 +93,12 @@ require __DIR__.'/auth.php';
 // Store new scholarship application from student
 // From: app/Http/Controllers/StudentProfileController - store method
 Route::post('/student-profiles', [StudentProfileController::class, 'store'])->name('student-profiles.store')->middleware(['auth', 'verified', 'web']);
+
+// BACKUP SETTINGS ROUTES
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/admin/settings', [BackupSettingsController::class, 'index'])->name('backup.index');
+    Route::post('/admin/backup/generate', [BackupSettingsController::class, 'generateManualBackup'])->name('backup.generate');
+    Route::post('/admin/backup/update-settings', [BackupSettingsController::class, 'updateAutoBackupSettings'])->name('backup.update-auto-settings');
+    Route::post('/admin/backup/restore/{id}', [BackupSettingsController::class, 'restoreApplicant'])->name('backup.restore-applicant');
+    Route::get('/admin/backup/applicant-info/{id}', [BackupSettingsController::class, 'getApplicantInfo'])->name('backup.applicant-info');
+});

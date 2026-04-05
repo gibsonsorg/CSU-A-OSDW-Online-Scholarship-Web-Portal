@@ -3,10 +3,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class StudentProfile extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'first_name','middle_name','last_name','sex','status','email','home_address','contact_number','course','year_level','program','id_number','birthdate','birthplace','religion','scholarship_name','scholarship_type','uploads','application_status','grant_type','rejection_reason'
