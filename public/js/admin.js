@@ -475,6 +475,31 @@ document.addEventListener('click', function(e) {
                 .catch(err => {
                     alert('Failed to delete user: ' + err.message);
                 });
+
+                // Logout button: submit via fetch and redirect to welcome page
+                const logoutBtn = document.getElementById('adminLogoutBtn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', function(e){
+                        // allow normal form submit for non-JS fallback
+                        e.preventDefault();
+                        const url = this.dataset.logoutUrl || '/logout';
+                        fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': csrf,
+                                'Accept': 'application/json'
+                            }
+                        }).then(r => {
+                            // On success or redirect, go to welcome
+                            window.location.href = '/';
+                        }).catch(err => {
+                            console.error('Logout failed', err);
+                            // fallback to form submit
+                            const f = document.getElementById('logoutForm');
+                            if (f) f.submit();
+                        });
+                    });
+                }
         });
     });
     })();

@@ -75,9 +75,9 @@
                 <span class="nav-icon"></span>Settings
             </a>
 
-            <form method="POST" action="{{ route('logout') }}" style="margin:0;">
+            <form id="logoutForm" method="POST" action="{{ route('logout') }}" style="margin:0;">
                 @csrf
-                <button type="submit" class="nav-item" style="background:none;border:none;padding:12px 16px;text-align:left;width:100%;cursor:pointer;"> 
+                <button id="adminLogoutBtn" type="submit" class="nav-item" data-logout-url="{{ route('logout') }}" style="background:none;border:none;padding:12px 16px;text-align:left;width:100%;cursor:pointer;"> 
                     <span class="nav-icon"></span>Logout
                 </button>
             </form>
