@@ -13,7 +13,7 @@
         @csrf
     </form>
 
-    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6">
+    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6" enctype="multipart/form-data">
         @csrf
         @method('patch')
 
@@ -49,6 +49,12 @@
 
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>
+
+            <div style="width:100%">
+                <label class="block text-sm font-medium text-gray-700 mt-4">Upload School ID (JPG/PNG/PDF, max 1MB)</label>
+                <input type="file" name="id_document" accept=".jpg,.jpeg,.png,.pdf" class="mt-2" />
+                <x-input-error class="mt-2" :messages="$errors->get('id_document')" />
+            </div>
 
             @if (session('status') === 'profile-updated')
                 <p

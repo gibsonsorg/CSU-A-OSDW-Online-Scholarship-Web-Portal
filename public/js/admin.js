@@ -385,4 +385,96 @@ document.addEventListener('click', function(e) {
             document.getElementById('profileModal').style.display = 'none';
             currentAppId = null;
         });
+
+    // --- Dynamic admin users loader: fetch users and replace table in-place ---
+    function renderUsersTable(users){
+        const container = document.getElementById('admin-table-container');
+        if (!container) return;
+        let html = `<table><thead><tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Student ID</th>
+            <th>Email</th>
+            <th>ID Document</th>
+            <th>Registered</th>
+            <th>Actions</th>
+        </tr></thead><tbody>`;
+        if (!users || users.length === 0) {
+            html += `<tr><td colspan="6" class="text-center text-gray">No users found.</td></tr>`;
+        } else {
+            users.forEach(u => {
+                const idLink = `<a href="#" data-user-id="${u.id}" class="user-link">${u.id}</a>`;
+                const name = (u.name || '') + (u.last_name ? (' ' + u.last_name) : '');
+                const studentId = u.student_id || '';
+                const email = u.email || '';
+                const idDoc = u.id_document ? (`<a href="/storage/${u.id_document}" target="_blank">View</a>`) : 'No ID uploaded';
+                const reg = u.created_at ? (new Date(u.created_at)).toISOString().split('T')[0] : '';
+                const deleteBtn = `<button class="btn small delete-user-btn" data-id="${u.id}" style="background:#dc3545;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer;">Delete</button>`;
+                html += `<tr data-user-id="${u.id}"><td>${idLink}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(studentId)}</td><td>${escapeHtml(email)}</td><td>${idDoc}</td><td>${reg}</td><td>${deleteBtn}</td></tr>`;
+            });
+        }
+        html += `</tbody></table>`;
+        container.innerHTML = html;
+    }
+
+    function escapeHtml(str){
+        if (!str) return '';
+        return String(str).replace(/[&<>"'`]/g, function(s){
+            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'})[s];
+        });
+    }
+
+    function loadUsers(url){
+        fetch(url, { headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }})
+            .then(r => {
+                if (!r.ok) throw new Error('Network response was not ok');
+                return r.json();
+            })
+            .then(json => {
+                const users = json.users || [];
+                renderUsersTable(users);
+            })
+            .catch(err => {
+                console.error('Failed to load users:', err);
+                const container = document.getElementById('admin-table-container');
+                if (container) container.innerHTML = '<div class="text-center text-gray">Unable to load users.</div>';
+            });
+    }
+
+    const usersLink = document.getElementById('adminUsersLink');
+    if (usersLink){
+        usersLink.addEventListener('click', function(e){
+            e.preventDefault();
+            const url = this.dataset.url || '/admin/users';
+            loadUsers(url);
+            // update nav active state
+            document.querySelectorAll('.sidebar-nav .nav-item').forEach(n=> n.classList.remove('active'));
+            this.classList.add('active');
+        });
+    }
+
+    // Delegate delete user button clicks
+    document.addEventListener('click', function(e){
+        const el = e.target.closest && e.target.closest('.delete-user-btn');
+        if (!el) return;
+        e.preventDefault();
+        const userId = el.getAttribute('data-id');
+        if (!userId) return;
+        showConfirm('Are you sure you want to DELETE this user?').then(confirmed => {
+            if (!confirmed) return;
+            postJson('/admin/users/'+userId+'/delete', {}, 'POST')
+                .then(json => {
+                    if (json.status === 'ok') {
+                        const row = el.closest('tr');
+                        if (row) row.remove();
+                        alert('User deleted');
+                    } else {
+                        throw new Error(json.message || 'Delete failed');
+                    }
+                })
+                .catch(err => {
+                    alert('Failed to delete user: ' + err.message);
+                });
+        });
+    });
     })();

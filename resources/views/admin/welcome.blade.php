@@ -63,7 +63,9 @@
             </a>
 
 
-            <a href="/admin"
+            <a href="#"
+               id="adminUsersLink"
+               data-url="{{ route('admin.users') }}"
                class="nav-item ">
                 <span class="nav-icon"></span> Users
             </a>
@@ -144,6 +146,7 @@
         @endif
         <a href="http://127.0.0.1:8000/admin/applications" class="card-action">View All →</a>
     </div>
+    <div id="admin-table-container">
     <table>
         <thead>
             <tr>
@@ -192,6 +195,7 @@
         @endif
     </tbody>
     </table>
+    </div>
 
             <!-- Profile Modal -->
        <div id="profileModal" class="modal">

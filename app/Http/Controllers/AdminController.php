@@ -46,6 +46,18 @@ class AdminController extends Controller
     }
 
     /**
+     * List registered users for admin.
+     */
+    public function users(\Illuminate\Http\Request $request)
+    {
+        $users = \App\Models\User::orderBy('created_at', 'desc')->get();
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['users' => $users]);
+        }
+        return view('admin.users', compact('users'));
+    }
+
+    /**
      * Approve an application
      */
     public function approve($id)
@@ -106,6 +118,24 @@ class AdminController extends Controller
             $application = StudentProfile::findOrFail($id);
             $application->delete();
             return response()->json(['status' => 'ok', 'message' => 'Application deleted']);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Delete a registered user (admin action)
+     */
+    public function deleteUser($id)
+    {
+        try {
+            $user = \App\Models\User::findOrFail($id);
+            // Prevent deleting self
+            if (auth()->check() && auth()->id() === $user->id) {
+                return response()->json(['status' => 'error', 'message' => 'Cannot delete currently authenticated user'], 403);
+            }
+            $user->delete();
+            return response()->json(['status' => 'ok', 'message' => 'User deleted']);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }

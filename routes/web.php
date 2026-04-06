@@ -13,17 +13,8 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-//AUTHENTICATION ROUTES
-// Custom auth overrides - Both routes point to combined custom blade file
-// From: app/Http/Controllers/Auth/AuthenticatedSessionController & RegisteredUserController
-Route::get('/login', function () {
-    return view('auth.register'); 
-})->name('login');
-
-// From: app/Http/Controllers/Auth/RegisteredUserController
-Route::get('/register', function () {
-    return view('auth.register'); 
-})->name('register');
+// Authentication routes are provided in routes/auth.php
+// Custom GET routes were removed to avoid collisions with the auth route definitions.
 
 //STUDENT DASHBOARD ROUTE
 // Student dashboard view - requires auth and email verification
@@ -43,6 +34,12 @@ Route::get('/admin/academic', [AdminController::class, 'academicDashboard'])->mi
 
 // Admin dashboard filtered by non-academic grants
 Route::get('/admin/non-academic', [AdminController::class, 'nonAcademicDashboard'])->middleware(['auth', 'verified'])->name('admin.non_academic');
+
+// Admin users list
+Route::get('/admin/users', [AdminController::class, 'users'])->middleware(['auth', 'verified'])->name('admin.users');
+
+// Delete user (AJAX/POST)
+Route::post('/admin/users/{id}/delete', [AdminController::class, 'deleteUser'])->middleware(['auth', 'verified']);
 
 // ADMIN APPLICATION MANAGEMENT ROUTES
 // Fetch single application details as JSON

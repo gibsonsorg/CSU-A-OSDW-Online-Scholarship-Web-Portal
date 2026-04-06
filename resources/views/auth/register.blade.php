@@ -28,7 +28,7 @@
             </div>
 
             <!-- Register Form -->
-            <form id="registerForm" action="{{ route('register') }}" method="POST">
+            <form id="registerForm" action="{{ route('register') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="auth-header">
                     <h2>Create Account</h2>
@@ -73,6 +73,15 @@
                     @enderror
                 </div>
 
+                <div class="form-group">
+                    <label for="regIdDocument">UPLOAD SCHOOL ID (JPG, PNG or PDF) — max 1MB</label>
+                    <input type="file" id="regIdDocument" name="id_document" accept=".jpg,.jpeg,.png,.pdf" required>
+                    @error('id_document')
+                        <div class="error-message">{{ $message }}</div>
+                    @enderror
+                    <div id="idError" class="error-message" style="display:none;"></div>
+                </div>
+
                 <div class="checkbox-group">
                     <input type="checkbox" id="agreeTerms" required>
                     <label for="agreeTerms">I agree to the Terms and Conditions</label>
@@ -92,6 +101,35 @@
     </div>
 
     <script>
+        // Frontend file validation for school ID
+        document.getElementById('registerForm').addEventListener('submit', function(e){
+            const fileInput = document.getElementById('regIdDocument');
+            const errorEl = document.getElementById('idError');
+            errorEl.style.display = 'none';
+            errorEl.textContent = '';
+            if (!fileInput || fileInput.files.length === 0) {
+                errorEl.textContent = 'School ID upload is required.';
+                errorEl.style.display = 'block';
+                e.preventDefault();
+                return false;
+            }
+            const file = fileInput.files[0];
+            const allowed = ['jpg','jpeg','png','pdf'];
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!allowed.includes(ext)) {
+                errorEl.textContent = 'Invalid file format. Allowed: JPG, PNG, PDF.';
+                errorEl.style.display = 'block';
+                e.preventDefault();
+                return false;
+            }
+            if (file.size > 1024 * 1024) {
+                errorEl.textContent = 'File too large. Maximum size is 1MB.';
+                errorEl.style.display = 'block';
+                e.preventDefault();
+                return false;
+            }
+            return true;
+        });
         function togglePassword(fieldId) {
             const field = document.getElementById(fieldId);
             if (field.type === 'password') {
