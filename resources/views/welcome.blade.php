@@ -84,7 +84,7 @@
   <section class="welcome-section" >
     <div class="container">
         <div class="welcome-content">
-            <h2>CSU Aparri Campus Scholarship and Student Financial Assistance Program</h2>
+            <h2>Web-Based Scholarship Management and RequirementsMonitoring System For Cagayan State University Aparri Campus</h2>
             <p>Your gateway to educational opportunities and community support programs. We are committed to helping residents access scholarships, financial assistance, and other essential services through our streamlined online platform.</p>
             <div class="cta-buttons">
                 <a href="{{ route('register') }}" class="btn btn-primary">Get Started</a>
