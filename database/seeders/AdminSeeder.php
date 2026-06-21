@@ -17,6 +17,8 @@ class AdminSeeder extends Seeder
             'email' => 'osdwaparri@csu.edu.ph',
             'password' => Hash::make('admin123'),
             'role' => '0',
+            'email_verified_at' => now(),
+            'account_status' => 'approved',
         ]);
     }
 }

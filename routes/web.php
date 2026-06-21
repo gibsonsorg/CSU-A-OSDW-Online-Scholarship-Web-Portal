@@ -41,6 +41,12 @@ Route::get('/admin/users', [AdminController::class, 'users'])->middleware(['auth
 // Delete user (AJAX/POST)
 Route::post('/admin/users/{id}/delete', [AdminController::class, 'deleteUser'])->middleware(['auth', 'verified']);
 
+// Approve user (AJAX/POST)
+Route::post('/admin/users/{id}/approve', [AdminController::class, 'approveUser'])->middleware(['auth', 'verified']);
+
+// Reject user (AJAX/POST)
+Route::post('/admin/users/{id}/reject', [AdminController::class, 'rejectUser'])->middleware(['auth', 'verified']);
+
 // ADMIN APPLICATION MANAGEMENT ROUTES
 // Fetch single application details as JSON
 // From: app/Http/Controllers/AdminController - application detail view

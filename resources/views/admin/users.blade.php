@@ -1,58 +1,48 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin — Users</title>
-    <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
-    <style>
-        .container { padding: 24px; }
-        table { width:100%; border-collapse: collapse; }
-        th, td { padding:10px; border-bottom:1px solid #eee; text-align:left }
-        img { border-radius:6px }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Registered Users</h1>
-        <p><a href="{{ route('admin.dashboard') }}">← Back to Dashboard</a></p>
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Student ID</th>
-                    <th>Email</th>
-                    <th>School ID</th>
-                </tr>
-            </thead>
-            <tbody>
-            @forelse($users as $user)
-                <tr>
-                    <td>{{ $user->name }}</td>
-                    <td>{{ $user->student_id }}</td>
-                    <td>{{ $user->email }}</td>
-                    <td>
-                        @if($user->id_document)
-                            @php $ext = pathinfo($user->id_document, PATHINFO_EXTENSION); @endphp
-                            @if(in_array(strtolower($ext), ['jpg','jpeg','png']))
-                                <a href="{{ asset('storage/' . $user->id_document) }}" target="_blank">
-                                    <img src="{{ asset('storage/' . $user->id_document) }}" alt="ID" style="max-width:120px;max-height:120px;" />
-                                </a>
-                            @else
-                                <a href="{{ asset('storage/' . $user->id_document) }}" target="_blank">Download ID</a>
-                            @endif
-                        @else
-                            <span class="text-muted">No ID uploaded</span>
-                        @endif
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="4">No users found.</td>
-                </tr>
-            @endforelse
-            </tbody>
-        </table>
-    </div>
-</body>
-</html>
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Student ID</th>
+            <th>School ID</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    @forelse($users as $user)
+        <tr>
+            <td>{{ $user->name }}</td>
+            <td>{{ $user->student_id }}</td>
+            <td>
+                @if($user->id_document)
+                    <button class="view-id-btn" onclick="viewSchoolID('{{ asset('storage/' . $user->id_document) }}')" style="background:none;border:none;color:#0066cc;cursor:pointer;text-decoration:underline;padding:0;">View</button>
+                @else
+                    <span style="color:#999;">-</span>
+                @endif
+            </td>
+            <td>
+                @php
+                    $status = $user->account_status ?? 'pending';
+                    $badgeClass = '';
+                    if($status === 'approved') $badgeClass = 'approved';
+                    elseif($status === 'rejected') $badgeClass = 'rejected';
+                    else $badgeClass = 'pending';
+                @endphp
+                <span class="badge {{ $badgeClass }}">{{ ucfirst($status) }}</span>
+            </td>
+            <td>
+                @if($user->account_status === 'pending')
+                    <button class="btn small" onclick="approveUser({{ $user->id }})" style="background:#27ae60;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;margin-right:3px;font-size:12px;">Approve</button>
+                    <button class="btn small" onclick="rejectUser({{ $user->id }})" style="background:#e74c3c;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-size:12px;">Reject</button>
+                @else
+                    <button class="btn small" style="background:#ccc;color:#666;padding:6px 10px;border:none;border-radius:4px;cursor:default;font-size:12px;" disabled>{{ ucfirst($status) }}</button>
+                @endif
+            </td>
+        </tr>
+    @empty
+        <tr>
+            <td colspan="5" style="text-align:center;color:#999;padding:20px;">No users found.</td>
+        </tr>
+    @endforelse
+    </tbody>
+</table>

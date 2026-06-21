@@ -140,4 +140,36 @@ class AdminController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Approve a user account
+     */
+    public function approveUser($id)
+    {
+        try {
+            $user = \App\Models\User::findOrFail($id);
+            $user->account_status = 'approved';
+            $user->rejection_reason = null;
+            $user->save();
+            return response()->json(['status' => 'ok', 'message' => 'User account approved']);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Reject a user account
+     */
+    public function rejectUser(Request $request, $id)
+    {
+        try {
+            $user = \App\Models\User::findOrFail($id);
+            $user->account_status = 'rejected';
+            $user->rejection_reason = $request->input('reason', 'Account rejected by administrator');
+            $user->save();
+            return response()->json(['status' => 'ok', 'message' => 'User account rejected']);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
 }

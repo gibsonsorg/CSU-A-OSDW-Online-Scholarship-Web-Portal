@@ -63,9 +63,7 @@
             </a>
 
 
-            <a href="#"
-               id="adminUsersLink"
-               data-url="{{ route('admin.users') }}"
+            <a href="#" onclick="loadUsers(); return false;"
                class="nav-item ">
                 <span class="nav-icon"></span> Users
             </a>
@@ -224,6 +222,189 @@
     </div>
 </div>
 
+<!-- School ID Document Modal -->
+<div id="schoolIDModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+    <div class="modal-content" style="max-width:600px;width:90%;background:white;border-radius:8px;padding:30px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);position:relative;">
+        <button id="closeSchoolIDModal" class="modal-close-btn" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:24px;cursor:pointer;">✕</button>
+        <h2 style="margin-top:0;">School ID Document</h2>
+        <div style="padding:20px 0;">
+            <img id="schoolIDImage" src="" alt="School ID" style="max-width:100%;max-height:500px;border-radius:6px;" />
+        </div>
+    </div>
+</div>
+
+<!-- Approve User Modal -->
+<div id="approveModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+    <div class="modal-content" style="max-width:400px;width:90%;background:white;border-radius:8px;padding:30px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <h2 style="margin-top:0;color:#27ae60;">Approve User</h2>
+        <p style="font-size:16px;color:#666;margin:20px 0;">Are you sure you want to approve this user account?</p>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:30px;">
+            <button id="approveCancel" class="btn" style="background:#ccc;color:#333;padding:10px 20px;border:none;border-radius:4px;cursor:pointer;font-size:14px;flex:1;">Cancel</button>
+            <button id="approveConfirm" class="btn" style="background:#27ae60;color:white;padding:10px 20px;border:none;border-radius:4px;cursor:pointer;font-size:14px;flex:1;">Approve</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reject User Modal -->
+<div id="rejectModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+    <div class="modal-content" style="max-width:400px;width:90%;background:white;border-radius:8px;padding:30px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <h2 style="margin-top:0;color:#e74c3c;">Reject User</h2>
+        <p style="font-size:14px;color:#666;margin:15px 0;">Enter rejection reason:</p>
+        <textarea id="rejectReason" placeholder="Enter rejection reason (optional)" style="width:100%;height:80px;padding:10px;border:1px solid #ddd;border-radius:4px;font-family:Arial;font-size:13px;box-sizing:border-box;resize:vertical;"></textarea>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">
+            <button id="rejectCancel" class="btn" style="background:#ccc;color:#333;padding:10px 20px;border:none;border-radius:4px;cursor:pointer;font-size:14px;flex:1;">Cancel</button>
+            <button id="rejectConfirm" class="btn" style="background:#e74c3c;color:white;padding:10px 20px;border:none;border-radius:4px;cursor:pointer;font-size:14px;flex:1;">Reject</button>
+        </div>
+    </div>
+</div>
+
           <script src="{{ asset('js/admin.js') }}?v={{ time() }}"></script>
+          <script>
+              // Modals
+              const schoolIDModal = document.getElementById('schoolIDModal');
+              const approveModal = document.getElementById('approveModal');
+              const rejectModal = document.getElementById('rejectModal');
+              
+              let pendingUserId = null;
+
+              // School ID Modal
+              const closeSchoolIDBtn = document.getElementById('closeSchoolIDModal');
+              if (closeSchoolIDBtn) {
+                  closeSchoolIDBtn.addEventListener('click', function() {
+                      schoolIDModal.style.display = 'none';
+                  });
+              }
+
+              if (schoolIDModal) {
+                  schoolIDModal.addEventListener('click', function(event) {
+                      if (event.target === schoolIDModal) {
+                          schoolIDModal.style.display = 'none';
+                      }
+                  });
+              }
+
+              function viewSchoolID(imageUrl) {
+                  document.getElementById('schoolIDImage').src = imageUrl;
+                  schoolIDModal.style.display = 'flex';
+              }
+
+              // Approve Modal
+              document.getElementById('approveCancel').addEventListener('click', function() {
+                  approveModal.style.display = 'none';
+                  pendingUserId = null;
+              });
+
+              document.getElementById('approveConfirm').addEventListener('click', function() {
+                  if (pendingUserId) {
+                      performApprove(pendingUserId);
+                      approveModal.style.display = 'none';
+                      pendingUserId = null;
+                  }
+              });
+
+              approveModal.addEventListener('click', function(event) {
+                  if (event.target === approveModal) {
+                      approveModal.style.display = 'none';
+                      pendingUserId = null;
+                  }
+              });
+
+              // Reject Modal
+              document.getElementById('rejectCancel').addEventListener('click', function() {
+                  rejectModal.style.display = 'none';
+                  document.getElementById('rejectReason').value = '';
+                  pendingUserId = null;
+              });
+
+              document.getElementById('rejectConfirm').addEventListener('click', function() {
+                  if (pendingUserId) {
+                      const reason = document.getElementById('rejectReason').value || 'Account rejected by administrator';
+                      performReject(pendingUserId, reason);
+                      rejectModal.style.display = 'none';
+                      document.getElementById('rejectReason').value = '';
+                      pendingUserId = null;
+                  }
+              });
+
+              rejectModal.addEventListener('click', function(event) {
+                  if (event.target === rejectModal) {
+                      rejectModal.style.display = 'none';
+                      document.getElementById('rejectReason').value = '';
+                      pendingUserId = null;
+                  }
+              });
+
+              function loadUsers() {
+                  fetch('{{ route("admin.users") }}')
+                  .then(response => response.text())
+                  .then(html => {
+                      document.getElementById('admin-table-container').innerHTML = html;
+                  })
+                  .catch(error => {
+                      console.error('Error:', error);
+                      alert('Error loading users');
+                  });
+              }
+
+              function approveUser(userId) {
+                  pendingUserId = userId;
+                  approveModal.style.display = 'flex';
+              }
+
+              function performApprove(userId) {
+                  fetch(`/admin/users/${userId}/approve`, {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                      }
+                  })
+                  .then(response => response.json())
+                  .then(data => {
+                      if (data.status === 'ok') {
+                          alert('User approved!');
+                          loadUsers();
+                      } else {
+                          alert('Error: ' + (data.message || 'Failed'));
+                      }
+                  })
+                  .catch(error => {
+                      console.error('Error:', error);
+                      alert('Error approving user');
+                  });
+              }
+
+              function rejectUser(userId) {
+                  pendingUserId = userId;
+                  document.getElementById('rejectReason').value = '';
+                  rejectModal.style.display = 'flex';
+              }
+
+              function performReject(userId, reason) {
+                  fetch(`/admin/users/${userId}/reject`, {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                      },
+                      body: JSON.stringify({
+                          reason: reason
+                      })
+                  })
+                  .then(response => response.json())
+                  .then(data => {
+                      if (data.status === 'ok') {
+                          alert('User rejected!');
+                          loadUsers();
+                      } else {
+                          alert('Error: ' + (data.message || 'Failed'));
+                      }
+                  })
+                  .catch(error => {
+                      console.error('Error:', error);
+                      alert('Error rejecting user');
+                  });
+              }
+          </script>
     </body>
 </html>
