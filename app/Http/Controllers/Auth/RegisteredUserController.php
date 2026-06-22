@@ -57,15 +57,7 @@ class RegisteredUserController extends Controller
             'email' => 'student_' . str_replace('-', '', $request->student_id) . '@student.local',
             'password' => Hash::make($request->password),
             'role' => 1, // default = USER
-            'account_status' => 'pending', // Set account as pending by default
-        ];
-
-        // Only include id_document if the column exists in DB (migration may not have been run)
-        if ($idPath && Schema::hasColumn('users', 'id_document')) {
-            $userData['id_document'] = $idPath;
-        }
-
-        $user = User::create($userData);
+        ]);
 
         event(new Registered($user));
 

@@ -35,18 +35,6 @@ Route::get('/admin/academic', [AdminController::class, 'academicDashboard'])->mi
 // Admin dashboard filtered by non-academic grants
 Route::get('/admin/non-academic', [AdminController::class, 'nonAcademicDashboard'])->middleware(['auth', 'verified'])->name('admin.non_academic');
 
-// Admin users list
-Route::get('/admin/users', [AdminController::class, 'users'])->middleware(['auth', 'verified'])->name('admin.users');
-
-// Delete user (AJAX/POST)
-Route::post('/admin/users/{id}/delete', [AdminController::class, 'deleteUser'])->middleware(['auth', 'verified']);
-
-// Approve user (AJAX/POST)
-Route::post('/admin/users/{id}/approve', [AdminController::class, 'approveUser'])->middleware(['auth', 'verified']);
-
-// Reject user (AJAX/POST)
-Route::post('/admin/users/{id}/reject', [AdminController::class, 'rejectUser'])->middleware(['auth', 'verified']);
-
 // ADMIN APPLICATION MANAGEMENT ROUTES
 // Fetch single application details as JSON
 // From: app/Http/Controllers/AdminController - application detail view

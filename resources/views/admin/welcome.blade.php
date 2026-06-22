@@ -63,7 +63,7 @@
             </a>
 
 
-            <a href="#" onclick="loadUsers(); return false;"
+            <a href="/admin"
                class="nav-item ">
                 <span class="nav-icon"></span> Users
             </a>

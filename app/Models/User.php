@@ -23,9 +23,6 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
-        'id_document',
-        'account_status',
-        'rejection_reason',
     ];
 
     /**
