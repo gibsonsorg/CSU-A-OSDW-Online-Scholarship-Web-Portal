@@ -51,12 +51,13 @@ class RegisteredUserController extends Controller
             $idPath = Storage::disk('public')->putFile('ids', $request->file('id_document'));
         }
 
-        $userData = [
+        $user = User::create([
             'name' => $request->name,
             'student_id' => $request->student_id,
             'email' => 'student_' . str_replace('-', '', $request->student_id) . '@student.local',
             'password' => Hash::make($request->password),
             'role' => 1, // default = USER
+            'id_document' => $idPath,
         ]);
 
         event(new Registered($user));
@@ -65,5 +66,4 @@ class RegisteredUserController extends Controller
         return redirect(route('approval.waiting'))->with('status', 'Registration successful! Your account is under review. Please wait for admin approval.');
     }
 }
-
 
