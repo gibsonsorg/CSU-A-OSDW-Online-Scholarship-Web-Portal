@@ -51,10 +51,14 @@ class AdminController extends Controller
     public function users(\Illuminate\Http\Request $request)
     {
         $users = \App\Models\User::orderBy('created_at', 'desc')->get();
+        $recentApplications = collect();
+        $filterType = 'users';
+
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json(['users' => $users]);
         }
-        return view('admin.users', compact('users'));
+
+        return view('admin.welcome', compact('users', 'recentApplications', 'filterType'));
     }
 
     /**

@@ -63,7 +63,7 @@
             </a>
 
 
-            <a href="/admin"
+            <a href="/admin/users"
                class="nav-item ">
                 <span class="nav-icon"></span> Users
             </a>
@@ -139,60 +139,66 @@
             Academic Grants
         @elseif($filterType === 'non-academic')
             Non-Academic Grants
+        @elseif($filterType === 'users')
+            Registered Users
         @else
             Recent Applications
         @endif
         <a href="http://127.0.0.1:8000/admin/applications" class="card-action">View All →</a>
     </div>
     <div id="admin-table-container">
-    <table>
-        <thead>
-            <tr>
-                <th>Last Name</th>
-                <th>First Name</th>
-                <th>Middle Name</th>
-                <th>Sex</th>
-                <th>Course</th>
-                <th>Type of Scholarship</th>
-                <th>Name of Scholarship</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-        @if(!empty($recentApplications) && count($recentApplications) > 0)
-            @foreach($recentApplications as $app)
-                <tr>
-                    <td>{{ $app->last_name }}</td>
-                    <td>{{ $app->first_name }}</td>
-                    <td>{{ $app->middle_name }}</td>
-                    <td>{{ $app->sex }}</td>
-                    <td>{{ $app->course }}</td>
-                    <td>{{ $app->scholarship_name }}</td>
-                    <td>{{ $app->scholarship_type }}</td>
-                    <td>{{ optional($app->created_at)->format('Y-m-d') }}</td>
-                    <td>
-                        @if(isset($app->application_status) && $app->application_status === 'approved')
-                            <span class="badge approved">Approved</span>
-                        @elseif(isset($app->application_status) && $app->application_status === 'rejected')
-                            <span class="badge rejected">Rejected</span>
-                        @else
-                            <span class="badge pending">Pending</span>
-                        @endif
-                    </td>
-                    <td>
-                        <button class="btn small view-profile-btn" data-id="{{ $app->id }}">Applicant info</button>
-                    </td>
-                </tr>
-            @endforeach
+        @if($filterType === 'users')
+            @include('admin.partials.users-table', ['users' => $users])
         @else
-            <tr>
-                <td colspan="10" class="text-center text-gray">No applications yet.</td>
-            </tr>
+        <table>
+            <thead>
+                <tr>
+                    <th>Last Name</th>
+                    <th>First Name</th>
+                    <th>Middle Name</th>
+                    <th>Sex</th>
+                    <th>Course</th>
+                    <th>Type of Scholarship</th>
+                    <th>Name of Scholarship</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if(!empty($recentApplications) && count($recentApplications) > 0)
+                @foreach($recentApplications as $app)
+                    <tr>
+                        <td>{{ $app->last_name }}</td>
+                        <td>{{ $app->first_name }}</td>
+                        <td>{{ $app->middle_name }}</td>
+                        <td>{{ $app->sex }}</td>
+                        <td>{{ $app->course }}</td>
+                        <td>{{ $app->scholarship_name }}</td>
+                        <td>{{ $app->scholarship_type }}</td>
+                        <td>{{ optional($app->created_at)->format('Y-m-d') }}</td>
+                        <td>
+                            @if(isset($app->application_status) && $app->application_status === 'approved')
+                                <span class="badge approved">Approved</span>
+                            @elseif(isset($app->application_status) && $app->application_status === 'rejected')
+                                <span class="badge rejected">Rejected</span>
+                            @else
+                                <span class="badge pending">Pending</span>
+                            @endif
+                        </td>
+                        <td>
+                            <button class="btn small view-profile-btn" data-id="{{ $app->id }}">Applicant info</button>
+                        </td>
+                    </tr>
+                @endforeach
+            @else
+                <tr>
+                    <td colspan="10" class="text-center text-gray">No applications yet.</td>
+                </tr>
+            @endif
+        </tbody>
+        </table>
         @endif
-    </tbody>
-    </table>
     </div>
 
             <!-- Profile Modal -->
