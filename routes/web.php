@@ -37,6 +37,8 @@ Route::get('/admin/non-academic', [AdminController::class, 'nonAcademicDashboard
 
 // Admin users list route
 Route::get('/admin/users', [AdminController::class, 'users'])->middleware(['auth', 'verified'])->name('admin.users');
+Route::post('/admin/users/{id}/approve', [AdminController::class, 'approveUser'])->middleware(['auth', 'verified']);
+Route::post('/admin/users/{id}/reject', [AdminController::class, 'rejectUser'])->middleware(['auth', 'verified']);
 
 // ADMIN APPLICATION MANAGEMENT ROUTES
 // Fetch single application details as JSON

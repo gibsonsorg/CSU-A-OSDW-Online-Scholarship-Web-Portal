@@ -55,8 +55,10 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'student_id' => $request->student_id,
             'email' => 'student_' . str_replace('-', '', $request->student_id) . '@student.local',
+            'email_verified_at' => now(),
             'password' => Hash::make($request->password),
             'role' => 1, // default = USER
+            'account_status' => 'pending',
             'id_document' => $idPath,
         ]);
 

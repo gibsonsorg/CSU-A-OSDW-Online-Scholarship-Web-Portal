@@ -76,6 +76,25 @@ class AdminController extends Controller
     }
 
     /**
+     * Approve a pending user account so they can log in.
+     */
+    public function approveUser($id)
+    {
+        $user = \App\Models\User::find($id);
+
+        if (! $user) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+
+        $user->forceFill([
+            'account_status' => 'approved',
+            'rejection_reason' => null,
+        ])->save();
+
+        return response()->json(['status' => 'ok', 'message' => 'User approved']);
+    }
+
+    /**
      * Reject an application
      */
     public function reject(Request $request, $id)
@@ -88,6 +107,25 @@ class AdminController extends Controller
             return response()->json(['status' => 'ok', 'message' => 'Application rejected']);
         }
         return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
+    }
+
+    /**
+     * Reject a user account and remove it from the system.
+     */
+    public function rejectUser(Request $request, $id)
+    {
+        $user = \App\Models\User::find($id);
+
+        if (! $user) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+
+        $user->delete();
+
+        return response()->json([
+            'status' => 'ok',
+            'message' => 'User account removed',
+        ]);
     }
 
     /**

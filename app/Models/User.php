@@ -23,6 +23,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'account_status',
+        'rejection_reason',
     ];
 
     /**
