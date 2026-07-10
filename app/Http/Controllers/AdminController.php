@@ -129,6 +129,28 @@ class AdminController extends Controller
     }
 
     /**
+     * Download or view the uploaded ID document for a user.
+     */
+    public function viewIdDocument($id)
+    {
+        $user = \App\Models\User::find($id);
+
+        if (! $user || ! $user->id_document) {
+            abort(404);
+        }
+
+        $path = storage_path('app/public/' . $user->id_document);
+
+        if (! file_exists($path)) {
+            abort(404);
+        }
+
+        return response()->file($path, [
+            'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
+        ]);
+    }
+
+    /**
      * Update student profile
      */
     public function update(Request $request, $id)

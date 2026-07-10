@@ -52,6 +52,14 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="regContactNumber">CONTACT NUMBER</label>
+                    <input type="text" id="regContactNumber" name="contact_number" placeholder="Enter 11-digit contact number" value="{{ old('contact_number') }}" maxlength="11" inputmode="numeric" pattern="[0-9]{11}" required>
+                    @error('contact_number')
+                        <div class="error-message">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="form-group">
                     <label for="regPassword">PASSWORD</label>
                     <div class="input-wrapper">
                         <input type="password" id="regPassword" name="password" placeholder="Create a password" required>

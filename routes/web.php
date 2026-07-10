@@ -37,6 +37,7 @@ Route::get('/admin/non-academic', [AdminController::class, 'nonAcademicDashboard
 
 // Admin users list route
 Route::get('/admin/users', [AdminController::class, 'users'])->middleware(['auth', 'verified'])->name('admin.users');
+Route::get('/admin/users/{id}/id-document', [AdminController::class, 'viewIdDocument'])->middleware(['auth', 'verified'])->name('admin.users.id_document');
 Route::post('/admin/users/{id}/approve', [AdminController::class, 'approveUser'])->middleware(['auth', 'verified']);
 Route::post('/admin/users/{id}/reject', [AdminController::class, 'rejectUser'])->middleware(['auth', 'verified']);
 

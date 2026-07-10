@@ -34,11 +34,15 @@ class RegisteredUserController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'student_id' => ['required', 'string', 'regex:/^[0-9]{1,2}-[0-9]{1,5}$/', 'unique:users,student_id'],
+            'contact_number' => ['required', 'string', 'regex:/^[0-9]{11}$/', 'max:11'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'id_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:1024'],
         ], [
             'student_id.regex' => 'Student ID must be in format like 23-11941 (digits-digits)',
             'student_id.unique' => 'This Student ID is already registered',
+            'contact_number.required' => 'Contact number is required',
+            'contact_number.regex' => 'Contact number must be exactly 11 digits',
+            'contact_number.max' => 'Contact number must be 11 digits maximum',
             'password.confirmed' => 'Passwords do not match',
             'id_document.required' => 'School ID upload is required',
             'id_document.mimes' => 'School ID must be a JPG, PNG or PDF file',
@@ -54,6 +58,7 @@ class RegisteredUserController extends Controller
         $user = User::create([
             'name' => $request->name,
             'student_id' => $request->student_id,
+            'contact_number' => $request->contact_number,
             'email' => 'student_' . str_replace('-', '', $request->student_id) . '@student.local',
             'email_verified_at' => now(),
             'password' => Hash::make($request->password),
