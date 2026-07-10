@@ -25,7 +25,6 @@ class RegistrationTest extends TestCase
         $response = $this->post('/register', [
             'name' => 'Test User',
             'student_id' => '23-11941',
-            'contact_number' => '09171234567',
             'password' => 'password',
             'password_confirmation' => 'password',
             'id_document' => UploadedFile::fake()->create('id.pdf', 100, 'application/pdf'),
@@ -33,7 +32,6 @@ class RegistrationTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'student_id' => '23-11941',
-            'contact_number' => '09171234567',
         ]);
         $response->assertRedirect(route('approval.waiting', absolute: false));
     }
