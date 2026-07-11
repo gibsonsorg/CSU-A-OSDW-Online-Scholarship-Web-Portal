@@ -44,6 +44,14 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="regEmail">EMAIL ADDRESS</label>
+                    <input type="email" id="regEmail" name="email" placeholder="Enter your email address" value="{{ old('email') }}" required>
+                    @error('email')
+                        <div class="error-message">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="form-group">
                     <label for="regStudentId">STUDENT ID NUMBER</label>
                     <input type="text" id="regStudentId" name="student_id" placeholder="Enter Student ID (e.g., 23-11941)" value="{{ old('student_id') }}" pattern="[0-9\-]{1,8}" maxlength="10" required>
                     @error('student_id')

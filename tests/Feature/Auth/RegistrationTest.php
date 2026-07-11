@@ -24,6 +24,7 @@ class RegistrationTest extends TestCase
 
         $response = $this->post('/register', [
             'name' => 'Test User',
+            'email' => 'test.user@example.com',
             'student_id' => '23-11941',
             'password' => 'password',
             'password_confirmation' => 'password',
@@ -32,6 +33,7 @@ class RegistrationTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'student_id' => '23-11941',
+            'email' => 'test.user@example.com',
         ]);
         $response->assertRedirect(route('approval.waiting', absolute: false));
     }
