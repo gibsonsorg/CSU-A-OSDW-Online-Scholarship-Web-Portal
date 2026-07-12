@@ -5,6 +5,7 @@ use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\BackupSettingsController;
 use App\Http\Controllers\BackupController;
+use App\Models\StudentProfile;
 use Illuminate\Support\Facades\Route;
 
 //HOME ROUTE
@@ -20,10 +21,30 @@ Route::get('/', function () {
 // Student dashboard view - requires auth and email verification
 // From: app/Http/Controllers/StudentProfileController (display route)
 Route::get('/dashboard', function () {
-    return view('student.dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+    $appliedScholarships = [];
+    $activeAcademicApplications = 0;
+    $activeNonAcademicApplications = 0;
 
-use App\Models\StudentProfile;
+    if (auth()->check()) {
+        $appliedScholarships = StudentProfile::where('user_id', auth()->id())
+            ->whereIn('application_status', ['pending', 'approved'])
+            ->pluck('scholarship_name')
+            ->map(fn ($name) => trim($name))
+            ->toArray();
+
+        $activeAcademicApplications = StudentProfile::where('user_id', auth()->id())
+            ->where('grant_type', 'academic')
+            ->whereIn('application_status', ['pending', 'approved'])
+            ->count();
+
+        $activeNonAcademicApplications = StudentProfile::where('user_id', auth()->id())
+            ->where('grant_type', 'non-academic')
+            ->whereIn('application_status', ['pending', 'approved'])
+            ->count();
+    }
+
+    return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications'));
+})->middleware(['auth', 'verified'])->name('dashboard');
 
 //ADMIN DASHBOARD ROUTE 
 // Admin dashboard - shows recent applications

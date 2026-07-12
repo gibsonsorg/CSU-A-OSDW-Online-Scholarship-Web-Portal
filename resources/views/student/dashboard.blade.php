@@ -10,7 +10,89 @@
     
     <!-- Dashboard Styles -->
     <link rel="stylesheet" href="{{ asset('css/users.css') }}">
-   
+    <style>
+        /* Applied (user already applied) - keep previous visual style */
+        .s-card.card-applied {
+            opacity: 0.65;
+            pointer-events: none;
+        }
+        .s-card.card-applied .card-foot {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            align-items: center;
+        }
+        .card-applied .applied-label {
+            color: #a81f1f;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .card-applied .applied-text {
+            color: #7d2424;
+            font-size: 0.9rem;
+            text-align: center;
+            line-height: 1.3;
+            max-width: 220px;
+        }
+        .s-card.card-applied .btn-apply {
+            pointer-events: none;
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        /* Category-full unavailable (blocked when user reached limit) */
+        .s-card.card-unavailable {
+            opacity: 1;
+            pointer-events: none;
+            border: 1px solid #e2d7d7;
+            box-shadow: none;
+            background: #fbf6f6;
+        }
+        .s-card.card-unavailable .card-head,
+        .s-card.card-unavailable .card-meta-row,
+        .s-card.card-unavailable .card-names h3,
+        .s-card.card-unavailable .card-names .prog {
+            opacity: 0.7;
+        }
+        .s-card.card-unavailable .card-desc {
+            display: none;
+        }
+        .s-card.card-unavailable .card-foot {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            align-items: center;
+            justify-content: center;
+            min-height: 120px;
+        }
+        .card-unavailable .unavailable-text {
+            width: 100%;
+            max-width: 300px;
+            background: #fff;
+            border: 1px solid #e9e4e4;
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: #5e2323;
+            text-align: center;
+            line-height: 1.3;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+        .card-unavailable .btn-apply {
+            pointer-events: none;
+            opacity: 0.45;
+            background: #f0eded;
+            color: #7f7f7f;
+            border: 1px solid #d9d2d2;
+            cursor: not-allowed;
+        }
+    </style>
 </head>
 
 <body>
@@ -603,20 +685,30 @@
                 </script>
             @endif
             
-                <form id="applyForm" method="POST" action="{{ route('student-profiles.store') }}" enctype="multipart/form-data">
+                @php
+                $currentUser = auth()->user();
+                $fullName = trim($currentUser->name ?? '');
+                $nameParts = preg_split('/\s+/', $fullName);
+                $firstNameDefault = old('first_name', $nameParts[0] ?? '');
+                $middleNameDefault = old('middle_name', count($nameParts) > 2 ? $nameParts[1] : '');
+                $lastNameDefault = old('last_name', count($nameParts) > 1 ? $nameParts[count($nameParts) - 1] : '');
+                $emailDefault = old('email', $currentUser->email ?? '');
+                $studentIdDefault = old('student_id_number', $currentUser->student_id ?? '');
+            @endphp
+            <form id="applyForm" method="POST" action="{{ route('student-profiles.store') }}" enctype="multipart/form-data">
                 @csrf
                 <div class="apply-row">
                     <div>
                         <label>First name</label>
-                        <input class="input" type="text" name="first_name" required>
+                        <input class="input" type="text" name="first_name" value="{{ $firstNameDefault }}" readonly required>
                     </div>
                     <div>
                         <label>Middle name</label>
-                        <input class="input" type="text" name="middle_name">
+                        <input class="input" type="text" name="middle_name" value="{{ $middleNameDefault }}" readonly>
                     </div>
                     <div>
                         <label>Last name</label>
-                        <input class="input" type="text" name="last_name" required>
+                        <input class="input" type="text" name="last_name" value="{{ $lastNameDefault }}" readonly required>
                     </div>
                     <div>
                         <label>Sex</label>
@@ -638,7 +730,11 @@
                     </div>
                     <div>
                         <label>Email address</label>
-                        <input class="input" type="email" name="email" required>
+                        <input class="input" type="email" name="email" value="{{ $emailDefault }}" readonly required>
+                    </div>
+                    <div>
+                        <label>Student ID Number</label>
+                        <input class="input" type="text" name="student_id_number" value="{{ $studentIdDefault }}" readonly>
                     </div>
                     <div class="full">
                         <label>Home address</label>
@@ -759,6 +855,13 @@
             <button class="modal-close" id="academicApplyModalClose">✕</button>
             <h1 class="form-title">Academic Scholarship Application</h1>
             
+            @php
+                $academicEmailDefault = old('email', $currentUser->email ?? '');
+                $academicFirstNameDefault = old('first_name', $firstNameDefault);
+                $academicMiddleNameDefault = old('middle_name', $middleNameDefault);
+                $academicLastNameDefault = old('last_name', $lastNameDefault);
+                $academicStudentIdDefault = old('id_number', $currentUser->student_id ?? '');
+            @endphp
             <form id="academicApplyForm" method="POST" action="{{ route('student-profiles.store') }}" enctype="multipart/form-data">
                 @csrf
                 <div class="apply-row">
@@ -770,19 +873,23 @@
                     </div>
                     <div>
                         <label>Last name</label>
-                        <input class="input" type="text" name="last_name" required>
+                        <input class="input" type="text" name="last_name" value="{{ $academicLastNameDefault }}" readonly required>
                     </div>
                     <div>
                         <label>First name</label>
-                        <input class="input" type="text" name="first_name" required>
+                        <input class="input" type="text" name="first_name" value="{{ $academicFirstNameDefault }}" readonly required>
                     </div>
                     <div>
                         <label>Middle name</label>
-                        <input class="input" type="text" name="middle_name">
+                        <input class="input" type="text" name="middle_name" value="{{ $academicMiddleNameDefault }}" readonly>
                     </div>
                     <div>
                         <label>Email</label>
-                        <input class="input" type="email" name="email" placeholder="{{ auth()->user()->email ?? 'your@email.com' }}">
+                        <input class="input" type="email" name="email" value="{{ $academicEmailDefault }}" readonly>
+                    </div>
+                    <div>
+                        <label>Student ID Number</label>
+                        <input class="input" type="text" name="id_number" value="{{ $academicStudentIdDefault }}" readonly required>
                     </div>
                     <div>
                         <label>Course</label>
@@ -1062,6 +1169,66 @@
         closeSubmitSuccessPopup();
       }
     });
+
+    (function () {
+      const section = @json($section ?? 'acad');
+      const appliedScholarships = @json($appliedScholarships ?? []);
+      const activeAcademicApplications = @json($activeAcademicApplications ?? 0);
+      const activeNonAcademicApplications = @json($activeNonAcademicApplications ?? 0);
+      const maxApplications = 2;
+      const currentActiveApplications = section === 'non' ? activeNonAcademicApplications : activeAcademicApplications;
+
+      const cards = document.querySelectorAll('.s-card');
+
+      cards.forEach(card => {
+        const titleEl = card.querySelector('h3');
+        const scholarshipTitle = titleEl ? titleEl.innerText.trim() : null;
+
+        if (!scholarshipTitle) {
+          return;
+        }
+
+                const isApplied = appliedScholarships.includes(scholarshipTitle);
+                const cardFoot = card.querySelector('.card-foot');
+
+                if (isApplied) {
+                    // Keep the previously implemented "applied" UI unchanged
+                    card.classList.add('card-applied');
+                    if (cardFoot) {
+                        const message = document.createElement('div');
+                        message.className = 'applied-text';
+                        message.innerHTML = '<div class="applied-label">UNAVAILABLE</div><div>Your application for this scholarship is being processed.</div>';
+                        cardFoot.prepend(message);
+                    }
+
+                    const applyButton = card.querySelector('.btn-apply');
+                    if (applyButton) {
+                        applyButton.textContent = 'APPLIED';
+                        applyButton.setAttribute('aria-disabled', 'true');
+                        applyButton.setAttribute('href', 'javascript:void(0);');
+                        applyButton.classList.add('btn-applied');
+                    }
+                    return;
+                }
+
+        if (currentActiveApplications >= maxApplications) {
+          card.classList.add('card-unavailable');
+                    if (cardFoot) {
+                        const message = document.createElement('div');
+                        message.className = 'unavailable-text';
+                        message.textContent = 'You already have two active applications in this category, so this scholarship is not available.';
+                        cardFoot.prepend(message);
+                    }
+
+          const applyButton = card.querySelector('.btn-apply');
+          if (applyButton) {
+            applyButton.textContent = 'UNAVAILABLE';
+            applyButton.setAttribute('aria-disabled', 'true');
+            applyButton.setAttribute('href', 'javascript:void(0);');
+          }
+        }
+      });
+    })();
   </script>
 </body>
 </html>

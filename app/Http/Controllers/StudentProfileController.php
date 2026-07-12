@@ -2,7 +2,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Application;
+use App\Models\Scholarship;
 use App\Models\StudentProfile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -113,12 +116,13 @@ class StudentProfileController extends Controller
             
             // Build validation rules dynamically based on form type
             $validationRules = [
-                'first_name' => 'required|string|max:255',
+                'first_name' => 'required_without:last_name|string|max:255',
                 'middle_name' => 'nullable|string|max:255',
-                'last_name' => 'required|string|max:255',
+                'last_name' => 'required_without:first_name|string|max:255',
                 'sex' => 'required|in:Male,Female',
                 'status' => 'required|in:Single,Married,In a Relationship,Divorced',
                 'email' => $isAcademic ? 'nullable|email|max:255' : 'required|email|max:255',
+                'student_id_number' => 'nullable|string|max:255',
                 'home_address' => 'nullable|string',
                 'contact_number' => 'nullable|string|max:50',
                 'course' => 'required|string',
@@ -139,22 +143,59 @@ class StudentProfileController extends Controller
             // Basic validation for non-file fields
             $data = $request->validate($validationRules);
             
+            $user = Auth::user();
+            $data['user_id'] = $user->id;
+            $data['student_id_number'] = $request->input('student_id_number') ?? $request->input('id_number') ?? $user->student_id ?? null;
+
+            // Fill missing name parts from authenticated user name when available
+            if (!empty($user->name)) {
+                $nameParts = preg_split('/\s+/', trim($user->name));
+
+                if (empty($data['first_name'])) {
+                    $data['first_name'] = $nameParts[0] ?? null;
+                }
+
+                if (empty($data['last_name'])) {
+                    $data['last_name'] = $nameParts[count($nameParts) - 1] ?? null;
+                }
+
+                if (empty($data['middle_name']) && count($nameParts) > 2) {
+                    $data['middle_name'] = $nameParts[1];
+                }
+            }
+
             // If academic form and no email provided, use authenticated user's email
             if ($isAcademic && (empty($data['email']) || !isset($data['email']))) {
-                $data['email'] = auth()->user()->email ?? 'no-email@scholarship.local';
+                $data['email'] = $user->email ?? 'no-email@scholarship.local';
+            }
+
+            // Always use the authenticated user's email if the field is empty for any form
+            if (empty($data['email']) && $user->email) {
+                $data['email'] = $user->email;
             }
             
             // Assign grant type
             $data['grant_type'] = $isAcademic ? 'academic' : 'non-academic';
 
-            // Check if user has already applied for this scholarship
-            $existingApplication = StudentProfile::where('email', $data['email'])
+            // Prevent duplicate applications for the same scholarship by the authenticated user
+            $existingApplication = StudentProfile::where('user_id', $user->id)
                 ->where('scholarship_name', $data['scholarship_name'])
                 ->first();
 
             if ($existingApplication) {
                 return redirect()->route('dashboard', ['section' => 'non'])
                     ->with('error', 'You have already applied for the ' . $data['scholarship_name'] . ' scholarship. Only one application per scholarship is allowed.');
+            }
+
+            // Limit two active applications per grant category for this user
+            $activeCategoryApplications = StudentProfile::where('user_id', $user->id)
+                ->where('grant_type', $data['grant_type'])
+                ->whereIn('application_status', ['pending', 'approved'])
+                ->count();
+
+            if ($activeCategoryApplications >= 2) {
+                return redirect()->route('dashboard', ['section' => 'non'])
+                    ->with('error', 'You already have two active applications in the ' . $data['grant_type'] . ' category. Only two open applications per category are allowed.');
             }
 
             // Handle file uploads with custom validation
@@ -207,8 +248,21 @@ class StudentProfileController extends Controller
 
             $profile = StudentProfile::create($data);
 
+            $scholarship = Scholarship::firstOrCreate(
+                ['name' => $data['scholarship_name']],
+                ['type' => $data['grant_type']]
+            );
+
+            Application::create([
+                'user_id' => $user->id,
+                'scholarship_id' => $scholarship->id,
+                'status' => $profile->application_status ?? 'pending',
+            ]);
+
             Log::info('Student profile created successfully', [
                 'profile_id' => $profile->id,
+                'user_id' => $profile->user_id,
+                'scholarship_id' => $scholarship->id,
                 'email' => $profile->email,
                 'fileCount' => count($uploaded)
             ]);

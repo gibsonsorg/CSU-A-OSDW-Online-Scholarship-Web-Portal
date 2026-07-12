@@ -11,16 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('backup_schedules', function (Blueprint $table) {
-            $table->id();
-            $table->enum('frequency', ['daily', 'weekly', 'monthly'])->default('daily');
-            $table->time('time')->default('03:00');
-            $table->enum('day_of_week', ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'])->nullable();
-            $table->boolean('enabled')->default(true);
-            $table->timestamp('last_run')->nullable();
-            $table->enum('last_status', ['success', 'failed'])->nullable();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('backup_schedules')) {
+            Schema::create('backup_schedules', function (Blueprint $table) {
+                $table->id();
+                $table->enum('frequency', ['daily', 'weekly', 'monthly'])->default('daily');
+                $table->time('time')->default('03:00');
+                $table->enum('day_of_week', ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'])->nullable();
+                $table->boolean('enabled')->default(true);
+                $table->timestamp('last_run')->nullable();
+                $table->enum('last_status', ['success', 'failed'])->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     /**
