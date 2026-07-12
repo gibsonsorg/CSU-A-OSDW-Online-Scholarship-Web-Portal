@@ -341,7 +341,11 @@
               });
 
               function loadUsers() {
-                  fetch('{{ route("admin.users") }}')
+                  fetch('{{ route("admin.users") }}', {
+                      headers: {
+                          'X-Requested-With': 'XMLHttpRequest'
+                      }
+                  })
                   .then(response => response.text())
                   .then(html => {
                       document.getElementById('admin-table-container').innerHTML = html;

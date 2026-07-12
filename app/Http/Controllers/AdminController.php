@@ -57,8 +57,12 @@ class AdminController extends Controller
         $recentApplications = collect();
         $filterType = 'users';
 
-        if ($request->wantsJson() || $request->ajax()) {
+        if ($request->wantsJson()) {
             return response()->json(['users' => $users]);
+        }
+
+        if ($request->ajax()) {
+            return view('admin.partials.users-table', compact('users'));
         }
 
         return view('admin.welcome', compact('users', 'recentApplications', 'filterType'));
