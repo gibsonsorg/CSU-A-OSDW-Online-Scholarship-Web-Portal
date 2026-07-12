@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ApprovalMail;
+use App\Mail\RejectionMail;
 use App\Models\StudentProfile;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class AdminController extends Controller
 {
@@ -91,6 +94,15 @@ class AdminController extends Controller
             'rejection_reason' => null,
         ])->save();
 
+        try {
+            Mail::to($user->email)->send(new ApprovalMail($user));
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User approved but email could not be sent: ' . $e->getMessage(),
+            ], 500);
+        }
+
         return response()->json(['status' => 'ok', 'message' => 'User approved']);
     }
 
@@ -120,11 +132,25 @@ class AdminController extends Controller
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
         }
 
-        $user->delete();
+        $message = (string) $request->input('message', '');
+
+        $user->forceFill([
+            'account_status' => 'rejected',
+            'rejection_reason' => $message,
+        ])->save();
+
+        try {
+            Mail::to($user->email)->send(new RejectionMail($user, $message));
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User rejected but email could not be sent: ' . $e->getMessage(),
+            ], 500);
+        }
 
         return response()->json([
             'status' => 'ok',
-            'message' => 'User account removed',
+            'message' => 'User account rejected',
         ]);
     }
 
