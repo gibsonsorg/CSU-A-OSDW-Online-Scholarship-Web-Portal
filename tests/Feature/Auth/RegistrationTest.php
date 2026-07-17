@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -36,5 +37,27 @@ class RegistrationTest extends TestCase
             'email' => 'test.user@example.com',
         ]);
         $response->assertRedirect(route('approval.waiting', absolute: false));
+    }
+
+    public function test_duplicate_name_is_rejected_with_a_validation_error(): void
+    {
+        User::factory()->create(['name' => 'Duplicate Name']);
+
+        Storage::fake('public');
+
+        $response = $this->from('/register')->post('/register', [
+            'name' => 'Duplicate Name',
+            'email' => 'new.user@example.com',
+            'student_id' => '23-11942',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'id_document' => UploadedFile::fake()->create('id.pdf', 100, 'application/pdf'),
+        ]);
+
+        $response->assertSessionHasErrors(['name']);
+        $response->assertSessionHasErrors([
+            'name' => 'This full name is already registered',
+        ]);
+        $this->assertDatabaseMissing('users', ['email' => 'new.user@example.com']);
     }
 }

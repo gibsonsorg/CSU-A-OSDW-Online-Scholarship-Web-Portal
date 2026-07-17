@@ -30,12 +30,13 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255', 'unique:users,name'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'student_id' => ['required', 'string', 'regex:/^[0-9]{1,2}-[0-9]{1,5}$/', 'unique:users,student_id'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'id_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:1024'],
         ], [
+            'name.unique' => 'This full name is already registered',
             'email.required' => 'Email address is required',
             'email.email' => 'Please enter a valid email address',
             'email.unique' => 'This email address is already registered',
