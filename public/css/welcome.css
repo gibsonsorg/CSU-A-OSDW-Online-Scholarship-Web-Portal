@@ -460,7 +460,41 @@ nav {
     
 }
 
+/* Welcome Section */
+.welcome-section {
+    padding: 4rem 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: scroll;
+    background-color: #f5f5f5;
+    text-align: center;
+    position: relative;
+    min-height: 570px;
+    animation: slideBackground 15s ease-in-out infinite;
+    
+}
 
+.welcome-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    z-index: 1;
+}
+
+@keyframes slideBackground {
+    0%, 33.33% {
+        background-image: url('../images/backgroundepotangina.jpg');
+    }
+    33.34%, 66.66% {
+           background-image: url('../images/bg3.jfif');
+    }
+    66.67%, 100% {
+         background-image: url('../images/rema2.png'); 
+    }
+}
 
 
 .welcome-section .container {
@@ -469,8 +503,8 @@ nav {
 }
 
 .welcome-content h2 {
-    font-size: 2.5rem;
-    color:#333;
+    font-size: 2.3rem;
+    color:white;
     margin-bottom: 1rem;
     font-weight: 700;
      
@@ -479,7 +513,7 @@ nav {
 
 .welcome-content p {
     font-size: 1.1rem;
-    color: #333;
+    color: white;
     max-width: 800px;
     margin: 0 auto 2rem;
     line-height: 1.6;
