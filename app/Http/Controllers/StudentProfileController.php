@@ -346,4 +346,35 @@ class StudentProfileController extends Controller
             return redirect()->back()->with('error', 'Failed to update documents: ' . $e->getMessage());
         }
     }
+
+    public function applicationStatus()
+    {
+        $userId = auth()->id();
+
+        $applicationFields = [
+            'id',
+            'scholarship_name',
+            'scholarship_type',
+            'application_status',
+            'rejection_reason',
+            'grant_type',
+            'created_at',
+            'updated_at',
+        ];
+
+        $academicApplications = StudentProfile::where('user_id', $userId)
+            ->where('grant_type', 'academic')
+            ->orderByDesc('created_at')
+            ->get($applicationFields);
+
+        $nonAcademicApplications = StudentProfile::where('user_id', $userId)
+            ->where('grant_type', 'non-academic')
+            ->orderByDesc('created_at')
+            ->get($applicationFields);
+
+        return view('student.application-status', compact(
+            'academicApplications',
+            'nonAcademicApplications'
+        ));
+    }
 }

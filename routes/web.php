@@ -27,24 +27,25 @@ Route::get('/dashboard', function () {
 
     if (auth()->check()) {
         $appliedScholarships = StudentProfile::where('user_id', auth()->id())
-            ->whereIn('application_status', ['pending', 'approved'])
             ->pluck('scholarship_name')
             ->map(fn ($name) => trim($name))
             ->toArray();
 
         $activeAcademicApplications = StudentProfile::where('user_id', auth()->id())
             ->where('grant_type', 'academic')
-            ->whereIn('application_status', ['pending', 'approved'])
             ->count();
 
         $activeNonAcademicApplications = StudentProfile::where('user_id', auth()->id())
             ->where('grant_type', 'non-academic')
-            ->whereIn('application_status', ['pending', 'approved'])
             ->count();
     }
 
     return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications'));
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::get('/application-status', [StudentProfileController::class, 'applicationStatus'])
+    ->middleware(['auth', 'verified'])
+    ->name('application-status');
 
 //ADMIN DASHBOARD ROUTE 
 // Admin dashboard - shows recent applications
@@ -71,14 +72,8 @@ Route::get('/admin/applications/{id}', function($id){
     return response()->json($p);
 })->middleware(['auth']);
 
-// Approve application endpoint 
-//from: app/Http/Controllers/AdminController approval handler
- Route::post('/admin/applications/{id}/approve', function($id)
- {
-   $p = StudentProfile::find($id);
-   if($p) {$p->application_status ='approved'; $p->save(); return response()->json(['status' =>'ok']);}
-   return response()->json(['status'=>'not found'],404);
- })->middleware(['auth']);
+// Approve application endpoint
+Route::post('/admin/applications/{id}/approve', [AdminController::class, 'approve'])->middleware(['auth']);
 
 // Reject application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/reject', [AdminController::class, 'reject'])->middleware(['auth']);

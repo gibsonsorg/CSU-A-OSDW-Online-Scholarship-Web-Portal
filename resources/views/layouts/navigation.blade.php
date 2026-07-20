@@ -19,7 +19,7 @@
                     <x-nav-link :href="route('dashboard', ['section' => 'non'])" :active="request()->routeIs('dashboard') && request()->query('section') === 'non'">
                         {{ __('Non-Academic Grants') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('dashboard', ['section' => 'status'])" :active="request()->routeIs('dashboard') && request()->query('section') === 'status'">
+                    <x-nav-link :href="route('application-status')" :active="request()->routeIs('application-status')">
                         {{ __('Application Status') }}
                     </x-nav-link>
                     
@@ -85,7 +85,7 @@
             <x-responsive-nav-link :href="route('dashboard', ['section' => 'non'])" :active="request()->routeIs('dashboard') && request()->query('section') === 'non'">
                 {{ __('Non-Academic Grants') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('dashboard', ['section' => 'status'])" :active="request()->routeIs('dashboard') && request()->query('section') === 'status'">
+            <x-responsive-nav-link :href="route('application-status')" :active="request()->routeIs('application-status')">
                 {{ __('Application Status') }}
             </x-responsive-nav-link>
         </div>

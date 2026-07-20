@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Mail\ApprovalMail;
 use App\Mail\RejectionMail;
+use App\Models\Application;
+use App\Models\Scholarship;
 use App\Models\StudentProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -74,12 +76,17 @@ class AdminController extends Controller
     public function approve($id)
     {
         $application = StudentProfile::find($id);
-        if ($application) {
-            $application->application_status = 'approved';
-            $application->save();
-            return response()->json(['status' => 'ok', 'message' => 'Application approved']);
+        if (!$application) {
+            return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
         }
-        return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
+
+        $application->application_status = 'approved';
+        $application->rejection_reason = null;
+        $application->save();
+
+        $this->syncApplicationRecord($application, 'approved');
+
+        return response()->json(['status' => 'ok', 'message' => 'Application approved']);
     }
 
     /**
@@ -120,6 +127,9 @@ class AdminController extends Controller
             $application->application_status = 'rejected';
             $application->rejection_reason = $request->input('reason', '');
             $application->save();
+
+            $this->syncApplicationRecord($application, 'rejected');
+
             return response()->json(['status' => 'ok', 'message' => 'Application rejected']);
         }
         return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
@@ -178,6 +188,26 @@ class AdminController extends Controller
         return response()->file($path, [
             'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
         ]);
+    }
+
+    /**
+     * Keep the applications table in sync with student profile status.
+     */
+    private function syncApplicationRecord(StudentProfile $profile, string $status): void
+    {
+        if (!$profile->user_id || !$profile->scholarship_name) {
+            return;
+        }
+
+        $scholarship = Scholarship::where('name', $profile->scholarship_name)->first();
+
+        if (!$scholarship) {
+            return;
+        }
+
+        Application::where('user_id', $profile->user_id)
+            ->where('scholarship_id', $scholarship->id)
+            ->update(['status' => $status]);
     }
 
     /**
