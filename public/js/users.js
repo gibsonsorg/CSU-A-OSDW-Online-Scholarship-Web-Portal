@@ -194,6 +194,19 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             }
 
+            // Show ID label for Open Heart and Talamayan only
+            const nonAcademicIDLabel = document.getElementById('nonAcademicIDLabel');
+            const nonAcademicUploadsInput = document.getElementById('nonAcademicUploadsInput');
+            if (nonAcademicIDLabel) {
+                if (title === 'Open Heart Scholarship' || title === 'Talamayan Scholarship') {
+                    nonAcademicIDLabel.style.display = 'block';
+                    if (nonAcademicUploadsInput) nonAcademicUploadsInput.accept = '.pdf,.doc,.docx';
+                } else {
+                    nonAcademicIDLabel.style.display = 'none';
+                    if (nonAcademicUploadsInput) nonAcademicUploadsInput.accept = '.pdf,.docx,.doc,.jpg,.jpeg,.png';
+                }
+            }
+
             openApplyModal();
         });
     });
@@ -206,6 +219,10 @@ document.addEventListener('DOMContentLoaded', function(){
         const typeSel = document.querySelector('select[name="scholarship_type"]');
         if (nameSel) { Array.from(nameSel.options).forEach(o=>{ if (o.dataset.generated==='1') o.remove(); }); nameSel.dataset.autofilled = ''; }
         if (typeSel) { Array.from(typeSel.options).forEach(o=>{ if (o.dataset.generated==='1') o.remove(); }); typeSel.dataset.autofilled = ''; }
+        const nonAcademicIDLabel = document.getElementById('nonAcademicIDLabel');
+        const nonAcademicUploadsInput = document.getElementById('nonAcademicUploadsInput');
+        if (nonAcademicIDLabel) nonAcademicIDLabel.style.display = 'none';
+        if (nonAcademicUploadsInput) nonAcademicUploadsInput.accept = '.pdf,.docx,.doc,.jpg,.jpeg,.png';
         closeApplyModal();
     }
 

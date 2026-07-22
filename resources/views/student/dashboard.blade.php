@@ -810,7 +810,11 @@
                                 <li><strong>Images:</strong> JPG, PNG (max 1MB)</li>
                             </ul>
                         </div>
-                        <input type="file" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
+
+                        <!-- ID label to show for specific non-academic scholarships (Open Heart, Talamayan) -->
+                        <div id="nonAcademicIDLabel" style="display:none; font-weight:600; margin-bottom:8px; color:#333;">ID (Front and Back) – PDF or DOC/DOCX Format</div>
+
+                        <input type="file" name="uploads[]" multiple id="nonAcademicUploadsInput" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
                     </div>
                 </div>
                 <div class="form-actions">

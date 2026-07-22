@@ -58,7 +58,7 @@
 
         .message {
             background: #e8f4f8;
-            border-left: 4px solid #3498db;
+            
             padding: 15px;
             margin: 25px 0;
             border-radius: 4px;
@@ -70,7 +70,8 @@
         .message strong {
             display: block;
             margin-bottom: 8px;
-            color: #2980b9;
+            color:black;
+            opacity: 0.8;
         }
 
         .info-box {
@@ -136,7 +137,7 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background:#8b1a28;
             color: white;
         }
 
@@ -207,7 +208,8 @@
         }
 
         .auto-refresh strong {
-            color: #667eea;
+            color:black;
+            opacity:0.8;
         }
     </style>
 </head>
@@ -230,7 +232,7 @@
 
         <div class="message">
             <strong>Status: Pending Approval</strong>
-            Your account is currently under review by our administration team. We typically review and approve applications within 24-48 hours.
+            Your account is currently under review by our administration team.You will receive an email notification once your application is approved.
         </div>
 
        

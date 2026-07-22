@@ -118,12 +118,23 @@ btn.addEventListener('click', function(){
 
             let uploadSections = [];
             if (app.uploads && typeof app.uploads === 'object' && !Array.isArray(app.uploads)) {
-                uploadSections.push(buildUploadSection('Certificate of Grades', app.uploads.certificate_of_grades || app.uploads.grades || []));
+                // Determine label for grades/enrollment files. For certain non-academic scholarships,
+                // show 'ID (Front and Back)' instead of 'Certificate of Grades'.
+                let gradesLabel = 'Certificate of Grades';
+                if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
+                    gradesLabel = 'ID (Front and Back)';
+                }
+                uploadSections.push(buildUploadSection(gradesLabel, app.uploads.certificate_of_grades || app.uploads.grades || []));
                 if (app.scholarship_name === 'University Based Scholarship') {
                     uploadSections.push(buildUploadSection('Certificate of Enrollment', app.uploads.certificate_of_enrollment || app.uploads.enrollment || []));
                 }
             } else if (app.uploads && Array.isArray(app.uploads) && app.uploads.length) {
-                uploadSections.push(buildUploadSection(app.grant_type === 'academic' ? 'Certificate of Grades' : 'Uploaded Files', app.uploads));
+                // For certain non-academic scholarships, label uploads as ID (Front and Back)
+                let nonAcademicIdLabel = 'Uploaded Files';
+                if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
+                    nonAcademicIdLabel = 'ID (Front and Back)';
+                }
+                uploadSections.push(buildUploadSection(app.grant_type === 'academic' ? 'Certificate of Grades' : nonAcademicIdLabel, app.uploads));
             }
 
             if (uploadSections.length) {
