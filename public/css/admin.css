@@ -320,16 +320,6 @@ body {
     transform: translateY(-2px);
 }
 
-.stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--maroon), var(--gold));
-}
-
 .stat-icon {
     font-size: 1.6rem;
     margin-bottom: 10px;
