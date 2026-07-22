@@ -18,7 +18,7 @@
     <div class="sidebar">
     <a href="/admin" class="sidebar-logo">
         <div class="logo-img">
-            <img src="{{ asset('images/csu.logo.png') }}" alt="CSU Logo">
+            <img src="{{ asset('images/csua-nobg.png') }}" alt="CSU Logo">
         </div>
         <div class="logo-text">
             <h2>CSU Grants</h2>

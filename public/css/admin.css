@@ -68,10 +68,11 @@ body {
 }
 
 .logo-img {
-    width: 44px;
-    height: 44px;
+    width: 54px;
+    height: 54px;
     overflow: hidden;
     flex-shrink: 0;
+    
 }
 
 .logo-img img {
