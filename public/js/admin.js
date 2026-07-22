@@ -102,12 +102,32 @@ btn.addEventListener('click', function(){
                 html += field('Religion', app.religion, 'religion');
             }
             
-            if (app.uploads && Array.isArray(app.uploads) && app.uploads.length){
-                let uploadLinks = app.uploads.map(u=>(`<a href="/storage/${u}" target="_blank" style="color:#007bff; text-decoration:none; margin-right:8px;">View File</a>`)).join('');
-                html += `<div style="display:flex; flex-direction:column; grid-column:1/-1;">
-                    <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">Uploaded Files</label>
-                    <div style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px;">${uploadLinks}</div>
+            const buildUploadSection = (label, files) => {
+                if (!files || !files.length) return '';
+
+                const uploadLinks = files.map(file => {
+                    const normalizedFile = String(file).replace(/^\/+/, '');
+                    return `<a href="/storage/${normalizedFile}" target="_blank" style="display:inline-block; min-width:86px; text-align:center; padding:6px 10px; border:1px solid #dbeafe; background:#f8fbff; color:#0d6efd; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600;">View File</a>`;
+                }).join('');
+
+                return `<div style="display:flex; flex-direction:column; gap:6px;">
+                    <label style="font-weight:600; color:#333; font-size:13px;">${label}</label>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px;">${uploadLinks}</div>
                 </div>`;
+            };
+
+            let uploadSections = [];
+            if (app.uploads && typeof app.uploads === 'object' && !Array.isArray(app.uploads)) {
+                uploadSections.push(buildUploadSection('Certificate of Grades', app.uploads.certificate_of_grades || app.uploads.grades || []));
+                if (app.scholarship_name === 'University Based Scholarship') {
+                    uploadSections.push(buildUploadSection('Certificate of Enrollment', app.uploads.certificate_of_enrollment || app.uploads.enrollment || []));
+                }
+            } else if (app.uploads && Array.isArray(app.uploads) && app.uploads.length) {
+                uploadSections.push(buildUploadSection(app.grant_type === 'academic' ? 'Certificate of Grades' : 'Uploaded Files', app.uploads));
+            }
+
+            if (uploadSections.length) {
+                html += `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; grid-column:1/-1;">${uploadSections.join('')}</div>`;
             }
             
         if(app.application_status){

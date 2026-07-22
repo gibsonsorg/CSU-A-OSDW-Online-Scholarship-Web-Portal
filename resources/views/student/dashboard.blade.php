@@ -967,15 +967,18 @@
                         </select>
                     </div>
                     <div class="full">
-                        <label>Upload files</label>
-                        <div style="background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:8px; border:1px solid #e5e5e5; font-size:0.85rem;">
-                            <p style="margin:0 0 8px 0; font-weight:600; color:#333;">Supported file types & sizes:</p>
-                            <ul style="margin:0; padding-left:20px; color:#666;">
-                                <li><strong>Documents:</strong> PDF, DOCX (max 2MB)</li>
-                                <li><strong>Images:</strong> JPG, PNG (max 1MB)</li>
-                            </ul>
+                        <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
+                            <div style="flex:1 1 320px; min-width:260px; max-width:420px;">
+                                <label style="display:block; margin-bottom:8px;">Certificate of Grades</label>
+                                <input type="file" id="academicFileInput" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
+                                <div id="academicFileNames" style="margin-top:8px; font-size:13px; color:#666;"></div>
+                            </div>
+                            <div id="academicEnrollmentSection" style="flex:1 1 320px; min-width:260px; max-width:420px; display:none;">
+                                <label style="display:block; margin-bottom:8px;">Certificate of Enrollment</label>
+                                <input type="file" id="academicEnrollmentFileInput" name="certificate_of_enrollment" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
+                                <div id="academicEnrollmentFileNames" style="margin-top:8px; font-size:13px; color:#666;"></div>
+                            </div>
                         </div>
-                        <input type="file" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
                     </div>
                 </div>
                 <div class="form-actions">
@@ -1124,6 +1127,39 @@
         console.log(`Selected ${fileCount} file(s), Total size: ${totalSizeMB}MB`);
       }
     });
+
+    // Display file names for academic grants
+    const academicFileInput = document.getElementById('academicFileInput');
+    if (academicFileInput) {
+      academicFileInput.addEventListener('change', function(e) {
+        const fileNames = document.getElementById('academicFileNames');
+        if (this.files.length > 0) {
+          let fileList = '';
+          for (let i = 0; i < this.files.length; i++) {
+            fileList += `<div> ${this.files[i].name}</div>`;
+          }
+          fileNames.innerHTML = fileList;
+        } else {
+          fileNames.innerHTML = '';
+        }
+      });
+    }
+
+    const academicEnrollmentFileInput = document.getElementById('academicEnrollmentFileInput');
+    if (academicEnrollmentFileInput) {
+      academicEnrollmentFileInput.addEventListener('change', function(e) {
+        const fileNames = document.getElementById('academicEnrollmentFileNames');
+        if (this.files.length > 0) {
+          let fileList = '';
+          for (let i = 0; i < this.files.length; i++) {
+            fileList += `<div> ${this.files[i].name}</div>`;
+          }
+          fileNames.innerHTML = fileList;
+        } else {
+          fileNames.innerHTML = '';
+        }
+      });
+    }
   </script>
 
   <!-- Error Popup Styles -->

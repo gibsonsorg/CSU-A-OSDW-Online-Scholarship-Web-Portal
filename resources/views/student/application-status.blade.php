@@ -234,17 +234,16 @@
             display: inline-block;
             padding: 0.55rem 1rem;
             border-radius: 8px;
-            background: #6d28d9;
-            color: #fff;
+            background: #6b0f1a;
+            color:white;
             font-size: 0.85rem;
             font-weight: 600;
             text-decoration: none;
-            transition: background 0.2s ease;
+            transition: transform 0.3s ease-in-out;
         }
 
         .empty-cta:hover {
-            background: #5b21b6;
-            color: #fff;
+        transform: translateY(-3px);
         }
 
         /* Rejection detail modal */

@@ -88,6 +88,30 @@ class StudentProfileController extends Controller
     }
 
     /**
+     * Collect uploaded files from a request field.
+     */
+    private function collectFilesFromRequest(Request $request, string $fieldName)
+    {
+        if (!$request->hasFile($fieldName)) {
+            return [];
+        }
+
+        $files = $request->file($fieldName);
+
+        if ($files instanceof \Illuminate\Http\UploadedFile) {
+            return $files->isValid() ? [$files] : [];
+        }
+
+        if (!is_array($files)) {
+            return [];
+        }
+
+        return array_values(array_filter($files, function ($file) {
+            return $file instanceof \Illuminate\Http\UploadedFile && $file->isValid();
+        }));
+    }
+
+    /**
      * Delete old files from storage
      */
     private function deleteOldFiles($uploads)
@@ -96,7 +120,24 @@ class StudentProfileController extends Controller
             return;
         }
 
-        foreach ($uploads as $filePath) {
+        $flattenedFiles = [];
+
+        foreach ($uploads as $key => $value) {
+            if (is_string($value)) {
+                $flattenedFiles[] = $value;
+                continue;
+            }
+
+            if (is_array($value)) {
+                foreach ($value as $nestedValue) {
+                    if (is_string($nestedValue)) {
+                        $flattenedFiles[] = $nestedValue;
+                    }
+                }
+            }
+        }
+
+        foreach ($flattenedFiles as $filePath) {
             try {
                 if (Storage::disk('public')->exists($filePath)) {
                     Storage::disk('public')->delete($filePath);
@@ -202,8 +243,15 @@ class StudentProfileController extends Controller
             $uploaded = [];
             $uploadErrors = [];
 
-            if ($request->hasFile('uploads')) {
-                $files = is_array($request->file('uploads')) ? $request->file('uploads') : [$request->file('uploads')];
+            $uploadGroups = [
+                'certificate_of_grades' => $this->collectFilesFromRequest($request, 'uploads'),
+                'certificate_of_enrollment' => $this->collectFilesFromRequest($request, 'certificate_of_enrollment'),
+            ];
+
+            foreach ($uploadGroups as $groupKey => $files) {
+                if (empty($files)) {
+                    continue;
+                }
 
                 foreach ($files as $file) {
                     if (!$file || !$file->isValid()) {
@@ -222,26 +270,26 @@ class StudentProfileController extends Controller
                     // Store the file
                     try {
                         $filePath = $file->store('student_profiles', 'public');
-                        $uploaded[] = $filePath;
+                        $uploaded[$groupKey][] = $filePath;
                         Log::info("File uploaded successfully: {$filePath}");
                     } catch (\Exception $e) {
                         $uploadErrors[] = "Failed to store file '{$file->getClientOriginalName()}': " . $e->getMessage();
                         Log::error("File storage error: " . $e->getMessage());
                     }
                 }
+            }
 
-                // If there were validation errors, return with messages
-                if (!empty($uploadErrors)) {
-                    $errorMessage = "Some files could not be processed:\n\n" . implode("\n\n", $uploadErrors);
-                    
-                    if (empty($uploaded)) {
-                        // No files were successfully uploaded
-                        return redirect()->back()
-                            ->with('error', $errorMessage)
-                            ->withInput();
-                    }
-                    // Some files succeeded, continue with partial upload
+            // If there were validation errors, return with messages
+            if (!empty($uploadErrors)) {
+                $errorMessage = "Some files could not be processed:\n\n" . implode("\n\n", $uploadErrors);
+                
+                if (empty($uploaded)) {
+                    // No files were successfully uploaded
+                    return redirect()->back()
+                        ->with('error', $errorMessage)
+                        ->withInput();
                 }
+                // Some files succeeded, continue with partial upload
             }
 
             $data['uploads'] = !empty($uploaded) ? $uploaded : null;
@@ -298,8 +346,15 @@ class StudentProfileController extends Controller
             $uploadErrors = [];
             $newUploads = [];
 
-            if ($request->hasFile('uploads')) {
-                $files = is_array($request->file('uploads')) ? $request->file('uploads') : [$request->file('uploads')];
+            $uploadGroups = [
+                'certificate_of_grades' => $this->collectFilesFromRequest($request, 'uploads'),
+                'certificate_of_enrollment' => $this->collectFilesFromRequest($request, 'certificate_of_enrollment'),
+            ];
+
+            foreach ($uploadGroups as $groupKey => $files) {
+                if (empty($files)) {
+                    continue;
+                }
 
                 foreach ($files as $file) {
                     if (!$file || !$file->isValid()) {
@@ -316,22 +371,22 @@ class StudentProfileController extends Controller
 
                     try {
                         $filePath = $file->store('student_profiles', 'public');
-                        $newUploads[] = $filePath;
+                        $newUploads[$groupKey][] = $filePath;
                     } catch (\Exception $e) {
                         $uploadErrors[] = "Failed to store file: " . $e->getMessage();
                     }
                 }
+            }
 
-                if (!empty($newUploads)) {
-                    // Delete old files
-                    $this->deleteOldFiles($profile->uploads);
+            if (!empty($newUploads)) {
+                // Delete old files
+                $this->deleteOldFiles($profile->uploads);
 
-                    // Update with new files
-                    $profile->uploads = $newUploads;
-                    $profile->save();
+                // Update with new files
+                $profile->uploads = $newUploads;
+                $profile->save();
 
-                    Log::info("Documents updated for profile {$id}");
-                }
+                Log::info("Documents updated for profile {$id}");
             }
 
             $message = 'Documents updated successfully.';

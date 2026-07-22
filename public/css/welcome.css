@@ -439,6 +439,7 @@ nav {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 1.5rem;
+    margin-top: 2rem;
 }
 
 /* Welcome Section */
@@ -525,6 +526,7 @@ nav {
     gap: 1rem;
     justify-content: center;
     flex-wrap: wrap;
+    
 }
 
 .btn {
@@ -539,6 +541,7 @@ nav {
 .btn-primary {
     background-color: #FFC107;
     color: #333;
+    border-radius: 25px;
 }
 
 .btn-primary:hover {

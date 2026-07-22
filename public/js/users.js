@@ -148,6 +148,11 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             }
 
+            const enrollmentSection = document.getElementById('academicEnrollmentSection');
+            if (enrollmentSection) {
+                enrollmentSection.style.display = title === 'University Based Scholarship' ? 'block' : 'none';
+            }
+
             openAcademicApplyModal();
         });
     });
@@ -215,8 +220,10 @@ document.addEventListener('DOMContentLoaded', function(){
         if (form) form.reset();
         const nameSel = document.getElementById('academic_scholarship_name');
         const typeSel = document.getElementById('academic_scholarship_type');
+        const enrollmentSection = document.getElementById('academicEnrollmentSection');
         if (nameSel) { Array.from(nameSel.options).forEach(o=>{ if (o.dataset.generated==='1') o.remove(); }); nameSel.dataset.autofilled = ''; }
         if (typeSel) { Array.from(typeSel.options).forEach(o=>{ if (o.dataset.generated==='1') o.remove(); }); typeSel.dataset.autofilled = ''; }
+        if (enrollmentSection) { enrollmentSection.style.display = 'none'; }
         closeAcademicApplyModal();
     }
 
