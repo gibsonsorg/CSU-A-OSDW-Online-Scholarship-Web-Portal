@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="{{ asset('css/auth.css') }}">   
 </head>
 <body>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <div class="container">
         <div class="left-panel">
             <div class="logo">
@@ -107,6 +109,24 @@
             </form>
         </div>
     </div>
+       //success message upon registration
+    @if(session('success'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Registration Successful',
+                    text: 'Your account has been created. Please wait for admin approval.',
+                    icon: 'success',
+                    draggable: true,
+                    confirmButtonText: 'OK'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = '{{ route('approval.waiting') }}';
+                    }
+                });
+            });
+        </script>
+    @endif
 
     <script>
         // Frontend file validation for school ID

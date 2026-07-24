@@ -67,8 +67,7 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        // Don't auto-login. Redirect to approval waiting page instead
-        return redirect(route('approval.waiting'))->with('status', 'Registration successful! Your account is under review. Please wait for admin approval.');
+        return redirect()->back()->with('success', true);
     }
 }
 
