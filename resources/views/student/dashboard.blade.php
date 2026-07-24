@@ -7,6 +7,7 @@
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <!-- Dashboard Styles -->
     <link rel="stylesheet" href="{{ asset('css/users.css') }}">
@@ -671,16 +672,24 @@
             @if(session('success'))
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
-                        document.getElementById('submitSuccessMessage').innerHTML = '{{ session('success') }}';
-                        document.getElementById('submitSuccessPopup').style.display = 'flex';
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'SUCCESS',
+                            text: @json(session('success')),
+                            confirmButtonColor: '#16a34a'
+                        });
                     });
                 </script>
             @endif
             @if(session('error'))
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
-                        document.getElementById('errorMessage').innerHTML = '<p>{{ session('error') }}</p>';
-                        document.getElementById('errorPopup').style.display = 'flex';
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'File Upload Error',
+                            text: @json(session('error')),
+                            confirmButtonColor: '#dc2626'
+                        });
                     });
                 </script>
             @endif
@@ -822,34 +831,6 @@
                 </div>
             </form>
 
-            <!-- Error Popup Alert -->
-            <div id="errorPopup" class="error-popup" style="display: none;">
-                <div class="error-popup-content">
-                    <div class="error-popup-header">File Upload Error</div>
-                    <div class="error-popup-body" id="errorMessage"></div>
-                    <button class="error-popup-btn" onclick="closeErrorPopup()">OK</button>
-                </div>
-            </div>
-
-            <!-- Success Popup Alert -->
-            <div id="successPopup" class="success-popup" style="display: none;">
-                <div class="success-popup-content">
-                    <div class="success-popup-header">Files Validated Successfully</div>
-                    <div class="success-popup-body" id="successMessage"></div>
-                    <button class="success-popup-btn" onclick="submitForm()">Submit Application</button>
-                    <button class="success-popup-cancel" onclick="closeSuccessPopup()">Cancel</button>
-                </div>
-            </div>
-
-            <!-- Submission Success Popup -->
-            <div id="submitSuccessPopup" class="submit-success-popup" style="display: none;">
-                <div class="submit-success-content">
-                    <div class="submit-success-header">SUCCESS</div>
-                    <div class="submit-success-body" id="submitSuccessMessage"></div>
-                    <p style="text-align: center; color: #999; font-size: 13px; margin-top: 15px;">Redirecting...</p>
-                    <button class="submit-success-btn" onclick="location.reload()">OK</button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -971,6 +952,14 @@
                         </select>
                     </div>
                     <div class="full">
+                        <label>Upload files</label>
+                        <div style="background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:8px; border:1px solid #e5e5e5; font-size:0.85rem;">
+                            <p style="margin:0 0 8px 0; font-weight:600; color:#333;">Supported file types & sizes:</p>
+                            <ul style="margin:0; padding-left:20px; color:#666;">
+                                <li><strong>Documents:</strong> PDF, DOCX (max 2MB)</li>
+                                <li><strong>Images:</strong> JPG, PNG (max 1MB)</li>
+                            </ul>
+                        </div>
                         <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
                             <div style="flex:1 1 320px; min-width:260px; max-width:420px;">
                                 <label style="display:block; margin-bottom:8px;">Certificate of Grades</label>
@@ -990,34 +979,6 @@
                 </div>
             </form>
 
-            <!-- Error Popup Alert -->
-            <div id="academicErrorPopup" class="error-popup" style="display: none;">
-                <div class="error-popup-content">
-                    <div class="error-popup-header">File Upload Error</div>
-                    <div class="error-popup-body" id="academicErrorMessage"></div>
-                    <button class="error-popup-btn" onclick="closeAcademicErrorPopup()">OK</button>
-                </div>
-            </div>
-
-            <!-- Success Popup Alert -->
-            <div id="academicSuccessPopup" class="success-popup" style="display: none;">
-                <div class="success-popup-content">
-                    <div class="success-popup-header">Files Validated Successfully</div>
-                    <div class="success-popup-body" id="academicSuccessMessage"></div>
-                    <button class="success-popup-btn" onclick="submitAcademicForm()">Submit Application</button>
-                    <button class="success-popup-cancel" onclick="closeAcademicSuccessPopup()">Cancel</button>
-                </div>
-            </div>
-
-            <!-- Submission Success Popup -->
-            <div id="academicSubmitSuccessPopup" class="submit-success-popup" style="display: none;">
-                <div class="submit-success-content">
-                    <div class="submit-success-header">SUCCESS</div>
-                    <div class="submit-success-body" id="academicSubmitSuccessMessage"></div>
-                    <p style="text-align: center; color: #999; font-size: 13px; margin-top: 15px;">Redirecting...</p>
-                    <button class="submit-success-btn" onclick="location.reload()">OK</button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -1051,6 +1012,40 @@
       return null;
     }
 
+    function getAllFileInputs(form) {
+      return Array.from(form.querySelectorAll('input[type="file"]')).filter(input => input.files && input.files.length > 0);
+    }
+
+    function validateFiles(files) {
+      const errors = [];
+      const successFiles = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileName = file.name;
+        const fileSize = file.size;
+        const fileExt = fileName.split('.').pop();
+        const category = getFileCategory(fileExt);
+
+        if (!category) {
+          errors.push(`"${fileName}" - Unsupported format. Allowed: PDF, DOCX, JPG, PNG`);
+          continue;
+        }
+
+        const maxSize = fileValidationRules[category].maxSize;
+        const displaySize = fileValidationRules[category].displaySize;
+        const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
+
+        if (fileSize > maxSize) {
+          errors.push(`"${fileName}" - Size: ${fileSizeMB}MB exceeds limit of ${displaySize}`);
+        } else {
+          successFiles.push(`"${fileName}" - ${fileSizeMB}MB (${category})`);
+        }
+      }
+
+      return { errors, successFiles };
+    }
+
     // Validate files on form submission
     document.getElementById('applyForm').addEventListener('submit', function(e) {
       // Allow submission if flag is set
@@ -1059,8 +1054,8 @@
         return true;
       }
 
-      const fileInput = document.querySelector('input[name="uploads[]"]');
-      const files = fileInput.files;
+      const fileInputs = getAllFileInputs(this);
+      const files = fileInputs.reduce((list, input) => list.concat(Array.from(input.files)), []);
 
       if (files.length === 0) {
         // No files selected - allow form submission
@@ -1070,8 +1065,7 @@
 
       e.preventDefault();
 
-      let errors = [];
-      let successFiles = [];
+      const { errors, successFiles } = validateFiles(files);
 
       // Validate each file
       for (let i = 0; i < files.length; i++) {
@@ -1101,18 +1095,82 @@
 
       // If there are errors, show error popup
       if (errors.length > 0) {
-        const errorList = errors.map(err => `<p>${err}</p>`).join('');
-        document.getElementById('errorMessage').innerHTML = errorList;
-        document.getElementById('errorPopup').style.display = 'flex';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'File Upload Error',
+                    text: errors.join('\n'),
+                    confirmButtonColor: '#dc2626'
+                });
         return false;
       }
 
       // If all files are valid, show success popup
       if (successFiles.length > 0) {
-        const successList = successFiles.map(file => `<p>${file}</p>`).join('');
-        document.getElementById('successMessage').innerHTML = 
-          `<p>All files validated successfully and are ready to upload:</p>\n` + successList;
-        document.getElementById('successPopup').style.display = 'flex';
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Files Validated Successfully',
+                    text: 'All files validated successfully and are ready to upload.\n' + successFiles.join('\n'),
+                    showCancelButton: true,
+                    confirmButtonText: 'Submit Application',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#16a34a',
+                    cancelButtonColor: '#6b7280'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        allowSubmit = true;
+                        submitForm();
+                    }
+                });
+        return false;
+      }
+
+      return true;
+    });
+     //error message
+    document.getElementById('academicApplyForm').addEventListener('submit', function(e) {
+      if (allowSubmit) {
+        allowSubmit = false;
+        return true;
+      }
+
+      const fileInputs = getAllFileInputs(this);
+      const files = fileInputs.reduce((list, input) => list.concat(Array.from(input.files)), []);
+
+      if (files.length === 0) {
+        allowSubmit = true;
+        return true;
+      }
+
+      e.preventDefault();
+
+      const { errors, successFiles } = validateFiles(files);
+
+      if (errors.length > 0) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'File Upload Error',
+                    text: errors.join('\n'),
+                    confirmButtonColor: '#dc2626'
+                });
+        return false;
+      }
+
+      if (successFiles.length > 0) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Files Validated Successfully',
+                    text: 'All files validated successfully and are ready to upload.\n' + successFiles.join('\n'),
+                    showCancelButton: true,
+                    confirmButtonText: 'Submit Application',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#16a34a',
+                    cancelButtonColor: '#6b7280'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        allowSubmit = true;
+                        submitAcademicForm();
+                    }
+                });
         return false;
       }
 
@@ -1174,41 +1232,12 @@
   <script>
     let allowSubmit = false;
 
-    function closeErrorPopup() {
-      document.getElementById('errorPopup').style.display = 'none';
-    }
-
-    function closeSuccessPopup() {
-      document.getElementById('successPopup').style.display = 'none';
-    }
-
-    function closeSubmitSuccessPopup() {
-      document.getElementById('submitSuccessPopup').style.display = 'none';
-    }
-
-    function submitForm() {
-      allowSubmit = true;
-      document.getElementById('applyForm').submit();
-    }
+        function submitForm() {
+            allowSubmit = true;
+            document.getElementById('applyForm').submit();
+        }
 
     // Close popup when clicking outside
-    document.getElementById('errorPopup').addEventListener('click', function(e) {
-      if (e.target === this) {
-        closeErrorPopup();
-      }
-    });
-
-    document.getElementById('successPopup').addEventListener('click', function(e) {
-      if (e.target === this) {
-        closeSuccessPopup();
-      }
-    });
-
-    document.getElementById('submitSuccessPopup').addEventListener('click', function(e) {
-      if (e.target === this) {
-        closeSubmitSuccessPopup();
-      }
-    });
 
     (function () {
       const section = @json($section ?? 'acad');

@@ -109,7 +109,7 @@
             </form>
         </div>
     </div>
-       //success message upon registration
+       
     @if(session('success'))
         <script>
             document.addEventListener('DOMContentLoaded', function () {

@@ -8,6 +8,8 @@ use App\Models\StudentProfile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
 
 class StudentProfileController extends Controller
 {
@@ -294,34 +296,79 @@ class StudentProfileController extends Controller
 
             $data['uploads'] = !empty($uploaded) ? $uploaded : null;
 
-            $profile = StudentProfile::create($data);
+            // Wrap profile + scholarship + application creation in a DB transaction
+            // Also check for an existing Application for this user + scholarship_id
+            try {
+                DB::beginTransaction();
 
-            $scholarship = Scholarship::firstOrCreate(
-                ['name' => $data['scholarship_name']],
-                ['type' => $data['grant_type']]
-            );
+                $profile = StudentProfile::create($data);
 
-            Application::create([
-                'user_id' => $user->id,
-                'scholarship_id' => $scholarship->id,
-                'status' => $profile->application_status ?? 'pending',
-            ]);
+                $scholarship = Scholarship::firstOrCreate(
+                    ['name' => $data['scholarship_name']],
+                    ['type' => $data['grant_type']]
+                );
 
-            Log::info('Student profile created successfully', [
-                'profile_id' => $profile->id,
-                'user_id' => $profile->user_id,
-                'scholarship_id' => $scholarship->id,
-                'email' => $profile->email,
-                'fileCount' => count($uploaded)
-            ]);
+                // Check if an Application already exists for this user and scholarship_id
+                $existingApp = Application::where('user_id', $user->id)
+                    ->where('scholarship_id', $scholarship->id)
+                    ->first();
 
-            $successMessage = 'Application submitted successfully for ' . $profile->scholarship_name;
-            if (!empty($uploadErrors)) {
-                $successMessage .= "\n\ Note: Some files could not be processed:\n" . implode("\n", $uploadErrors);
+                if ($existingApp) {
+                    // Rollback and return the same friendly error message used earlier
+                    DB::rollBack();
+                    return redirect()->route('dashboard', ['section' => 'non'])
+                        ->with('error', 'You have already applied for the ' . $data['scholarship_name'] . ' scholarship. Only one application per scholarship is allowed.');
+                }
+
+                Application::create([
+                    'user_id' => $user->id,
+                    'scholarship_id' => $scholarship->id,
+                    'status' => $profile->application_status ?? 'pending',
+                ]);
+
+                DB::commit();
+
+                Log::info('Student profile created successfully', [
+                    'profile_id' => $profile->id,
+                    'user_id' => $profile->user_id,
+                    'scholarship_id' => $scholarship->id,
+                    'email' => $profile->email,
+                    'fileCount' => count($uploaded)
+                ]);
+
+                $successMessage = 'Application submitted successfully for ' . $profile->scholarship_name;
+                if (!empty($uploadErrors)) {
+                    $successMessage .= "\n\ Note: Some files could not be processed:\n" . implode("\n", $uploadErrors);
+                }
+
+                return redirect()->route('dashboard', ['section' => 'non'])
+                    ->with('success', $successMessage);
+
+            } catch (QueryException $e) {
+                // Handle DB-level duplicate key race-condition gracefully
+                Log::error('Database error while creating application', ['error' => $e->getMessage()]);
+
+                // If it's a duplicate entry (unique constraint), return friendly message
+                $msg = strtolower($e->getMessage());
+                if (str_contains($msg, 'duplicate') || str_contains($msg, 'unique') || $e->getCode() == '23000') {
+                    DB::rollBack();
+                    return redirect()->route('dashboard', ['section' => 'non'])
+                        ->with('error', 'You have already applied for the ' . $data['scholarship_name'] . ' scholarship. Only one application per scholarship is allowed.');
+                }
+
+                DB::rollBack();
+                // Do not expose SQL errors to the user — show a generic failure message
+                return redirect()->back()
+                    ->with('error', 'Failed to submit application.')
+                    ->withInput();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                Log::error('Error saving student profile', ['error' => $e->getMessage(), 'code' => $e->getCode()]);
+                // Do not expose exception details to the user
+                return redirect()->back()
+                    ->with('error', 'Failed to submit application.')
+                    ->withInput();
             }
-
-            return redirect()->route('dashboard', ['section' => 'non'])
-                ->with('success', $successMessage);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Validation error in student profile store', ['errors' => $e->errors()]);
