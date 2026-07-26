@@ -121,7 +121,9 @@ btn.addEventListener('click', function(){
                 // Determine label for grades/enrollment files. For certain non-academic scholarships,
                 // show 'ID (Front and Back)' instead of 'Certificate of Grades'.
                 let gradesLabel = 'Certificate of Grades';
-                if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
+                if (app.grant_type !== 'academic' && app.scholarship_name === 'Tertiary Education Subsidy') {
+                    gradesLabel = 'Submitted Requirements';
+                } else if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
                     gradesLabel = 'ID (Front and Back)';
                 }
                 uploadSections.push(buildUploadSection(gradesLabel, app.uploads.certificate_of_grades || app.uploads.grades || []));
@@ -131,7 +133,9 @@ btn.addEventListener('click', function(){
             } else if (app.uploads && Array.isArray(app.uploads) && app.uploads.length) {
                 // For certain non-academic scholarships, label uploads as ID (Front and Back)
                 let nonAcademicIdLabel = 'Uploaded Files';
-                if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
+                if (app.grant_type !== 'academic' && app.scholarship_name === 'Tertiary Education Subsidy') {
+                    nonAcademicIdLabel = 'Submitted Requirements';
+                } else if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
                     nonAcademicIdLabel = 'ID (Front and Back)';
                 }
                 uploadSections.push(buildUploadSection(app.grant_type === 'academic' ? 'Certificate of Grades' : nonAcademicIdLabel, app.uploads));
