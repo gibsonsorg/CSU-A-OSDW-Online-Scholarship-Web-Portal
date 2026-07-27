@@ -17,4 +17,9 @@ class StudentProfile extends Model
         'uploads' => 'array',
         'birthdate' => 'date',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

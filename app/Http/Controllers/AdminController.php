@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ApplicationStatusMail;
 use App\Mail\ApprovalMail;
 use App\Mail\RejectionMail;
 use App\Models\Application;
@@ -86,6 +87,22 @@ class AdminController extends Controller
 
         $this->syncApplicationRecord($application, 'approved');
 
+        try {
+            $user = $application->user()->first();
+            if ($user) {
+                Mail::to($user->email)->send(new ApplicationStatusMail(
+                    $user->name ?? $application->first_name . ' ' . $application->last_name,
+                    $application->scholarship_name ?? 'Scholarship',
+                    'approved'
+                ));
+            }
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'ok',
+                'message' => 'Application approved but email could not be sent: ' . $e->getMessage(),
+            ]);
+        }
+
         return response()->json(['status' => 'ok', 'message' => 'Application approved']);
     }
 
@@ -129,6 +146,22 @@ class AdminController extends Controller
             $application->save();
 
             $this->syncApplicationRecord($application, 'rejected');
+
+            try {
+                $user = $application->user()->first();
+                if ($user) {
+                    Mail::to($user->email)->send(new ApplicationStatusMail(
+                        $user->name ?? $application->first_name . ' ' . $application->last_name,
+                        $application->scholarship_name ?? 'Scholarship',
+                        'rejected'
+                    ));
+                }
+            } catch (\Throwable $e) {
+                return response()->json([
+                    'status' => 'ok',
+                    'message' => 'Application rejected but email could not be sent: ' . $e->getMessage(),
+                ]);
+            }
 
             return response()->json(['status' => 'ok', 'message' => 'Application rejected']);
         }
