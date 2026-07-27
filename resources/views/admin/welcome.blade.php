@@ -464,15 +464,15 @@
                   .then(response => response.json())
                   .then(data => {
                       if (data.status === 'ok') {
-                          alert('User approved!');
+                          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'User approved successfully', showConfirmButton: false, timer: 2000, timerProgressBar: true });
                           loadUsers();
                       } else {
-                          alert('Error: ' + (data.message || 'Failed'));
+                          Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Failed' });
                       }
                   })
                   .catch(error => {
                       console.error('Error:', error);
-                      alert('Error approving user');
+                      Swal.fire({ icon: 'error', title: 'Error', text: 'Error approving user' });
                   });
               }
 
