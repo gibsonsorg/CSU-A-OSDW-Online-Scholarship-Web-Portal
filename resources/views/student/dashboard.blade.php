@@ -820,8 +820,8 @@
                             </ul>
                         </div>
 
-                        <!-- ID label to show for specific non-academic scholarships (Open Heart, Talamayan) -->
-                        <div id="nonAcademicIDLabel" style="display:none; font-weight:600; margin-bottom:8px; color:#333;">ID (Front and Back) – PDF or DOC/DOCX Format</div>
+                        <!-- ID label to show for specific non-academic scholarships -->
+                        <div id="nonAcademicIDLabel" style="display:none; font-weight:600; margin-bottom:8px; color:#333;">Front and Back School ID docs or PDF Format</div>
 
                         <div class="tes-docs-label" style="display:none; margin-bottom:10px; padding:12px; border-radius:8px; background:#f9f9f9; border:1px solid #e5e5e5;">
                             <p style="margin:0 0 8px 0; font-weight:600; color:#333; font-size:0.9rem;">Required Documents (PDF Format)</p>
@@ -838,7 +838,44 @@
                             #applyForm:has(#scholarship_name option[value="Tertiary Education Subsidy"]:checked) .tes-docs-label {
                                 display: block !important;
                             }
+
+                            #applyForm:has(#scholarship_name option[value="Differently Abled Persons"]:checked) #nonAcademicIDLabel,
+                            #applyForm:has(#scholarship_name option[value="Open Heart Scholarship"]:checked) #nonAcademicIDLabel,
+                            #applyForm:has(#scholarship_name option[value="Talamayan Scholarship"]:checked) #nonAcademicIDLabel {
+                                display: block !important;
+                            }
+
+                            #applyForm:has(#scholarship_name option[value="Athletic Scholarship"]:checked) .athletic-only-fields {
+                                display: flex !important;
+                            }
+
+                            #applyForm:has(#scholarship_name option[value="Campus Student Publication"]:checked) .campus-publication-label {
+                                display: block !important;
+                            }
+
+                            #applyForm:has(#scholarship_name option[value="CSU Aparri Alumni Association"]:checked) .alumni-label {
+                                display: block !important;
+                            }
                         </style>
+
+                        <div class="athletic-only-fields" style="display:none; gap:16px; flex-wrap:wrap; align-items:flex-start; margin-top:10px;">
+                            <div style="flex:1 1 320px; min-width:260px; max-width:420px;">
+                                <label style="display:block; margin-bottom:8px;">Certificate from the Sports Coordinator</label>
+                                <input type="file" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
+                            </div>
+                            <div style="flex:1 1 320px; min-width:260px; max-width:420px;">
+                                <label style="display:block; margin-bottom:8px;">Certificate of Adviser</label>
+                                <input type="file" name="certificate_of_adviser" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
+                            </div>
+                        </div>
+
+                        <div class="campus-publication-label" style="display:none; font-weight:600; margin-top:10px; margin-bottom:8px; color:#333;">
+                            Certificate from the Adviser
+                        </div>
+
+                        <div class="alumni-label" style="display:none; font-weight:600; margin-top:10px; margin-bottom:8px; color:#333;">
+                            Certificate of Enrollment
+                        </div>
 
                         <input type="file" name="uploads[]" multiple id="nonAcademicUploadsInput" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
                     </div>

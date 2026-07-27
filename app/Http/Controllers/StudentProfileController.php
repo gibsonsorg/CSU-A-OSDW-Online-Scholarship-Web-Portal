@@ -250,6 +250,10 @@ class StudentProfileController extends Controller
                 'certificate_of_enrollment' => $this->collectFilesFromRequest($request, 'certificate_of_enrollment'),
             ];
 
+            if ($request->input('scholarship_name') === 'Athletic Scholarship') {
+                $uploadGroups['certificate_of_adviser'] = $this->collectFilesFromRequest($request, 'certificate_of_adviser');
+            }
+
             foreach ($uploadGroups as $groupKey => $files) {
                 if (empty($files)) {
                     continue;

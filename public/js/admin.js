@@ -118,15 +118,20 @@ btn.addEventListener('click', function(){
 
             let uploadSections = [];
             if (app.uploads && typeof app.uploads === 'object' && !Array.isArray(app.uploads)) {
-                // Determine label for grades/enrollment files. For certain non-academic scholarships,
-                // show 'ID (Front and Back)' instead of 'Certificate of Grades'.
-                let gradesLabel = 'Certificate of Grades';
-                if (app.grant_type !== 'academic' && app.scholarship_name === 'Tertiary Education Subsidy') {
-                    gradesLabel = 'Submitted Requirements';
-                } else if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
-                    gradesLabel = 'ID (Front and Back)';
+                if (app.grant_type !== 'academic' && app.scholarship_name === 'Athletic Scholarship') {
+                    uploadSections.push(buildUploadSection('Certificate from the Sports Coordinator', app.uploads.certificate_of_grades || app.uploads.grades || []));
+                    uploadSections.push(buildUploadSection('Certificate of Adviser', app.uploads.certificate_of_adviser || []));
+                } else {
+                    // Determine label for grades/enrollment files. For certain non-academic scholarships,
+                    // show 'ID (Front and Back)' instead of 'Certificate of Grades'.
+                    let gradesLabel = 'Certificate of Grades';
+                    if (app.grant_type !== 'academic' && app.scholarship_name === 'Tertiary Education Subsidy') {
+                        gradesLabel = 'Submitted Requirements';
+                    } else if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
+                        gradesLabel = 'ID (Front and Back)';
+                    }
+                    uploadSections.push(buildUploadSection(gradesLabel, app.uploads.certificate_of_grades || app.uploads.grades || []));
                 }
-                uploadSections.push(buildUploadSection(gradesLabel, app.uploads.certificate_of_grades || app.uploads.grades || []));
                 if (app.scholarship_name === 'University Based Scholarship') {
                     uploadSections.push(buildUploadSection('Certificate of Enrollment', app.uploads.certificate_of_enrollment || app.uploads.enrollment || []));
                 }
