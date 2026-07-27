@@ -264,6 +264,98 @@
     </div>
 </div>
 
+          <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+          <script>
+              function confirmDelete(id) {
+                  Swal.fire({
+                      title: 'Are you sure?',
+                      text: 'Are you sure you want to DELETE this application?',
+                      icon: 'error',
+                      showCancelButton: true,
+                      confirmButtonText: 'YES',
+                      cancelButtonText: 'NO',
+                      confirmButtonColor: '#dc3545',
+                      cancelButtonColor: '#6c757d'
+                  }).then((result) => {
+                      if (result.isConfirmed) {
+                          var f = document.getElementById('deleteForm-' + id);
+                          if (f) f.submit();
+                      }
+                  });
+              }
+
+              function confirmApprove(id) {
+                  Swal.fire({
+                      title: 'Are you sure?',
+                      text: 'Are you sure you want to APPROVE this application?',
+                      icon: 'success',
+                      showCancelButton: true,
+                      confirmButtonText: 'YES',
+                      cancelButtonText: 'NO',
+                      confirmButtonColor: '#28a745',
+                      cancelButtonColor: '#6c757d'
+                  }).then((result) => {
+                      if (result.isConfirmed) {
+                          var f = document.getElementById('approveForm-' + id);
+                          if (f) f.submit();
+                      }
+                  });
+              }
+
+              function confirmReject(id) {
+                  Swal.fire({
+                      title: 'Are you sure?',
+                      text: 'Are you sure you want to REJECT this application?',
+                      icon: 'warning',
+                      showCancelButton: true,
+                      confirmButtonText: 'YES',
+                      cancelButtonText: 'NO',
+                      confirmButtonColor: '#f97316',
+                      cancelButtonColor: '#6c757d'
+                  }).then((result) => {
+                      if (result.isConfirmed) {
+                          var f = document.getElementById('rejectForm-' + id);
+                          if (f) f.submit();
+                      }
+                  });
+              }
+
+              // Approve user with SweetAlert (used by users table)
+              function confirmApproveUser(id) {
+                  Swal.fire({
+                      title: 'Are you sure?',
+                      text: 'Are you sure you want to approve this user?',
+                      icon: 'success',
+                      showCancelButton: true,
+                      confirmButtonText: 'Approve',
+                      cancelButtonText: 'Cancel',
+                      confirmButtonColor: '#28a745',
+                      cancelButtonColor: '#6c757d'
+                  }).then(result => {
+                      if (!result.isConfirmed) return;
+                      // submit form if exists
+                      var f = document.getElementById('approveForm-' + id);
+                      if (f) { f.submit(); return; }
+                      // otherwise call existing performApprove if present
+                      if (typeof performApprove === 'function') {
+                          performApprove(id);
+                      } else {
+                          // fallback: POST and show toast
+                          fetch(`/admin/users/${id}/approve`, { method: 'POST', headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }})
+                          .then(r=>r.json()).then(data=>{
+                              if (data.status === 'ok') {
+                                  Swal.fire({ toast:true, position:'top-end', icon:'success', title:'User approved successfully', showConfirmButton:false, timer:2000, timerProgressBar:true });
+                                  if (typeof loadUsers === 'function') loadUsers();
+                              } else {
+                                  Swal.fire({ icon:'error', title:'Error', text: data.message || 'Failed' });
+                              }
+                          }).catch(err=>{
+                              Swal.fire({ icon:'error', title:'Error', text: err.message });
+                          });
+                      }
+                  });
+              }
+          </script>
           <script src="{{ asset('js/admin.js') }}?v={{ time() }}"></script>
           <script>
               // Modals

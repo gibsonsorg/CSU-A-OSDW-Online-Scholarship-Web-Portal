@@ -6,6 +6,36 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>System Settings — CSU GMS</title>
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        function confirmRestoreApplicant(id, name) {
+            const text = name ? `Are you sure you want to restore ${name}? They will be returned to their original grant section.` : 'Are you sure you want to restore this applicant?';
+            Swal.fire({
+                title: 'Are you sure?',
+                text: text,
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, restore',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#0d6efd',
+                cancelButtonColor: '#6c757d'
+            }).then(async (result) => {
+                if (!result.isConfirmed) return;
+                try {
+                    const resp = await fetch(`/admin/backup/restore/${id}`, { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Content-Type': 'application/json' }});
+                    const data = await resp.json();
+                    if (data.status === 'ok') {
+                        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: data.message || 'Applicant restored successfully', showConfirmButton: false, timer: 1500, timerProgressBar: true });
+                        setTimeout(()=> location.reload(), 600);
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Error', text: data.error || data.message || 'Failed to restore applicant' });
+                    }
+                } catch (err) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+                }
+            });
+        }
+    </script>
     <script src="{{ asset('js/backup.js') }}" defer></script>
     <style>
         * {
@@ -581,35 +611,16 @@
     <script>
         // Applicant restore functionality
         document.querySelectorAll('.btn-restore').forEach(button => {
-            button.addEventListener('click', async function() {
+            button.addEventListener('click', function() {
                 const id = this.dataset.id;
                 const name = this.dataset.name;
-                
-                if (!confirm(`Are you sure you want to restore ${name}? They will be returned to their original grant section.`)) {
-                    return;
-                }
-
-                try {
-                    const response = await fetch(`/admin/backup/restore/${id}`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    const data = await response.json();
-                    
-                    if (data.status === 'ok') {
-                        alert('✓ ' + data.message);
-                        setTimeout(() => {
-                            location.reload();
-                        }, 500);
-                    } else {
-                        alert('✗ Error: ' + (data.error || 'Failed to restore applicant'));
-                    }
-                } catch (error) {
-                    alert('✗ Error: ' + error.message);
+                if (typeof confirmRestoreApplicant === 'function') {
+                    confirmRestoreApplicant(id, name);
+                } else {
+                    // fallback
+                    if (!confirm(`Are you sure you want to restore ${name}? They will be returned to their original grant section.`)) return;
+                    fetch(`/admin/backup/restore/${id}`, { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Content-Type': 'application/json' } })
+                        .then(r=>r.json()).then(data=>{ if (data.status==='ok') { alert('✓ '+data.message); setTimeout(()=>location.reload(),500); } else alert('✗ Error: '+(data.error||'Failed to restore applicant')); }).catch(err=>alert('✗ Error: '+err.message));
                 }
             });
         });
@@ -645,12 +656,12 @@ Status: ${applicant.application_status || 'N/A'}
 ID Number: ${applicant.id_number || 'N/A'}
 Deleted On: ${applicant.deleted_at ? new Date(applicant.deleted_at).toLocaleString() : 'N/A'}
                         `;
-                        alert(info);
+                        Swal.fire({ title: 'Applicant Information', html: `<pre style="text-align:left; white-space:pre-wrap;">${info}</pre>`, confirmButtonText: 'OK' });
                     } else {
-                        alert('✗ Error: ' + (data.error || 'Failed to load applicant info'));
+                        Swal.fire({ icon: 'error', title: 'Error', text: '✗ Error: ' + (data.error || 'Failed to load applicant info') });
                     }
                 } catch (error) {
-                    alert('✗ Error: ' + error.message);
+                    Swal.fire({ icon: 'error', title: 'Error', text: '✗ Error: ' + error.message });
                 }
             });
         });

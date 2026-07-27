@@ -241,13 +241,14 @@ document.addEventListener('click', function(e) {
         
         postJson('/admin/applications/'+currentAppId+'/update', updateData)
             .then(response => {
-                alert('Profile updated successfully!');
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Profile updated successfully!', showConfirmButton: false, timer: 2500, timerProgressBar: true });
                 isEditMode = false;
                 // Reload profile
-                document.querySelector('.view-profile-btn[data-id="'+currentAppId+'"]').click();
+                var reloadBtn = document.querySelector('.view-profile-btn[data-id="'+currentAppId+'"]');
+                if (reloadBtn) reloadBtn.click();
             })
             .catch(err => {
-                alert('Error updating profile: ' + err.message);
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Error updating profile: ' + err.message });
             });
     }
 });
@@ -283,16 +284,22 @@ document.addEventListener('click', function(e) {
         let confirmResolve = null;
 
         function showConfirm(message) {
-            return new Promise((resolve) => {
-                confirmActionText.innerText = message;
-                confirmModal.style.display = 'block';
-                confirmResolve = resolve;
-            });
-        }
-
-        function closeConfirm() {
-            confirmModal.style.display = 'none';
-            confirmResolve = null;
+            var icon = 'question';
+            var confirmColor = '#198754';
+            var up = (message || '').toUpperCase();
+            if (up.includes('APPROVE')) { icon = 'success'; confirmColor = '#28a745'; }
+            else if (up.includes('REJECT')) { icon = 'warning'; confirmColor = '#f97316'; }
+            else if (up.includes('DELETE')) { icon = 'error'; confirmColor = '#dc3545'; }
+            return Swal.fire({
+                title: 'Are you sure?',
+                text: message,
+                icon: icon,
+                showCancelButton: true,
+                confirmButtonText: 'YES',
+                cancelButtonText: 'NO',
+                confirmButtonColor: confirmColor,
+                cancelButtonColor: '#6c757d'
+            }).then(result => result.isConfirmed);
         }
         // updates status to approved student sees checkmark
         confirmYesBtn.addEventListener('click', function () {
@@ -359,7 +366,7 @@ document.addEventListener('click', function(e) {
             document.getElementById('confirmRejectionBtn').addEventListener('click', function(){
                 const reason = document.getElementById('rejectionReasonInput').value.trim();
                 if (!reason) {
-                    alert('Please enter a rejection reason');
+                    Swal.fire({ icon: 'warning', title: 'Please enter a rejection reason' });
                     return;
                 }
                 closeModal();
@@ -374,7 +381,7 @@ document.addEventListener('click', function(e) {
 
         document.getElementById('deleteProfile').addEventListener('click', function(){
             if (!currentAppId) {
-                alert('No application selected');
+                Swal.fire({ icon: 'error', title: 'Error', text: 'No application selected' });
                 return;
             }
             showConfirm('Are you sure you want to DELETE this application?').then(confirmed => {
@@ -408,7 +415,7 @@ document.addEventListener('click', function(e) {
                             }
                             
                             // Show success message
-                            alert('Application deleted successfully!');
+                            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Application deleted successfully!', showConfirmButton: false, timer: 2500, timerProgressBar: true });
                             currentAppId = null;
                         } else {
                             throw new Error(json.error || 'Delete failed');
@@ -416,7 +423,7 @@ document.addEventListener('click', function(e) {
                     })
                     .catch(err => {
                         console.error('Delete error:', err);
-                        alert('Unable to delete application: ' + err.message);
+                        Swal.fire({ icon: 'error', title: 'Error', text: 'Unable to delete application: ' + err.message });
                     });
             });
         });
@@ -507,13 +514,13 @@ document.addEventListener('click', function(e) {
                     if (json.status === 'ok') {
                         const row = el.closest('tr');
                         if (row) row.remove();
-                        alert('User deleted');
+                        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'User deleted', showConfirmButton: false, timer: 2000, timerProgressBar: true });
                     } else {
                         throw new Error(json.message || 'Delete failed');
                     }
                 })
                 .catch(err => {
-                    alert('Failed to delete user: ' + err.message);
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to delete user: ' + err.message });
                 });
 
                 // Logout button: submit via fetch and redirect to welcome page

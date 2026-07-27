@@ -36,7 +36,7 @@
                         @if(($user->account_status ?? 'pending') === 'approved')
                             <span class="text-gray">Approved</span>
                         @else
-                            <button type="button" class="btn small" onclick="approveUser({{ $user->id }})">Approve</button>
+                            <button type="button" class="btn small" onclick="confirmApproveUser({{ $user->id }})">Approve</button>
                             <button type="button" class="btn small" style="background:#e74c3c;color:white;" onclick="rejectUser({{ $user->id }})">Reject</button>
                         @endif
                     @else

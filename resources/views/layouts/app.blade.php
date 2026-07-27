@@ -34,5 +34,76 @@
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+        <script>
+            function confirmDelete(id) {
+                Swal.fire({
+                    title: 'Are you sure?',
+                    text: 'Are you sure you want to DELETE this application?',
+                    icon: 'error',
+                    showCancelButton: true,
+                    confirmButtonText: 'YES',
+                    cancelButtonText: 'NO',
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        var f = document.getElementById('deleteForm-' + id);
+                        if (f) f.submit();
+                        else console.warn('deleteForm-' + id + ' not found');
+                    }
+                });
+            }
+
+            function confirmApprove(id) {
+                Swal.fire({
+                    title: 'Are you sure?',
+                    text: 'Are you sure you want to APPROVE this application?',
+                    icon: 'success',
+                    showCancelButton: true,
+                    confirmButtonText: 'YES',
+                    cancelButtonText: 'NO',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        var f = document.getElementById('approveForm-' + id);
+                        if (f) f.submit();
+                        else console.warn('approveForm-' + id + ' not found');
+                    }
+                });
+            }
+
+            function confirmReject(id) {
+                Swal.fire({
+                    title: 'Are you sure?',
+                    text: 'Are you sure you want to REJECT this application?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'YES',
+                    cancelButtonText: 'NO',
+                    confirmButtonColor: '#f97316',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        var f = document.getElementById('rejectForm-' + id);
+                        if (f) f.submit();
+                        else console.warn('rejectForm-' + id + ' not found');
+                    }
+                });
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                @if(session('success'))
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: @json(session('success')), showConfirmButton: false, timer: 3000, timerProgressBar: true });
+                @endif
+                @if(session('error'))
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: @json(session('error')), showConfirmButton: false, timer: 3000, timerProgressBar: true });
+                @endif
+                @if(session('warning'))
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: @json(session('warning')), showConfirmButton: false, timer: 3000, timerProgressBar: true });
+                @endif
+            });
+        </script>
     </body>
 </html>
