@@ -195,8 +195,8 @@ body {
 /* CARD */
 .s-card {
     background: white;
-    
-    height: 350px;
+    min-height: 350px;
+    height: 100%;
     border-radius: 14px;
     padding: 1.2rem;
     display: flex;
@@ -205,7 +205,7 @@ body {
     box-shadow: 1px 3px 12px rgba(180, 80, 0, .08);
     transition: all .28s ease;
     animation: fadeUp .4s ease both;
-    
+    overflow: hidden;
 }
 
 .s-card:hover {
@@ -221,21 +221,24 @@ body {
 }
 
 .card-icon {
-    width: 46px;
-    height: 46px;
+    width: 60px;
+    height: 60px;
     border-radius: 10px;
+    overflow: hidden;
 
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.3rem;
     flex-shrink: 0;
-
 }
-.card-icon img{
+
+.card-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
     border-radius: 50%;
-    
-  
 }
 
 .card-names {
@@ -317,9 +320,9 @@ body {
 
 .card-desc {
     font-size: .74rem;
-   display: flex;
-   justify-content: center;
-   align-items: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     line-height: 1.65;
     font-weight: 300;
     border-top: 1px solid rgba(224, 123, 0, .08);
@@ -333,6 +336,7 @@ body {
     justify-content: center;
     border-top: 1px solid rgba(224, 123, 0, .07);
     padding-top: .6rem;
+    margin-top: auto;
 }
 
 .deadline {
@@ -454,6 +458,7 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 400;
+    padding: 1rem;
 }
 
 .apply-modal.open {
@@ -468,6 +473,304 @@ body {
     max-width: 95%;
     max-height: 90vh;
     overflow: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.scholarship-details-modal .modal-card {
+    overflow: hidden;
+    width: min(780px, 95vw);
+    max-width: 780px;
+    height: min(100vh, 900px);
+    max-height: 100vh;
+    padding: 1.1rem 1.2rem 1.2rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.14);
+}
+
+.scholarship-details-modal .modal-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.scholarship-details-modal .modal-back-link {
+    background: none;
+    border: none;
+    color: #000;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+
+.scholarship-details-modal .modal-back-link:hover {
+    color: #000;
+    text-decoration: underline;
+}
+
+.scholarship-details-modal .modal-close {
+    float: none;
+    font-size: 1.15rem;
+    color: #5f514c;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scholarship-details-modal .modal-close:hover {
+    background: #f7efe7;
+    color: #3b2a28;
+}
+
+.scholarship-details-modal .modal-body {
+    overflow-y: auto;
+    padding-right: 0.35rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.scholarship-details-modal .details-card {
+    background: linear-gradient(135deg, #fffdf9 0%, #fdf6ee 100%);
+    border: 1px solid rgba(224, 123, 0, .16);
+    border-radius: 18px;
+    padding: 1.2rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .04);
+}
+
+.scholarship-details-modal .details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.25rem;
+    max-width: 980px;
+    margin: 0 4.7rem;
+    padding: 0 1rem 0.4rem;
+}
+
+.scholarship-details-modal .detail-hero-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 75%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.scholarship-details-modal .detail-logo {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid #efe2d0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0;
+}
+
+.scholarship-details-modal .detail-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    margin: 0;
+    padding: 0;
+}
+
+.scholarship-details-modal .detail-hero-content h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.3rem;
+    color: #2f211c;
+    line-height: 1.3;
+}
+
+.scholarship-details-modal .detail-subtitle {
+    margin: 0 0 0.55rem;
+    color: #8b6f61;
+    font-size: 0.95rem;
+}
+
+.scholarship-details-modal .detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.scholarship-details-modal .detail-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: #fff7ea;
+    color: #8c4a12;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.scholarship-details-modal .detail-chip-accent {
+    background: #ffe1bf;
+    color: #7c3b10;
+}
+
+.scholarship-details-modal .detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
+    border-top: 1px solid rgba(92, 64, 51, 0.16);
+}
+
+.scholarship-details-modal .detail-section h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #3c2d24;
+}
+
+.scholarship-details-modal .details-description {
+    margin: 0;
+    line-height: 1.8;
+    color: #5f514c;
+    white-space: pre-line;
+}
+
+.scholarship-details-modal .details-description a {
+    color: #2563eb;
+    font-weight: 600;
+    text-decoration: underline;
+    opacity: 0.95;
+    display: inline-block;
+    padding: 0.12rem 0.35rem;
+    border-radius: 0.35rem;
+    background: rgba(37, 99, 235, 0.08);
+}
+
+.scholarship-details-modal .details-description a:hover {
+    color: #1d4ed8;
+    opacity: 1;
+    background: rgba(37, 99, 235, 0.14);
+}
+
+.scholarship-details-modal .detail-requirements {
+    margin: 0;
+    padding-left: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    color: #5f514c;
+}
+
+.scholarship-details-modal .detail-requirements li {
+    line-height: 1.6;
+}
+
+.scholarship-details-modal .details-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid rgba(224, 123, 0, .14);
+}
+
+.scholarship-details-modal .details-actions .btn {
+    width:150px;
+    padding: 0.85rem 1.25rem;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    background: #6b0f1a;
+    color: #fff;
+    border: none;
+    box-shadow: 0 8px 18px rgba(107, 15, 26, .18);
+}
+
+.scholarship-details-modal .details-actions .btn:hover {
+    background: #4a0a12;
+}
+
+.scholarship-details-modal .detail-logo {
+    width: 110px !important;
+    height: 110px !important;
+    min-width: 110px !important;
+    min-height: 110px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 16px !important;
+    background: #fff !important;
+    border: 1px solid #efe2d0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+}
+
+.scholarship-details-modal .detail-logo img {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 16px !important;
+}
+
+.card-icon img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+    border-radius: 50% !important;
+}
+
+@media (max-width: 640px) {
+    .scholarship-details-modal .modal-card {
+        width: 100%;
+        max-width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        padding: 1rem;
+    }
+
+    .scholarship-details-modal .details-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin: 0;
+        padding: 0 0 0.4rem;
+    }
+
+    .scholarship-details-modal .detail-hero-content {
+        max-width: calc(100% - 88px);
+        flex: 1 1 auto;
+    }
+
+    .scholarship-details-modal .detail-logo {
+        width: 72px;
+        height: 72px;
+        min-width: 72px;
+        min-height: 72px;
+        align-self: center;
+        margin-left: auto;
+    }
+
+    .scholarship-details-modal .details-actions .btn {
+        width: 100%;
+    }
 }
 
 .apply-modal h3 {

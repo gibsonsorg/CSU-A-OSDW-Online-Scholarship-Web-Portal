@@ -127,7 +127,21 @@
     </div>
     <!-- Academic Page 1 -->
     <div class="card-grid page-set active" id="acad-p1">
-        <div class="s-card" data-name="cagayan valley association hawaii internationally funded">
+        <div class="s-card" data-name="cagayan valley association hawaii internationally funded" data-description=" The Cagayan Valley Association of Hawaii (CVAH) Internationally Funded Scholarship is an academic grant program established through a partnership with Cagayan State University (CSU). It provides financial assistance to deserving students in Cagayan Valley, Philippines.
+
+Launched in 2017 through an agreement between CVAH President Engr. Roger A. Urbi and CSU, the program initially supported students at CSU-Carig Campus and later expanded to other campuses such as CSU Tuguegarao. Funded by the Filipino diaspora community in Hawaii, USA, it aims to help undergraduate students meet their educational expenses.
+  
+More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
+
+         Eligibility Requirements
+         *Must be an officially enrolled undergraduate student at an eligible Cagayan State University campus
+
+         *Must demonstrate clear financial need.Priority is given to students belonging to low-income, indigent families who struggle to cover tertiary education costs beyond free tuition
+
+         *Must maintain the required General Weighted Average (GWA) set by the institutional guidelines for student welfare grants.
+
+         *Must not have any record of severe disciplinary action or academic misconduct within the university
+        ">
             <div class="card-head">
                 <div class="card-icon">
                     <img src="{{ asset('images/cagayan valley assoc. hawaii logo.png') }}" alt="Hawaii Logo">
@@ -147,7 +161,7 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="university based scholarship academic inhouse">
+        <div class="s-card" data-name="university based scholarship academic inhouse" data-description="The University Based Scholarship recognizes students with outstanding academic performance throughout the school year and provides financial assistance to help them continue their studies.">
             <div class="card-head">
                 <div class="card-icon">  <img src="{{ asset('images/csu.logo.png') }}" alt="CsuLogo"></div>
                 <div class="card-names">
@@ -166,7 +180,19 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="acef giahep government locally funded">
+        <div class="s-card" data-name="acef giahep government locally funded" data-description="The  ACEF-GIAHEP (Agricultural Competitiveness Enhancement Fund Grants-in-Aid for Higher Education Program) is a joint financial assistance program by the Commission on Higher Education and the Department of Agriculture designed to support undergraduate students pursuing degrees in agriculture, forestry, fisheries, and veterinary medicine
+        More info visits:https://acef.da.gov.ph/
+    
+        Qualifications
+
+        *Citizenship: Must be a Filipino citizen
+
+        *Academic Status: Graduating high school students, high school graduates, college unit earners, or Alternative Learning System (ALS/PEPT) passers.
+
+        *Income Limit: Combined annual gross income of parents or guardians must not exceed ₱300,000.
+
+        *Documents: Requires a PSA birth certificate, proof of admission/enrollment in a CHED-recognized higher education institution, and proof of family income (such as an ITR or BIR certificate of tax exemption).
+        ">
             <div class="card-head">
                 <div class="card-icon">   <img src="{{ asset('images/acef-giahep scholarship logo.png') }}" alt="ACEF-GIAHEP Logo"></div>
                 <div class="card-names">
@@ -185,7 +211,19 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="dost sei project strand graduate school government">
+        <div class="s-card" data-name="dost sei project strand graduate school government" data-description="TThe DOST scholarship is a government-funded educational financial aid program in the Philippines managed by the Science Education Institute - DOST to support students pursuing science, technology, engineering, and mathematics (STEM) careers.
+        more info visit https://science-scholarships.ph
+        
+    
+
+        *Citizenship: You must be a natural-born Filipino citizen
+
+         *You must be a natural-born Filipino citizen.Health and Character: You must be of good moral character and in good medical health
+           
+         *Non-STEM Strand Students: Students from other strands (like HUMSS, ABM, or GAS) are qualified only if they belong to the top 5% of their graduating senior high school class.
+
+         *Prior Units: You must not have earned any college or post-secondary vocational units before
+         ">
             <div class="card-head">
                 <div class="card-icon">  
                      <img src="{{ asset('images/dost.logo.png') }}" alt="DOST Logo">
@@ -206,7 +244,19 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="tulong dunong kuya win scholarship government">
+        <div class="s-card" data-name="tulong dunong kuya win scholarship government" data-description="The Kuya Win Scholarship Program (often linked with legislative or targeted student assistance initiatives spearheaded by Senator Win Gatchalian and aligned with government efforts like the UniFAST / CHED Tulong Dunong Program) is an academic support and financial assistance initiative. It provides monetary aid to help deserving, low-income Filipino college students pay for tuition, school fees, and daily living expenses.
+         More info visits:https://legacy.ched.gov.ph/
+        Eligibility Requirements
+        *Citizenship: Must be a Filipino citizen
+        *Must be a registered voter or with parents who are registered voters
+        *college students with earned units in recognized and authorized programs of Cagayan State University with at least a passing general weighted average (GWA)
+        -1st to 3rd Year - At least 15 Units
+        -4th & 5th Year - Consideration without failing grades
+        *Must not have any failing grade
+        *Must be of good moral character.
+        *The combined annual gross income of the applicant's family shall not exceed "Four Hundred Thousand Pesos (Php400,000.00)
+        "
+        >
             <div class="card-head">
                 <div class="card-icon"> <img src="{{ asset('images/kuya win logo.png') }}" alt="DOST Logo"></div>
                 <div class="card-names">
@@ -225,7 +275,7 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="lgu aparri local government unit scholarship">
+        <div class="s-card" data-name="lgu aparri local government unit scholarship" data-description="The LGU Aparri scholarship is a local government assistance program for qualified students from Aparri who are pursuing higher education and need financial support.">
             <div class="card-head">
                 <div class="card-icon">
                     <img src="{{ asset('images/lgu.logo.jpg') }}" alt="LGU Logo">
@@ -249,7 +299,18 @@
 
     <!-- Academic Page 2 -->
     <div class="card-grid page-set" id="acad-p2">
-        <div class="s-card" data-name="natalged lasam educational assistance government">
+        <div class="s-card" data-name="natalged lasam educational assistance government" data-description="The Natalged a Lasam Educational Assistance (NALEA) program is a municipal financial aid initiative in Lasam, Cagayan, providing cash stipends, semester allowances, and graduate recognition to support deserving tertiary and high school students
+        More info  visits https://lasamonline.com
+
+        
+
+        *Academic Level: Must be a currently enrolled tertiary (college) student.
+
+        *Financial Status: Must belong to a low-income, underprivileged, or financially challenged family.
+
+        *Academic Standing: Must be a deserving student, meaning you must maintain passing grades and meet the minimum academic performance requirements set by the local screening committee."
+
+        >
             <div class="card-head">
 <div class="card-icon"><img src="{{ asset('images/lgu lasam.logo.png') }}" alt="LGU lasam logo"></div>
                 <div class="card-names">
@@ -268,7 +329,15 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="andres tamayo scholarship private foundation">
+        <div class="s-card" data-name="andres tamayo scholarship private foundation" data-description=" Is a registered private, non-governmental organization in the Philippines that provides the Handog Edukasyon Scholarship Program to support financially challenged youth. The grant covers educational costs for qualified college and vocational students to alleviate poverty through long-term educational access.
+        More info visits:https://andresptamayosrfoundation.com/our-programs  
+         Qualifications
+         *Maintain Grade Requirement: Keep a General Weighted Average (GWA) of at least 85% every term
+         *No Academic Failures: Avoid dropped, incomplete, or failing grades.
+         *Full-Time Student Status: Carry a regular, full semester course load without skipping years
+         *No Employment: Remain completely unemployed during the scholarship period to focus exclusively on studies.
+         *Fixed Track: Shifting to a different course or transferring from a state university to a private institution is prohibited.
+        ">
             <div class="card-head">
                 <div class="card-icon">
                     <img src="{{ asset('images/andres tamayo.logo.jpg') }}" alt="LGU lasam logo"></div>
@@ -288,7 +357,21 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="gokongwei brothers foundation scholarship private">
+        <div class="s-card" data-name="gokongwei brothers foundation scholarship private" data-description="(GBF) is the strategic philanthropic arm of the Gokongwei Group, established in 1992 by brothers John, Henry, Johnson, and James. It advances STEM education across the Philippines through scholarships, teacher professional development, and technical-vocational training.
+        More info: https://www.gokongweibrothersfoundation.org/
+        Qualifications
+        *Course Enrollment: Must be enrolled or planning to enroll in a GBF priority stem course
+        (e.g., Engineering, Computer Science, IT, Analytics)
+
+        *Academic Record: Requires a General Weighted Average (GWA) of at least 85% or 2.0 (or its equivalent).
+
+        *Grades: No failed, dropped, or incomplete grades in the previous academic year.
+
+        *Financial Standing: Must demonstrate a clear need for financial support to complete college studies.
+
+        *Character: Must exhibit good moral character and active participation in extra-curricular activities
+        
+        ">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/gokongwei logo.png') }}" alt="Gokongwei Brothers Foundation"></div>
                 <div class="card-names">
@@ -334,7 +417,7 @@
     </div>
     <!-- Non-Academic Page 1 -->
     <div class="card-grid page-set active" id="non-p1">
-        <div class="s-card" data-name="athletic scholarship sports inhouse">
+        <div class="s-card" data-name="athletic scholarship sports inhouse" data-description="The Athletic Scholarship recognizes student athletes who represent CSU Aparri in regional and national competitions and provides support for their studies and training.">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/athletic scholarship.logo.png') }}" alt="LGU lasam logo"></div>
                 <div class="card-names">
@@ -352,7 +435,14 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="employees grant inhouse dependent faculty">
+        <div class="s-card" data-name="employees grant inhouse dependent faculty" data-description=" Employees' Grant Dependent Employee Scholarship short descriptionYou said: Employees' Grant Dependent Employee Scholarship short descriptionEmployees' Grant Dependent Employee Scholarship short descriptionAn Employees' Grant Dependent Employee Scholarship is a financial aid benefit provided by an organization to help pay for the college or vocational school costs of its workers' children. It covers school fees directly as a grant, rather than requiring a loan or a repayment process.
+         More info visits:https://scholarship.owwa.gov.ph/
+        Eligibility Requirements
+        Legal Relationship: Must be a biological child, legally adopted child, or stepchild.
+        Age Limits: Generally limited to unmarried dependents under the age of 24
+        Academic Minimums: Must maintain a baseline Grade Point Average (GPA), typically a 2.5 on a 4.0 scale or equivalent
+        Enrollment Status: Must be accepted or enrolled full-time in an accredited college, university, or trade school
+        ">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/employees grant.logo.png') }}" alt="Employees grant logo"></div>
                 <div class="card-names">
@@ -370,7 +460,7 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="socio cultural scholarship arts inhouse">
+        <div class="s-card" data-name="socio cultural scholarship arts inhouse" data-description="The Socio-Cultural Scholarship supports students who participate in cultural, arts, and socio-civic activities that represent CSU Aparri with excellence.">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/csu.logo.png') }}" alt="CsuLogo"></div>
                 <div class="card-names">
@@ -388,7 +478,7 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="campus student publication university based inhouse">
+        <div class="s-card" data-name="campus student publication university based inhouse" data-description="The Campus Student Publication scholarship is intended for student journalists who contribute to the official campus publication and promote campus communication.">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/campus stud. publication.jpg') }}" alt="stud.council logo"></div>
                 <div class="card-names">
@@ -406,7 +496,13 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="differently abled persons pwd disability university based inhouse">
+        <div class="s-card" data-name="differently abled persons pwd disability university based inhouse" data-description="The Differently Abled Persons University-Based Scholarship provides financial relief, equal access, and student support for enrolled college students with physical, sensory, or learning impairments. It covers educational costs directly through the host institution to help students finish their degrees
+        More info visits:https://web.facebook.com/OSDWAparri
+        Eligibility Requirements
+        Enrollment: Must be officially accepted or currently enrolled in an undergraduate or graduate degree program at the university
+        Proof of Disability: Valid medical certificate, PWD ID card, or official disability documentation
+        Academic Standing: Maintain the minimum passing grade required by the school's scholarship office.
+        ">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/dap.logo.png') }}" alt="LGU lasam logo"></div>
                 <div class="card-names">
@@ -424,7 +520,7 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="university student council federation grant inhouse leadership">
+        <div class="s-card" data-name="university student council federation grant inhouse leadership" data-description="The Student Council Federation Grant assists student leaders who demonstrate exemplary service and leadership to the CSU Aparri student body.">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/campus stud.council.png') }}" alt="socio cultural csu-a logo"></div>
                 <div class="card-names">
@@ -445,7 +541,7 @@
 
     <!-- Non-Academic Page 2 -->
     <div class="card-grid page-set" id="non-p2">
-        <div class="s-card" data-name="csu aparri alumni association inhouse">
+        <div class="s-card" data-name="csu aparri alumni association inhouse" data-description="The CSU Aparri Alumni Association scholarship supports current students who embody the university values and need financial assistance to succeed academically.">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/csu alumni assoc.logo.jpg') }}" alt="CSU allumni assoc. logo"></div>
                 <div class="card-names">
@@ -463,7 +559,23 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="tertiary education subsidy tes unifast government locally funded">
+        <div class="s-card" data-name="tertiary education subsidy tes unifast government locally funded" data-description="The Tertiary Education Subsidy offers financial aid to qualified students under the UniFAST program to help cover school-related expenses each academic year.
+        What TES Covers:
+• Tuition and Fees: Covers school and miscellaneous fees  
+• Living Costs: Books, supplies, board, and travel expenses  
+• Extra Grants: Support for students with disabilities and board exam assistance  
+
+Who it is for:
+Filipino undergraduate students prioritized by financial need (Listahanan, 4Ps, etc.) enrolled in public or private institutions.
+
+Basic Eligibility Requirements
+Citizenship: Must be a Filipino citizen
+Enrollment: Officially enrolled in an undergraduate program at a participating State University or College
+Degree Status: Must not hold any previous undergraduate degree
+Residency: Must meet the admission and retention policies of the school and not exceed maximum allowable residency/overstaying limits
+More info: https://unifaast.gov.ph/tes.html"
+     
+        ">
             <div class="card-head">
                 <div class="card-icon">
 <img src="{{ asset('images/tes logo.png') }}" alt="TES logo"></div>
@@ -483,7 +595,7 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="agkaykaysa government locally funded regional">
+        <div class="s-card" data-name="agkaykaysa government locally funded regional" data-description="The Agkaykaysa scholarship supports deserving students from the Cagayan Region through a regional solidarity program that promotes access to education.">
             <div class="card-head">
                 <div class="card-icon">
 <img src="{{ asset('images/agkaykaysa.logo.png') }}" alt="LGU lasam logo"></div>
@@ -502,7 +614,15 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="tulong dunong sen loren legarda government locally funded">
+        <div class="s-card" data-name="tulong dunong sen loren legarda government locally funded" data-description="The Tulong Dunong Program (TDP), supported through the initiative of Senator Loren Legarda, is a government-funded financial assistance grant implemented via the Commission on Higher Education (CHED). It provides cash stipends (commonly ₱7,500 per semester or up to ₱20,000 depending on the specific allocation terms) to help disadvantaged undergraduate students cover basic school needs.
+         More info visits:https://unifast.gov.ph/
+         Eligibilility Requirements
+         Citizenship: Must be a Filipino citizen
+         Student Status: Enrolled in a first undergraduate degree program. Second-degree takers are automatically disqualified
+         Institution Type: Enrolled in state universities and colleges (SUCs), CHED-recognized local universities and colleges (LUCs), or registered private higher education institutions (HEIs).
+         Exclusivity rule: Must not be a recipient of the Tertiary Education Subsidy (TES), CHED Merit Scholarships, or any other national government-funded student financial aid
+         Income Limit: Combined annual gross income of parents or guardians must not exceed ₱400,000
+        ">
             <div class="card-head">
                 <div class="card-icon">
 <img src="{{ asset('images/ched.logo.png') }}" alt="CHED logo"></div>
@@ -521,7 +641,13 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="open heart scholarship private foundation">
+        <div class="s-card" data-name="open heart scholarship private foundation" data-description="Open Heart Foundation scholarship functions as a social welfare and youth development program. It covers students from  college level. Rather than just distributing funds, the foundation pairs financial aid with mandatory life skills training, financial literacy seminars, psychosocial support, and regular family monitoring visits by professional social workers to ensure long-term student success
+         More info visits:https://openheartfoundation.org.ph/
+         Eligibility Requirements
+         *Socio-Economic Vibe: Must belong to an underprivileged or financially vulnerable household, with absolute priority given to students who are the potential primary breadwinners of their families.
+         *Academic Criteria: Must be currently enrolled in an elementary, high school, or college program. Students must show commitment to passing their classes and completing their degrees.
+         *The Kasunduan (Agreement): Both the student and their parent/guardian must sign a formal contract committing to attend the foundation's capacity-building seminars and maintain regular communication with the assigned social worker.
+        ">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/open heart.logo.png') }}" alt="open heart scholarship logo"></div>
                 <div class="card-names">
@@ -539,7 +665,7 @@
             </div>
         </div>
 
-        <div class="s-card" data-name="talamayan scholarship private community">
+        <div class="s-card" data-name="talamayan scholarship private community" data-description="The Talamayan Scholarship is a community-based private support program that helps students in the Cagayan community continue their education with financial assistance.">
             <div class="card-head">
                 <div class="card-icon"></div>
                 <div class="card-names">
@@ -664,6 +790,46 @@
 @endif
 
 </div>
+    @php $description = 'Select a scholarship to view its full description.'; @endphp
+    <!-- Scholarship Details Modal -->
+    <div id="scholarshipDetailsModal" class="apply-modal scholarship-details-modal" role="dialog" aria-hidden="true">
+        <div class="modal-card">
+            <div class="modal-topbar">
+                <div></div>
+                <button class="modal-close" id="scholarshipDetailsModalClose" type="button" aria-label="Close scholarship details">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="details-card">
+                    <div class="details-header">
+                        <div class="detail-hero-content">
+                            <h3 id="detailsScholarshipTitle">Scholarship Title</h3>
+                            <p id="detailsScholarshipSubtitle" class="detail-subtitle">Program details</p>
+                            <div id="detailsScholarshipTags" class="detail-tags"></div>
+                        </div>
+                        <div class="detail-logo">
+                            <img id="detailsScholarshipImage" src="" alt="Scholarship logo">
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h4><b>About this Scholarship</b></h4>
+                        <p id="detailsScholarshipDescription" class="details-description">{!! $description !!}</p>
+                    </div>
+
+                    <div class="detail-section">
+                        <h4><b>Eligibility Requirements</b></h4>
+                        <ul id="detailsScholarshipRequirements" class="detail-requirements"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-actions">
+                <button type="button" class="btn btn-primary" id="detailsApplyBtn">APPLY NOW</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Apply Modal -->
     <div id="applyModal" class="apply-modal" role="dialog" aria-hidden="true">
         <div class="modal-card">
@@ -1320,7 +1486,7 @@
                     if (cardFoot) {
                         const message = document.createElement('div');
                         message.className = 'applied-text';
-                        message.innerHTML = '<div class="applied-label">UNAVAILABLE</div><div>Your application for this scholarship is being processed.</div>';
+                        message.innerHTML = '<div class="applied-label">PENDING</div><div>Your application for this scholarship is being processed.</div>';
                         cardFoot.prepend(message);
                     }
 

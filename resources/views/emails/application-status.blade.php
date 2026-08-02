@@ -14,7 +14,8 @@
             <p>You may now proceed with the next steps or wait for further instructions.</p>
         @else
             <p>We regret to inform you that your application for the "{{ $scholarshipName }}" has been <strong>REJECTED</strong>.</p>
-            <p>You may apply for other available scholarships.</p>
+            <p>Please ensure your submitted documents are clear and complete, that you meet all eligibility requirements, and that you fill out the application form correctly.</p>
+            <p>You may check your application status for more details and reapply once all requirements are met.</p>
         @endif
 
         <p>Best regards,<br>

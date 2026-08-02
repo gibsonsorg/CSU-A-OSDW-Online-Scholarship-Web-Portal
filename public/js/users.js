@@ -68,6 +68,137 @@ function closeAcademicApplyModal() {
     if (m) { m.classList.remove('open'); m.setAttribute('aria-hidden','true'); document.body.style.overflow = ''; }
 }
 
+function formatDescriptionText(text = '') {
+    return String(text || '').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+
+function parseScholarshipDetails(description = '') {
+    const text = (description || '').replace(/\r/g, '').trim();
+    if (!text) {
+        return { aboutText: 'No additional description is available for this scholarship.', requirements: [] };
+    }
+
+    const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
+    const aboutLines = [];
+    const requirements = [];
+    let collectingRequirements = false;
+
+    lines.forEach(line => {
+        const normalized = line.toLowerCase();
+        if (/^(eligibility requirements|requirements|qualifications|what you need|eligibility)$/.test(normalized)) {
+            collectingRequirements = true;
+            return;
+        }
+
+        const cleaned = line.replace(/^[\*\-\d.]+\s*/, '').trim();
+        if (!cleaned) return;
+
+        if (collectingRequirements) {
+            requirements.push(cleaned);
+        } else if (/^[\*\-]\s*/.test(line)) {
+            requirements.push(cleaned);
+        } else {
+            aboutLines.push(cleaned);
+        }
+    });
+
+    if (requirements.length === 0) {
+        lines.filter(line => /^[\*\-]\s+/.test(line)).forEach(line => {
+            requirements.push(line.replace(/^[\*\-]\s+/, '').trim());
+        });
+    }
+
+    const aboutText = aboutLines.join('<br>').trim() || 'No additional description is available for this scholarship.';
+    return { aboutText: formatDescriptionText(aboutText), requirements };
+}
+
+function openScholarshipDetailsModal(title, description, modalType = 'non', card = null) {
+    const modal = document.getElementById('scholarshipDetailsModal');
+    const titleEl = document.getElementById('detailsScholarshipTitle');
+    const subtitleEl = document.getElementById('detailsScholarshipSubtitle');
+    const tagsEl = document.getElementById('detailsScholarshipTags');
+    const imageEl = document.getElementById('detailsScholarshipImage');
+    const descEl = document.getElementById('detailsScholarshipDescription');
+    const requirementsEl = document.getElementById('detailsScholarshipRequirements');
+
+    if (modal && titleEl && descEl) {
+        const details = parseScholarshipDetails(description);
+        const subtitle = card?.querySelector('.card-names .prog')?.textContent?.trim() || '';
+        const typeTag = card?.querySelector('.type-tag')?.textContent?.trim() || '';
+        const metaTag = card?.querySelector('.meta-chip')?.textContent?.trim() || '';
+        const cardImage = card?.querySelector('.card-icon img');
+        const cardImageSrc = card?.dataset.image || cardImage?.getAttribute('src') || '';
+
+        titleEl.textContent = title || 'Scholarship Details';
+        descEl.innerHTML = details.aboutText;
+
+        if (requirementsEl) {
+            requirementsEl.innerHTML = '';
+            if (details.requirements.length > 0) {
+                details.requirements.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    requirementsEl.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = 'No specific requirements are listed for this scholarship yet.';
+                requirementsEl.appendChild(li);
+            }
+        }
+
+        if (subtitleEl) {
+            subtitleEl.textContent = subtitle || 'Program details';
+        }
+
+        if (tagsEl) {
+            tagsEl.innerHTML = '';
+            [typeTag, metaTag].filter(Boolean).forEach(tagText => {
+                const chip = document.createElement('span');
+                chip.className = 'detail-chip';
+                if (tagText.toLowerCase().includes('academic') || tagText.toLowerCase().includes('funded')) {
+                    chip.classList.add('detail-chip-accent');
+                }
+                chip.textContent = tagText;
+                tagsEl.appendChild(chip);
+            });
+
+            if (!tagsEl.children.length) {
+                const chip = document.createElement('span');
+                chip.className = 'detail-chip';
+                chip.textContent = 'Scholarship';
+                tagsEl.appendChild(chip);
+            }
+        }
+
+        if (imageEl) {
+            if (cardImageSrc) {
+                imageEl.src = cardImageSrc;
+                imageEl.alt = title || 'Scholarship logo';
+                imageEl.style.display = 'block';
+            } else {
+                imageEl.removeAttribute('src');
+                imageEl.alt = title || 'Scholarship logo';
+                imageEl.style.display = 'none';
+            }
+        }
+
+        modal.dataset.modalType = modalType;
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeScholarshipDetailsModal() {
+    const modal = document.getElementById('scholarshipDetailsModal');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    }
+}
+
 // Academic form popup handlers
 function closeAcademicErrorPopup() {
     document.getElementById('academicErrorPopup').style.display = 'none';
@@ -117,6 +248,7 @@ document.addEventListener('DOMContentLoaded', function(){
             e.preventDefault();
             const card = btn.closest('.s-card');
             const title = card?.querySelector('.card-names h3')?.textContent?.trim();
+            const description = card?.dataset.description || '';
             const nameSel = document.getElementById('academic_scholarship_name');
             const typeSel = document.getElementById('academic_scholarship_type');
 
@@ -153,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 enrollmentSection.style.display = title === 'University Based Scholarship' ? 'block' : 'none';
             }
 
-            openAcademicApplyModal();
+            openScholarshipDetailsModal(title, description, 'academic', card);
         });
     });
 
@@ -163,6 +295,7 @@ document.addEventListener('DOMContentLoaded', function(){
             e.preventDefault();
             const card = btn.closest('.s-card');
             const title = card?.querySelector('.card-names h3')?.textContent?.trim();
+            const description = card?.dataset.description || '';
             const nameSel = document.getElementById('scholarship_name');
             const typeSel = document.querySelector('select[name="scholarship_type"]');
 
@@ -207,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             }
 
-            openApplyModal();
+            openScholarshipDetailsModal(title, description, 'non', card);
         });
     });
 
@@ -225,6 +358,25 @@ document.addEventListener('DOMContentLoaded', function(){
         if (nonAcademicUploadsInput) nonAcademicUploadsInput.accept = '.pdf,.docx,.doc,.jpg,.jpeg,.png';
         closeApplyModal();
     }
+
+    const detailsBackBtn = document.getElementById('scholarshipDetailsModalBack');
+    if (detailsBackBtn) detailsBackBtn.addEventListener('click', closeScholarshipDetailsModal);
+    const detailsCloseBtn = document.getElementById('scholarshipDetailsModalClose');
+    if (detailsCloseBtn) detailsCloseBtn.addEventListener('click', closeScholarshipDetailsModal);
+    const detailsModal = document.getElementById('scholarshipDetailsModal');
+    if (detailsModal) detailsModal.addEventListener('click', function(e){ if (e.target === detailsModal) closeScholarshipDetailsModal(); });
+
+    const detailsApplyBtn = document.getElementById('detailsApplyBtn');
+    if (detailsApplyBtn) detailsApplyBtn.addEventListener('click', function(){
+        closeScholarshipDetailsModal();
+        const modal = document.getElementById('scholarshipDetailsModal');
+        const modalType = modal?.dataset.modalType || 'non';
+        if (modalType === 'academic') {
+            openAcademicApplyModal();
+        } else {
+            openApplyModal();
+        }
+    });
 
     const closeBtn = document.getElementById('applyModalClose');
     if (closeBtn) closeBtn.addEventListener('click', resetAndCloseNonAcademic);
