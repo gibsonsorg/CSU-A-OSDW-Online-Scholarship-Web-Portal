@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\OldGrantController;
 use App\Http\Controllers\BackupSettingsController;
 use App\Http\Controllers\BackupController;
 use App\Models\StudentProfile;
@@ -56,6 +57,11 @@ Route::get('/admin/academic', [AdminController::class, 'academicDashboard'])->mi
 
 // Admin dashboard filtered by non-academic grants
 Route::get('/admin/non-academic', [AdminController::class, 'nonAcademicDashboard'])->middleware(['auth', 'verified'])->name('admin.non_academic');
+
+// Old Grants routes
+Route::get('/admin/old-academic', [OldGrantController::class, 'academicGrants'])->middleware(['auth', 'verified'])->name('admin.old_academic');
+Route::get('/admin/old-non-academic', [OldGrantController::class, 'nonAcademicGrants'])->middleware(['auth', 'verified'])->name('admin.old_non_academic');
+Route::post('/admin/old-grants/import', [OldGrantController::class, 'import'])->middleware(['auth', 'verified']);
 
 // Admin users list route
 Route::get('/admin/users', [AdminController::class, 'users'])->middleware(['auth', 'verified'])->name('admin.users');

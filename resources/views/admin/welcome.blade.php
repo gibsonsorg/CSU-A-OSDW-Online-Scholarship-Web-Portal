@@ -15,7 +15,7 @@
     </style>
     </head>
 <body>
-    <div class="sidebar">
+    <div class="sidebar" id="adminSidebar">
     <a href="/admin" class="sidebar-logo">
         <div class="logo-img">
             <img src="{{ asset('images/csua-nobg.png') }}" alt="CSU Logo">
@@ -48,6 +48,18 @@
            class="nav-item ">
             <span class="nav-icon"></span> Non-Academic
             <span class="nav-badge">0</span>
+        </a>
+
+        <div style="margin-top: 12px; padding-left: 12px; font-size: 13px; color: #666; font-weight: 500;">Old Grants</div>
+
+        <a href="/admin/old-academic"
+           class="nav-item ">
+            <span class="nav-icon"></span> Old Academic Grants
+        </a>
+
+        <a href="/admin/old-non-academic"
+           class="nav-item ">
+            <span class="nav-icon"></span> Old Non-Academic Grants
         </a>
 
         
@@ -96,7 +108,14 @@
    
     </div>
 </div>
-    <div class="main">
+    <div class="main" id="adminMain">
+        <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
+            <span class="hamburger-icon"></span>
+            <span class="hamburger-icon"></span>
+            <span class="hamburger-icon"></span>
+            <img class="arrow-icon" src="{{ asset('images/arrow.svg') }}" alt="Arrow icon">
+        </button>
+
         <div class="topbar">
             <div class="topbar-left">
                 <h1>Admin Dashboard</h1>
@@ -139,16 +158,63 @@
             Academic Grants
         @elseif($filterType === 'non-academic')
             Non-Academic Grants
+        @elseif($filterType === 'old-academic')
+            Old Academic Grants
+            <button class="btn small" onclick="openOldGrantUploadModal()" style="margin-left: auto;">Upload Old Data</button>
+        @elseif($filterType === 'old-non-academic')
+            Old Non-Academic Grants
+            <button class="btn small" onclick="openOldGrantUploadModal()" style="margin-left: auto;">Upload Old Data</button>
         @elseif($filterType === 'users')
             Registered Users
         @else
             Recent Applications
         @endif
-        <a href="http://127.0.0.1:8000/admin/applications" class="card-action">View All →</a>
+        @if($filterType !== 'old-academic' && $filterType !== 'old-non-academic')
+            <a href="http://127.0.0.1:8000/admin/applications" class="card-action">View All →</a>
+        @endif
     </div>
     <div id="admin-table-container">
         @if($filterType === 'users')
             @include('admin.partials.users-table', ['users' => $users])
+        @elseif($filterType === 'old-academic' || $filterType === 'old-non-academic')
+        <table>
+            <thead>
+                <tr>
+                    <th>First Name</th>
+                    <th>Middle Name</th>
+                    <th>Sex</th>
+                    <th>Course</th>
+                    <th>Year</th>
+                    <th>Scholarship / Financial Assistance</th>
+                    <th>Type of Scholarship</th>
+                    <th>Funding</th>
+                    <th>Campus</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if(!empty($oldRecords) && count($oldRecords) > 0)
+                @foreach($oldRecords as $record)
+                    <tr>
+                        <td>{{ $record->first_name }}</td>
+                        <td>{{ $record->middle_name }}</td>
+                        <td>{{ $record->sex }}</td>
+                        <td>{{ $record->course }}</td>
+                        <td>{{ $record->year }}</td>
+                        <td>{{ $record->scholarship_name }}</td>
+                        <td>{{ ucfirst(str_replace('_', ' ', $record->scholarship_type)) }}</td>
+                        <td>{{ $record->funding_source }}</td>
+                        <td>{{ $record->campus }}</td>
+                        <td>{{ optional($record->created_at)->format('Y-m-d') }}</td>
+                    </tr>
+                @endforeach
+            @else
+                <tr>
+                    <td colspan="10" class="text-center text-gray">No old records yet.</td>
+                </tr>
+            @endif
+        </tbody>
+        </table>
         @else
         <table>
             <thead>
@@ -266,6 +332,34 @@
 
           <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
           <script>
+              // Sidebar Toggle
+              const sidebarToggle = document.getElementById('sidebarToggle');
+              const adminSidebar = document.getElementById('adminSidebar');
+              const adminMain = document.getElementById('adminMain');
+
+              sidebarToggle.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  adminSidebar.classList.toggle('collapsed');
+                  adminMain.classList.toggle('sidebar-collapsed');
+                  sidebarToggle.classList.toggle('active');
+                  
+                  // Save state to localStorage
+                  const isCollapsed = adminSidebar.classList.contains('collapsed');
+                  localStorage.setItem('adminSidebarCollapsed', isCollapsed);
+              });
+
+              // Restore sidebar state on page load
+              window.addEventListener('load', function() {
+                  const isCollapsed = localStorage.getItem('adminSidebarCollapsed') === 'true';
+                  if (isCollapsed) {
+                      adminSidebar.classList.add('collapsed');
+                      adminMain.classList.add('sidebar-collapsed');
+                      sidebarToggle.classList.add('active');
+                  }
+              });
+
               function confirmDelete(id) {
                   Swal.fire({
                       title: 'Are you sure?',
@@ -508,5 +602,8 @@
                   });
               }
           </script>
+
+          <!-- Include Old Grant Upload Modal -->
+          @include('admin.partials.old-grant-upload-modal')
     </body>
 </html>

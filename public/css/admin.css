@@ -65,6 +65,8 @@ body {
     align-items: center;
     gap: 12px;
     text-decoration: none;
+    position: relative;
+    padding-right: 56px;
 }
 
 .logo-img {
@@ -101,6 +103,12 @@ body {
     flex: 1;
     padding: 16px 10px;
     overflow-y: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+    display: none;
 }
 
 .nav-label {
@@ -202,12 +210,91 @@ body {
     color: var(--gold);
 }
 
+/* ── HAMBURGER BUTTON ── */
+.sidebar-toggle {
+    position: fixed;
+    top: 18px;
+    left: calc(var(--sidebar-width, 260px) - 70px);  
+    right: auto;
+    transform: none;
+    border: none;
+    width: 42px;
+    height: 42px;
+    background-color: transparent;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    color: var(--maroon-dark);
+    transition: all 0.3s ease;
+    z-index: 400;
+}
+
+.sidebar-toggle span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    background-color: white;
+}
+.sidebar-toggle.active {
+    left: 18px;
+}
+.sidebar-toggle .arrow-icon {
+    display: none;
+    width: 20px;
+    height: 20px;
+    transition: all 0.3s ease;
+}
+
+.sidebar-toggle.active span {
+    display: none;
+}
+
+.sidebar-toggle.active .arrow-icon {
+    display: block;
+}
+
+
+
+
+/* ── SIDEBAR COLLAPSED STATE ── */
+.sidebar.collapsed {
+    width: 0;
+    overflow: hidden;
+    border-right: none;
+}
+
+.sidebar.collapsed .sidebar-logo,
+.sidebar.collapsed .sidebar-nav,
+.sidebar.collapsed .sidebar-user {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.main.sidebar-collapsed {
+    margin-left: 0;
+    width: 100%;
+}
+
+/* Smooth transitions */
+.sidebar,
+.main {
+    transition: all 0.3s ease;
+}
+
 /* ── MAIN ── */
 .main {
     margin-left: 250px;
     flex: 1;
     display: flex;
     flex-direction: column;
+    width: calc(100% - 250px);
 }
 
 /* ── TOPBAR ── */
