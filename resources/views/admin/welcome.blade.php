@@ -169,6 +169,9 @@
         @else
             Recent Applications
         @endif
+        @if(in_array($filterType, ['academic', 'non-academic', 'old-academic', 'old-non-academic'], true))
+            @include('admin.partials.grant-filters', ['filterType' => $filterType])
+        @endif
         @if($filterType !== 'old-academic' && $filterType !== 'old-non-academic')
             <a href="http://127.0.0.1:8000/admin/applications" class="card-action">View All →</a>
         @endif
@@ -193,7 +196,7 @@
                 </tr>
             </thead>
             <tbody>
-            @if(!empty($oldRecords) && count($oldRecords) > 0)
+            @if($oldRecords->count() > 0)
                 @foreach($oldRecords as $record)
                     <tr>
                         <td>{{ $record->first_name }}</td>
@@ -210,11 +213,14 @@
                 @endforeach
             @else
                 <tr>
-                    <td colspan="10" class="text-center text-gray">No old records yet.</td>
+                    <td colspan="10" class="text-center text-gray">No applications found.</td>
                 </tr>
             @endif
         </tbody>
         </table>
+        @if(method_exists($oldRecords, 'links'))
+            {{ $oldRecords->links() }}
+        @endif
         @else
         <table>
             <thead>
@@ -232,7 +238,7 @@
                 </tr>
             </thead>
             <tbody>
-            @if(!empty($recentApplications) && count($recentApplications) > 0)
+            @if($recentApplications->count() > 0)
                 @foreach($recentApplications as $app)
                     <tr>
                         <td>{{ $app->last_name }}</td>
@@ -259,11 +265,14 @@
                 @endforeach
             @else
                 <tr>
-                    <td colspan="10" class="text-center text-gray">No applications yet.</td>
+                    <td colspan="10" class="text-center text-gray">No applications found.</td>
                 </tr>
             @endif
         </tbody>
         </table>
+        @if(method_exists($recentApplications, 'links'))
+            {{ $recentApplications->links() }}
+        @endif
         @endif
     </div>
 

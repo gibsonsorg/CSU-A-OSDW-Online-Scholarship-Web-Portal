@@ -12,11 +12,9 @@ class OldGrantController extends Controller
     /**
      * Display old academic grants
      */
-    public function academicGrants()
+    public function academicGrants(Request $request)
     {
-        $oldRecords = OldGrantRecord::where('scholarship_type', 'academic')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $oldRecords = $this->filteredOldRecords($request, 'academic');
         
         $filterType = 'old-academic';
         return view('admin.welcome', compact('oldRecords', 'filterType'));
@@ -25,14 +23,43 @@ class OldGrantController extends Controller
     /**
      * Display old non-academic grants
      */
-    public function nonAcademicGrants()
+    public function nonAcademicGrants(Request $request)
     {
-        $oldRecords = OldGrantRecord::where('scholarship_type', 'non_academic')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $oldRecords = $this->filteredOldRecords($request, 'non_academic');
         
         $filterType = 'old-non-academic';
         return view('admin.welcome', compact('oldRecords', 'filterType'));
+    }
+
+    private function filteredOldRecords(Request $request, string $grantType)
+    {
+        $search = trim((string) $request->query('search', ''));
+        $status = strtolower((string) $request->query('status', 'all'));
+        $allowedStatuses = ['all', 'approved', 'pending', 'rejected'];
+
+        if (!in_array($status, $allowedStatuses, true)) {
+            $status = 'all';
+        }
+
+        $query = OldGrantRecord::where('scholarship_type', $grantType)
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%' . $search . '%';
+                $query->where(function ($query) use ($like) {
+                    $query->where('first_name', 'like', $like)
+                        ->orWhere('middle_name', 'like', $like)
+                        ->orWhere('course', 'like', $like)
+                        ->orWhere('scholarship_type', 'like', $like)
+                        ->orWhere('scholarship_name', 'like', $like)
+                        ->orWhere('funding_source', 'like', $like)
+                        ->orWhere('campus', 'like', $like);
+                });
+            })
+            ->when($status !== 'all', function ($query) {
+                $query->whereRaw('1 = 0');
+            })
+            ->orderByDesc('created_at');
+
+        return $query->paginate(10)->withQueryString();
     }
 
     /**

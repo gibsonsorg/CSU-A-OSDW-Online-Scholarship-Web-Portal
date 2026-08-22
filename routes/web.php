@@ -28,8 +28,12 @@ Route::get('/dashboard', function () {
 
     if (auth()->check()) {
         $appliedScholarships = StudentProfile::where('user_id', auth()->id())
-            ->pluck('scholarship_name')
-            ->map(fn ($name) => trim($name))
+            ->get(['scholarship_name', 'application_status'])
+            ->map(fn ($application) => [
+                'name' => trim($application->scholarship_name),
+                'status' => $application->application_status ?? 'pending',
+            ])
+            ->values()
             ->toArray();
 
         $activeAcademicApplications = StudentProfile::where('user_id', auth()->id())

@@ -26,13 +26,9 @@ class AdminController extends Controller
     /**
      * Display admin dashboard filtered by academic grants
      */
-    public function academicDashboard()
+    public function academicDashboard(Request $request)
     {
-        $recentApplications = StudentProfile::where('grant_type', 'academic')
-            ->whereNull('deleted_at')
-            ->orderBy('created_at', 'desc')
-            ->take(10)
-            ->get();
+        $recentApplications = $this->filteredApplications($request, 'academic');
         $filterType = 'academic';
         return view('admin.welcome', compact('recentApplications', 'filterType'));
     }
@@ -40,15 +36,42 @@ class AdminController extends Controller
     /**
      * Display admin dashboard filtered by non-academic grants
      */
-    public function nonAcademicDashboard()
+    public function nonAcademicDashboard(Request $request)
     {
-        $recentApplications = StudentProfile::where('grant_type', 'non-academic')
-            ->whereNull('deleted_at')
-            ->orderBy('created_at', 'desc')
-            ->take(10)
-            ->get();
+        $recentApplications = $this->filteredApplications($request, 'non-academic');
         $filterType = 'non-academic';
         return view('admin.welcome', compact('recentApplications', 'filterType'));
+    }
+
+    private function filteredApplications(Request $request, string $grantType)
+    {
+        $search = trim((string) $request->query('search', ''));
+        $status = strtolower((string) $request->query('status', 'all'));
+        $allowedStatuses = ['all', 'approved', 'pending', 'rejected'];
+
+        if (!in_array($status, $allowedStatuses, true)) {
+            $status = 'all';
+        }
+
+        $query = StudentProfile::where('grant_type', $grantType)
+            ->whereNull('deleted_at')
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%' . $search . '%';
+                $query->where(function ($query) use ($like) {
+                    $query->where('last_name', 'like', $like)
+                        ->orWhere('first_name', 'like', $like)
+                        ->orWhere('middle_name', 'like', $like)
+                        ->orWhere('course', 'like', $like)
+                        ->orWhere('scholarship_type', 'like', $like)
+                        ->orWhere('scholarship_name', 'like', $like);
+                });
+            })
+            ->when($status !== 'all', function ($query) use ($status) {
+                $query->where('application_status', $status);
+            })
+            ->orderByDesc('created_at');
+
+        return $query->paginate(10)->withQueryString();
     }
 
     /**

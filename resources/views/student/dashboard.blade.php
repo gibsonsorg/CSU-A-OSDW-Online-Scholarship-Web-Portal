@@ -30,8 +30,11 @@
             text-transform: uppercase;
             letter-spacing: 0.06em;
         }
+        .card-applied .applied-label.status-approved {
+            color: #15803d;
+        }
         .card-applied .applied-text {
-            color: #7d2424;
+              color: #15803d;
             font-size: 0.9rem;
             text-align: center;
             line-height: 1.3;
@@ -92,6 +95,10 @@
             color: #7f7f7f;
             border: 1px solid #d9d2d2;
             cursor: not-allowed;
+        }
+        .Applied-text
+        {
+              color: #a81f1f;
         }
     </style>
 </head>
@@ -1477,16 +1484,19 @@ More info: https://unifaast.gov.ph/tes.html"
           return;
         }
 
-                const isApplied = appliedScholarships.includes(scholarshipTitle);
+                const application = appliedScholarships.find(item => item.name === scholarshipTitle);
+                const isApplied = Boolean(application);
                 const cardFoot = card.querySelector('.card-foot');
 
                 if (isApplied) {
-                    // Keep the previously implemented "applied" UI unchanged
                     card.classList.add('card-applied');
                     if (cardFoot) {
                         const message = document.createElement('div');
                         message.className = 'applied-text';
-                        message.innerHTML = '<div class="applied-label">PENDING</div><div>Your application for this scholarship is being processed.</div>';
+                        const isApproved = application.status === 'approved';
+                        message.innerHTML = isApproved
+                            ? '<div class="applied-label status-approved">APPROVED</div><div>Your application for this scholarship has been approved.</div>'
+                            : '<div class="applied-label">PENDING</div><div class="Applied-text">Your application for this scholarship is being processed.</div>';
                         cardFoot.prepend(message);
                     }
 
