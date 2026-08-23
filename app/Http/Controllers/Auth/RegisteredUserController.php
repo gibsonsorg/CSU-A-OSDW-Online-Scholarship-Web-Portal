@@ -34,7 +34,7 @@ class RegisteredUserController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'student_id' => ['required', 'string', 'regex:/^[0-9]{1,2}-[0-9]{1,5}$/', 'unique:users,student_id'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'id_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:1024'],
+            'id_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'extensions:jpg,jpeg,png,pdf', 'max:1024'],
         ], [
             'name.unique' => 'This full name is already registered',
             'email.required' => 'Email address is required',
@@ -51,7 +51,7 @@ class RegisteredUserController extends Controller
         // store uploaded ID document
         $idPath = null;
         if ($request->hasFile('id_document') && $request->file('id_document')->isValid()) {
-            $idPath = Storage::disk('public')->putFile('ids', $request->file('id_document'));
+            $idPath = Storage::disk('local')->putFile('ids', $request->file('id_document'));
         }
 
         $user = User::create([

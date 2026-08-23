@@ -6,6 +6,8 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ApplicationStatusMail extends Mailable implements ShouldQueue
 {
@@ -35,5 +37,14 @@ class ApplicationStatusMail extends Mailable implements ShouldQueue
                 'scholarshipName' => $this->scholarshipName,
                 'status' => $this->status,
             ]);
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        Log::error('Application status email job failed', [
+            'scholarship' => $this->scholarshipName,
+            'status' => $this->status,
+            'error' => $exception->getMessage(),
+        ]);
     }
 }

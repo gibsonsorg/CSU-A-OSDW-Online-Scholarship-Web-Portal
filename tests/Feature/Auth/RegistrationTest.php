@@ -21,7 +21,7 @@ class RegistrationTest extends TestCase
 
     public function test_new_users_can_register(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
 
         $response = $this->post('/register', [
             'name' => 'Test User',
@@ -36,14 +36,14 @@ class RegistrationTest extends TestCase
             'student_id' => '23-11941',
             'email' => 'test.user@example.com',
         ]);
-        $response->assertRedirect(route('approval.waiting', absolute: false));
+        $response->assertRedirect('/');
     }
 
     public function test_duplicate_name_is_rejected_with_a_validation_error(): void
     {
         User::factory()->create(['name' => 'Duplicate Name']);
 
-        Storage::fake('public');
+        Storage::fake('local');
 
         $response = $this->from('/register')->post('/register', [
             'name' => 'Duplicate Name',

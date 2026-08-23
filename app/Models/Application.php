@@ -24,4 +24,9 @@ class Application extends Model
     {
         return $this->belongsTo(Scholarship::class);
     }
+
+    public function studentProfile()
+    {
+        return $this->hasOne(StudentProfile::class);
+    }
 }

@@ -31,7 +31,7 @@ class ProfileController extends Controller
 
         // handle optional ID upload
         if ($request->hasFile('id_document') && $request->file('id_document')->isValid()) {
-            $path = Storage::disk('public')->putFile('ids', $request->file('id_document'));
+            $path = Storage::disk('local')->putFile('ids', $request->file('id_document'));
             $data['id_document'] = $path;
         }
 

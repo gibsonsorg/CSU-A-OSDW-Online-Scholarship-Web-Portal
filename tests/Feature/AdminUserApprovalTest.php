@@ -31,7 +31,7 @@ class AdminUserApprovalTest extends TestCase
         $this->assertSame('approved', $user->fresh()->account_status);
     }
 
-    public function test_admin_can_reject_a_user_and_remove_their_account(): void
+    public function test_admin_can_reject_a_user_and_retain_their_account(): void
     {
         $admin = User::factory()->create([
             'role' => 0,
@@ -51,6 +51,7 @@ class AdminUserApprovalTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('status', 'ok');
 
-        $this->assertNull($user->fresh());
+        $this->assertSame('rejected', $user->fresh()->account_status);
+        $this->assertSame('Incomplete requirements', $user->fresh()->rejection_reason);
     }
 }

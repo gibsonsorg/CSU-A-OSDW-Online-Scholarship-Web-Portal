@@ -7,9 +7,23 @@ use Exception;
 use ZipArchive;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
 
 class BackupService
 {
+    public function backupPath(string $relativePath): string
+    {
+        $backupRoot = realpath(storage_path('app/backups'));
+        $candidate = realpath(storage_path('app/' . ltrim($relativePath, '/\\')));
+
+        if (!$backupRoot || !$candidate || !str_starts_with($candidate, $backupRoot . DIRECTORY_SEPARATOR)) {
+            throw new Exception('Invalid backup path');
+        }
+
+        return $candidate;
+    }
+
     /**
      * Create a backup of the database
      */
@@ -71,6 +85,7 @@ class BackupService
                 'backup' => $backup,
             ];
         } catch (Exception $e) {
+            Log::error('Backup creation failed', ['exception' => $e]);
             // Record failed backup
             BackupHistory::create([
                 'filename' => $sqlFilename ?? 'unknown',
@@ -78,12 +93,12 @@ class BackupService
                 'file_size' => 0,
                 'backup_type' => $type,
                 'status' => 'failed',
-                'error_message' => $e->getMessage(),
+                'error_message' => 'Backup operation failed. Please check the application logs for details.',
             ]);
 
             return [
                 'status' => 'error',
-                'message' => 'Backup failed: ' . $e->getMessage(),
+                'message' => 'Backup failed.',
             ];
         }
     }
@@ -98,10 +113,10 @@ class BackupService
         $dbUser = env('DB_USERNAME', 'root');
         $dbPassword = env('DB_PASSWORD', '');
 
-        $command = "mysqldump --host=$dbHost --user=$dbUser";
+        $command = 'mysqldump --host=' . escapeshellarg($dbHost) . ' --user=' . escapeshellarg($dbUser);
         
         if (!empty($dbPassword)) {
-            $command .= " --password={$dbPassword}";
+            $command .= ' --password=' . escapeshellarg($dbPassword);
         }
         
         $command .= " " . escapeshellarg($dbName) . " > " . escapeshellarg($filePath) . " 2>&1";
@@ -120,15 +135,12 @@ class BackupService
      */
     public function restore($backupId): array
     {
+        $tempDir = null;
         try {
             $backup = BackupHistory::findOrFail($backupId);
 
-            if (!file_exists(storage_path('app/' . $backup->file_path))) {
-                throw new Exception('Backup file not found');
-            }
-
-            $backupPath = storage_path('app/' . $backup->file_path);
-            $tempDir = storage_path('app/backups/temp_' . time());
+            $backupPath = $this->backupPath($backup->file_path);
+            $tempDir = storage_path('app/backups/temp_' . uniqid('', true));
 
             // Extract ZIP
             if (!is_dir($tempDir)) {
@@ -138,6 +150,31 @@ class BackupService
             $zip = new ZipArchive();
             if ($zip->open($backupPath) !== true) {
                 throw new Exception('Failed to open backup ZIP file');
+            }
+
+            $sqlEntries = 0;
+            for ($index = 0; $index < $zip->numFiles; $index++) {
+                $entryName = $zip->getNameIndex($index);
+                $normalizedEntry = $entryName === false ? '' : str_replace('\\', '/', $entryName);
+                $externalAttributes = 0;
+                $externalAttributesType = 0;
+                $zip->getExternalAttributesIndex($index, $externalAttributesType, $externalAttributes);
+                $isSymlink = (($externalAttributes >> 16) & 0xF000) === 0xA000;
+
+                if ($entryName === false || str_ends_with($normalizedEntry, '/') || $isSymlink ||
+                    str_contains($normalizedEntry, '../') || str_starts_with($normalizedEntry, '/') ||
+                    preg_match('/^[A-Za-z]:\\//', $normalizedEntry) ||
+                    dirname($normalizedEntry) !== '.' || pathinfo($normalizedEntry, PATHINFO_EXTENSION) !== 'sql' ||
+                    !preg_match('/^backup_[0-9_-]+\.sql$/', basename($normalizedEntry))) {
+                    $zip->close();
+                    throw new Exception('Invalid backup archive');
+                }
+                $sqlEntries++;
+            }
+
+            if ($sqlEntries !== 1) {
+                $zip->close();
+                throw new Exception('Invalid backup archive contents');
             }
 
             $zip->extractTo($tempDir);
@@ -160,18 +197,20 @@ class BackupService
             // Restore database
             $this->restoreFromSql($sqlFile);
 
-            // Cleanup
-            exec('rm -rf ' . escapeshellarg($tempDir) . ' 2>/dev/null || rmdir /s /q ' . escapeshellarg($tempDir));
-
             return [
                 'status' => 'success',
                 'message' => 'Database restored successfully from ' . $backup->filename,
             ];
         } catch (Exception $e) {
+            Log::error('Backup restore failed', ['backup_id' => $backupId, 'exception' => $e]);
             return [
                 'status' => 'error',
-                'message' => 'Restore failed: ' . $e->getMessage(),
+                'message' => 'Restore failed.',
             ];
+        } finally {
+            if ($tempDir && is_dir($tempDir)) {
+                File::deleteDirectory($tempDir);
+            }
         }
     }
 
@@ -185,10 +224,10 @@ class BackupService
         $dbUser = env('DB_USERNAME', 'root');
         $dbPassword = env('DB_PASSWORD', '');
 
-        $command = "mysql --host=$dbHost --user=$dbUser";
+        $command = 'mysql --host=' . escapeshellarg($dbHost) . ' --user=' . escapeshellarg($dbUser);
         
         if (!empty($dbPassword)) {
-            $command .= " --password={$dbPassword}";
+            $command .= ' --password=' . escapeshellarg($dbPassword);
         }
         
         $command .= " " . escapeshellarg($dbName) . " < " . escapeshellarg($sqlFilePath) . " 2>&1";
@@ -209,7 +248,7 @@ class BackupService
     {
         try {
             $backup = BackupHistory::findOrFail($backupId);
-            $filePath = storage_path('app/' . $backup->file_path);
+            $filePath = $this->backupPath($backup->file_path);
 
             if (file_exists($filePath)) {
                 unlink($filePath);
@@ -222,9 +261,10 @@ class BackupService
                 'message' => 'Backup deleted successfully',
             ];
         } catch (Exception $e) {
+            Log::error('Backup deletion failed', ['backup_id' => $backupId, 'exception' => $e]);
             return [
                 'status' => 'error',
-                'message' => 'Delete failed: ' . $e->getMessage(),
+                'message' => 'Delete failed.',
             ];
         }
     }

@@ -208,6 +208,8 @@ This will create the following tables:
 
 Populate the database with initial admin user:
 
+Set `ADMIN_EMAIL` and a strong, unique `ADMIN_PASSWORD` in `.env` before running the admin seeder. The seeder refuses to run when either value is missing.
+
 ```bash
 php artisan db:seed
 ```
@@ -268,6 +270,8 @@ The application will be available at: `http://localhost:8000`
 - Visit: `http://localhost:8000/admin`
 - Login with admin credentials
 - Manage applications from dashboard
+
+For production, configure `QUEUE_CONNECTION=database` (or another persistent queue driver) and run a continuously supervised worker with `php artisan queue:work`. Monitor failed notifications with `php artisan queue:failed` and retry them with `php artisan queue:retry all` after resolving the cause. Approval and rejection emails are queued and will not be processed without a running worker.
 
 ### Step 5: Monitor File Changes (Optional)
 

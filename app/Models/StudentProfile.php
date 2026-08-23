@@ -10,7 +10,7 @@ class StudentProfile extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'user_id','student_id_number','first_name','middle_name','last_name','sex','status','email','home_address','contact_number','course','year_level','program','id_number','birthdate','birthplace','religion','scholarship_name','scholarship_type','uploads','application_status','grant_type','rejection_reason'
+        'user_id','application_id','student_id_number','first_name','middle_name','last_name','sex','status','email','home_address','contact_number','course','year_level','program','id_number','birthdate','birthplace','religion','scholarship_name','scholarship_type','uploads','application_status','grant_type','rejection_reason'
     ];
 
     protected $casts = [
@@ -21,5 +21,10 @@ class StudentProfile extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function application()
+    {
+        return $this->belongsTo(Application::class);
     }
 }

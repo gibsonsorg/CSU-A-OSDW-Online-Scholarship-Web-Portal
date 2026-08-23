@@ -25,7 +25,7 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
-            'id_document' => ['nullable','file','mimes:jpg,jpeg,png,pdf','max:1024'],
+            'id_document' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'extensions:jpg,jpeg,png,pdf', 'max:1024'],
         ];
     }
 }

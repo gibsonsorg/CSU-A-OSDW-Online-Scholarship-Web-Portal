@@ -42,4 +42,14 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    /**
+     * Indicate that the account has passed administrator approval.
+     */
+    public function approved(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'account_status' => 'approved',
+        ]);
+    }
 }

@@ -39,7 +39,7 @@ class AdminApplicationStatusMailTest extends TestCase
         ]);
 
         $admin = User::factory()->create([
-            'role' => 'admin',
+            'role' => 0,
             'email_verified_at' => now(),
         ]);
         $this->actingAs($admin);

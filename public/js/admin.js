@@ -33,6 +33,13 @@ function postJson(url, data, method = 'POST'){
 let currentProfileData = null;
 let isEditMode = false;
 
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
 document.querySelectorAll('.view-profile-btn').forEach(btn=>{
 btn.addEventListener('click', function(){
     const id = this.dataset.id;
@@ -51,18 +58,19 @@ btn.addEventListener('click', function(){
             
             // Helper function to create a field
             const field = (label, value, fieldName) => {
+                const safeValue = escapeHtml(value || '');
                 return `<div style="display:flex; flex-direction:column;" data-field="${fieldName}">
                     <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">${label}</label>
-                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px; word-break:break-word;">${value || 'N/A'}</span>
-                    <input type="text" class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="${value || ''}">
+                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px; word-break:break-word;">${safeValue || 'N/A'}</span>
+                    <input type="text" class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="${safeValue}">
                 </div>`;
             };
             
             const selectField = (label, value, fieldName, options) => {
-                let optionsHtml = options.map(opt => `<option value="${opt}"${value === opt ? ' selected' : ''}>${opt}</option>`).join('');
+                let optionsHtml = options.map(opt => `<option value="${escapeHtml(opt)}"${value === opt ? ' selected' : ''}>${escapeHtml(opt)}</option>`).join('');
                 return `<div style="display:flex; flex-direction:column;" data-field="${fieldName}">
                     <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">${label}</label>
-                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px;">${value || 'N/A'}</span>
+                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px;">${escapeHtml(value) || 'N/A'}</span>
                     <select class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;">
                         <option value="">Select...</option>${optionsHtml}
                     </select>
@@ -95,19 +103,19 @@ btn.addEventListener('click', function(){
                 html += field('ID Number', app.id_number, 'id_number');
                 html += `<div style="display:flex; flex-direction:column;" data-field="birthdate">
                     <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">Birthdate</label>
-                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px;">${formatDate(app.birthdate)}</span>
-                    <input type="date" class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="${app.birthdate ? app.birthdate.split('T')[0] : ''}">
+                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px;">${escapeHtml(formatDate(app.birthdate))}</span>
+                    <input type="date" class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="${escapeHtml(app.birthdate ? app.birthdate.split('T')[0] : '')}">
                 </div>`;
                 html += field('Birthplace', app.birthplace, 'birthplace');
                 html += field('Religion', app.religion, 'religion');
             }
             
-            const buildUploadSection = (label, files) => {
+            const buildUploadSection = (label, files, group) => {
                 if (!files || !files.length) return '';
 
-                const uploadLinks = files.map(file => {
-                    const normalizedFile = String(file).replace(/^\/+/, '');
-                    return `<a href="/storage/${normalizedFile}" target="_blank" style="display:inline-block; min-width:86px; text-align:center; padding:6px 10px; border:1px solid #dbeafe; background:#f8fbff; color:#0d6efd; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600;">View File</a>`;
+                const uploadLinks = files.map((file, index) => {
+                    const documentUrl = `/admin/applications/${encodeURIComponent(app.id)}/document/${encodeURIComponent(group)}/${index}`;
+                    return `<a href="${escapeHtml(documentUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block; min-width:86px; text-align:center; padding:6px 10px; border:1px solid #dbeafe; background:#f8fbff; color:#0d6efd; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600;">View File</a>`;
                 }).join('');
 
                 return `<div style="display:flex; flex-direction:column; gap:6px;">
@@ -119,8 +127,8 @@ btn.addEventListener('click', function(){
             let uploadSections = [];
             if (app.uploads && typeof app.uploads === 'object' && !Array.isArray(app.uploads)) {
                 if (app.grant_type !== 'academic' && app.scholarship_name === 'Athletic Scholarship') {
-                    uploadSections.push(buildUploadSection('Certificate from the Sports Coordinator', app.uploads.certificate_of_grades || app.uploads.grades || []));
-                    uploadSections.push(buildUploadSection('Certificate of Adviser', app.uploads.certificate_of_adviser || []));
+                    uploadSections.push(buildUploadSection('Certificate from the Sports Coordinator', app.uploads.certificate_of_grades || app.uploads.grades || [], app.uploads.certificate_of_grades ? 'certificate_of_grades' : 'grades'));
+                    uploadSections.push(buildUploadSection('Certificate of Adviser', app.uploads.certificate_of_adviser || [], 'certificate_of_adviser'));
                 } else {
                     // Determine label for grades/enrollment files. For certain non-academic scholarships,
                     // show 'ID (Front and Back)' instead of 'Certificate of Grades'.
@@ -130,10 +138,10 @@ btn.addEventListener('click', function(){
                     } else if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
                         gradesLabel = 'ID (Front and Back)';
                     }
-                    uploadSections.push(buildUploadSection(gradesLabel, app.uploads.certificate_of_grades || app.uploads.grades || []));
+                    uploadSections.push(buildUploadSection(gradesLabel, app.uploads.certificate_of_grades || app.uploads.grades || [], app.uploads.certificate_of_grades ? 'certificate_of_grades' : 'grades'));
                 }
                 if (app.scholarship_name === 'University Based Scholarship') {
-                    uploadSections.push(buildUploadSection('Certificate of Enrollment', app.uploads.certificate_of_enrollment || app.uploads.enrollment || []));
+                    uploadSections.push(buildUploadSection('Certificate of Enrollment', app.uploads.certificate_of_enrollment || app.uploads.enrollment || [], app.uploads.certificate_of_enrollment ? 'certificate_of_enrollment' : 'enrollment'));
                 }
             } else if (app.uploads && Array.isArray(app.uploads) && app.uploads.length) {
                 // For certain non-academic scholarships, label uploads as ID (Front and Back)
@@ -143,7 +151,7 @@ btn.addEventListener('click', function(){
                 } else if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
                     nonAcademicIdLabel = 'ID (Front and Back)';
                 }
-                uploadSections.push(buildUploadSection(app.grant_type === 'academic' ? 'Certificate of Grades' : nonAcademicIdLabel, app.uploads));
+                uploadSections.push(buildUploadSection(app.grant_type === 'academic' ? 'Certificate of Grades' : nonAcademicIdLabel, app.uploads, 'uploads'));
             }
 
             if (uploadSections.length) {
@@ -155,7 +163,7 @@ btn.addEventListener('click', function(){
             const statusBg = app.application_status === 'approved' ? '#e8f5e9' : app.application_status === 'rejected' ? '#ffebee' : '#fff8e1';
             html += `<div style="display:flex; flex-direction:column; grid-column:1/-1;">
                 <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">Application Status</label>
-                <span style="color:${statusColor}; background:${statusBg}; padding:8px 12px; border-radius:6px; font-weight:600; text-transform:capitalize; text-align:center;">${app.application_status}</span>
+                <span style="color:${statusColor}; background:${statusBg}; padding:8px 12px; border-radius:6px; font-weight:600; text-transform:capitalize; text-align:center;">${escapeHtml(app.application_status)}</span>
             </div>`;
         }
         
@@ -454,7 +462,7 @@ document.addEventListener('click', function(e) {
                 const name = (u.name || '') + (u.last_name ? (' ' + u.last_name) : '');
                 const studentId = u.student_id || '';
                 const email = u.email || '';
-                const idDoc = u.id_document ? (`<a href="/storage/${u.id_document}" target="_blank">View</a>`) : 'No ID uploaded';
+                const idDoc = u.id_document ? (`<a href="/admin/users/${encodeURIComponent(u.id)}/id-document" target="_blank" rel="noopener noreferrer">View</a>`) : 'No ID uploaded';
                 const reg = u.created_at ? (new Date(u.created_at)).toISOString().split('T')[0] : '';
                 const deleteBtn = `<button class="btn small delete-user-btn" data-id="${u.id}" style="background:#dc3545;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer;">Delete</button>`;
                 html += `<tr data-user-id="${u.id}"><td>${idLink}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(studentId)}</td><td>${escapeHtml(email)}</td><td>${idDoc}</td><td>${reg}</td><td>${deleteBtn}</td></tr>`;
@@ -462,13 +470,6 @@ document.addEventListener('click', function(e) {
         }
         html += `</tbody></table>`;
         container.innerHTML = html;
-    }
-
-    function escapeHtml(str){
-        if (!str) return '';
-        return String(str).replace(/[&<>"'`]/g, function(s){
-            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'})[s];
-        });
     }
 
     function loadUsers(url){

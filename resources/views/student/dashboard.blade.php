@@ -17,7 +17,14 @@
             opacity: 0.65;
             pointer-events: none;
         }
-        .s-card.card-applied .card-foot {
+        .s-card.card-rejected {
+            opacity: 1;
+        }
+        .s-card.card-rejected .applied-label {
+            color: #a81f1f;
+        }
+        .s-card.card-applied .card-foot,
+        .s-card.card-rejected .card-foot {
             display: flex;
             flex-direction: column;
             gap: 0.6rem;
@@ -33,12 +40,16 @@
         .card-applied .applied-label.status-approved {
             color: #15803d;
         }
-        .card-applied .applied-text {
-              color: #15803d;
+        .card-applied .applied-text,
+        .card-rejected .applied-text {
+            color: #15803d;
             font-size: 0.9rem;
             text-align: center;
             line-height: 1.3;
             max-width: 220px;
+        }
+        .card-rejected .applied-text {
+            color: #a81f1f;
         }
         .s-card.card-applied .btn-apply {
             pointer-events: none;
@@ -59,9 +70,6 @@
         .s-card.card-unavailable .card-names h3,
         .s-card.card-unavailable .card-names .prog {
             opacity: 0.7;
-        }
-        .s-card.card-unavailable .card-desc {
-            display: none;
         }
         .s-card.card-unavailable .card-foot {
             display: flex;
@@ -1485,8 +1493,26 @@ More info: https://unifaast.gov.ph/tes.html"
         }
 
                 const application = appliedScholarships.find(item => item.name === scholarshipTitle);
-                const isApplied = Boolean(application);
+                const isApplied = Boolean(application && application.status !== 'rejected');
                 const cardFoot = card.querySelector('.card-foot');
+
+                if (application && application.status === 'rejected' && currentActiveApplications < maxApplications) {
+                    card.classList.add('card-rejected');
+                    if (cardFoot) {
+                        const message = document.createElement('div');
+                        message.className = 'applied-text';
+                        message.innerHTML = '<div class="applied-label">REJECTED</div><div>Rejected. See Application Status for details.</div>';
+                        cardFoot.prepend(message);
+                    }
+                    const applyButton = card.querySelector('.btn-apply');
+                    if (applyButton) {
+                        applyButton.textContent = 'APPLY NOW';
+                        applyButton.removeAttribute('aria-disabled');
+                        applyButton.setAttribute('href', '#');
+                        applyButton.classList.remove('btn-applied');
+                    }
+                    return;
+                }
 
                 if (isApplied) {
                     card.classList.add('card-applied');

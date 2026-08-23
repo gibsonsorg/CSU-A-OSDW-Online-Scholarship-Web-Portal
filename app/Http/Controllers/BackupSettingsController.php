@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\StudentProfile;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class BackupSettingsController extends Controller
 {
@@ -33,7 +34,11 @@ class BackupSettingsController extends Controller
             $dbUser = env('DB_USERNAME', 'root');
             $dbPassword = env('DB_PASSWORD', '');
 
-            $command = "mysqldump --host=$dbHost --user=$dbUser" . ($dbPassword ? " --password=$dbPassword" : "") . " $dbName > $backupPath 2>&1";
+            $command = 'mysqldump --host=' . escapeshellarg($dbHost) . ' --user=' . escapeshellarg($dbUser);
+            if ($dbPassword) {
+                $command .= ' --password=' . escapeshellarg($dbPassword);
+            }
+            $command .= ' ' . escapeshellarg($dbName) . ' > ' . escapeshellarg($backupPath) . ' 2>&1';
             exec($command, $output, $returnCode);
 
             if ($returnCode === 0) {
@@ -42,7 +47,8 @@ class BackupSettingsController extends Controller
                 return response()->json(['error' => 'Backup creation failed'], 500);
             }
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Manual backup generation failed', ['exception' => $e]);
+            return response()->json(['error' => 'Backup creation failed.'], 500);
         }
     }
 
@@ -60,7 +66,8 @@ class BackupSettingsController extends Controller
                 'message' => 'Settings updated successfully',
             ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 422);
+            Log::warning('Automatic backup settings update failed', ['exception' => $e]);
+            return response()->json(['error' => 'Unable to update backup settings.'], 422);
         }
     }
 
@@ -83,7 +90,8 @@ class BackupSettingsController extends Controller
 
             return response()->json(['error' => 'Applicant is not deleted'], 400);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Applicant restore failed', ['applicant_id' => $id, 'exception' => $e]);
+            return response()->json(['error' => 'Applicant restore failed.'], 500);
         }
     }
 
@@ -94,7 +102,8 @@ class BackupSettingsController extends Controller
             $applicant = StudentProfile::withTrashed()->findOrFail($id);
             return response()->json(['status' => 'ok', 'data' => $applicant]);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Applicant information lookup failed', ['applicant_id' => $id, 'exception' => $e]);
+            return response()->json(['error' => 'Unable to load applicant information.'], 500);
         }
     }
 }

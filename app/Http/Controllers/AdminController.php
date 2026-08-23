@@ -10,6 +10,8 @@ use App\Models\Scholarship;
 use App\Models\StudentProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class AdminController extends Controller
 {
@@ -18,7 +20,13 @@ class AdminController extends Controller
      */
     public function dashboard()
     {
-        $recentApplications = StudentProfile::whereNull('deleted_at')->orderBy('created_at', 'desc')->take(10)->get();
+        $recentApplications = StudentProfile::whereNull('deleted_at')
+            ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
+            ->orderBy('applications.created_at')
+            ->orderBy('student_profiles.created_at')
+            ->select('student_profiles.*')
+            ->take(10)
+            ->get();
         $filterType = 'all';
         return view('admin.welcome', compact('recentApplications', 'filterType'));
     }
@@ -69,7 +77,10 @@ class AdminController extends Controller
             ->when($status !== 'all', function ($query) use ($status) {
                 $query->where('application_status', $status);
             })
-            ->orderByDesc('created_at');
+            ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
+            ->select('student_profiles.*')
+            ->orderBy('applications.created_at')
+            ->orderBy('student_profiles.created_at');
 
         return $query->paginate(10)->withQueryString();
     }
@@ -120,9 +131,10 @@ class AdminController extends Controller
                 ));
             }
         } catch (\Throwable $e) {
+            Log::error('Application approval notification failed', ['application_id' => $id, 'exception' => $e]);
             return response()->json([
                 'status' => 'ok',
-                'message' => 'Application approved but email could not be sent: ' . $e->getMessage(),
+                'message' => 'Application approved, but the notification could not be queued.',
             ]);
         }
 
@@ -148,9 +160,10 @@ class AdminController extends Controller
         try {
             Mail::to($user->email)->send(new ApprovalMail($user));
         } catch (\Throwable $e) {
+            Log::error('User approval notification failed', ['user_id' => $id, 'exception' => $e]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'User approved but email could not be sent: ' . $e->getMessage(),
+                'message' => 'User approved, but the notification could not be queued.',
             ], 500);
         }
 
@@ -180,9 +193,10 @@ class AdminController extends Controller
                     ));
                 }
             } catch (\Throwable $e) {
+                Log::error('Application rejection notification failed', ['application_id' => $id, 'exception' => $e]);
                 return response()->json([
                     'status' => 'ok',
-                    'message' => 'Application rejected but email could not be sent: ' . $e->getMessage(),
+                    'message' => 'Application rejected, but the notification could not be queued.',
                 ]);
             }
 
@@ -202,7 +216,7 @@ class AdminController extends Controller
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
         }
 
-        $message = (string) $request->input('message', '');
+        $message = (string) $request->input('reason', $request->input('message', ''));
 
         $user->forceFill([
             'account_status' => 'rejected',
@@ -212,9 +226,10 @@ class AdminController extends Controller
         try {
             Mail::to($user->email)->send(new RejectionMail($user, $message));
         } catch (\Throwable $e) {
+            Log::error('User rejection notification failed', ['user_id' => $id, 'exception' => $e]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'User rejected but email could not be sent: ' . $e->getMessage(),
+                'message' => 'User rejected, but the notification could not be queued.',
             ], 500);
         }
 
@@ -235,15 +250,58 @@ class AdminController extends Controller
             abort(404);
         }
 
-        $path = storage_path('app/public/' . $user->id_document);
+        [$disk, $path] = $this->findDocument($user->id_document);
 
-        if (! file_exists($path)) {
+        if (!$path) {
             abort(404);
         }
 
-        return response()->file($path, [
+        return response()->file(Storage::disk($disk)->path($path), [
             'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
         ]);
+    }
+
+    /**
+     * View an uploaded scholarship document through an authorized admin route.
+     */
+    public function viewApplicationDocument($id, string $group, int $index)
+    {
+        $application = StudentProfile::findOrFail($id);
+        $uploads = $application->uploads;
+
+        if (!is_array($uploads) || $index < 0) {
+            abort(404);
+        }
+
+        $files = $uploads[$group] ?? ($group === 'uploads' && array_is_list($uploads) ? $uploads : null);
+        if (!is_array($files) || !isset($files[$index]) || !is_string($files[$index])) {
+            abort(404);
+        }
+
+        [$disk, $path] = $this->findDocument($files[$index]);
+        if (!$path) {
+            abort(404);
+        }
+
+        return response()->file(Storage::disk($disk)->path($path), [
+            'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
+        ]);
+    }
+
+    private function findDocument(string $storedPath): array
+    {
+        $normalizedPath = ltrim(str_replace('\\', '/', $storedPath), '/');
+        if ($normalizedPath === '' || str_contains($normalizedPath, '../') || str_contains($normalizedPath, '..\\')) {
+            return [null, null];
+        }
+
+        foreach (['local', 'public'] as $disk) {
+            if (Storage::disk($disk)->exists($normalizedPath)) {
+                return [$disk, $normalizedPath];
+            }
+        }
+
+        return [null, null];
     }
 
     /**
@@ -261,8 +319,7 @@ class AdminController extends Controller
             return;
         }
 
-        Application::where('user_id', $profile->user_id)
-            ->where('scholarship_id', $scholarship->id)
+        Application::whereKey($profile->application_id)
             ->update(['status' => $status]);
     }
 
@@ -285,7 +342,8 @@ class AdminController extends Controller
             
             return response()->json(['status' => 'ok', 'message' => 'Profile updated successfully', 'data' => $application]);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            Log::error('Failed to update application profile', ['application_id' => $id, 'exception' => $e]);
+            return response()->json(['status' => 'error', 'message' => 'Unable to update application.'], 500);
         }
     }
 
@@ -299,7 +357,8 @@ class AdminController extends Controller
             $application->delete();
             return response()->json(['status' => 'ok', 'message' => 'Application deleted']);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            Log::error('Failed to delete application', ['application_id' => $id, 'exception' => $e]);
+            return response()->json(['status' => 'error', 'message' => 'Unable to delete application.'], 500);
         }
     }
 }

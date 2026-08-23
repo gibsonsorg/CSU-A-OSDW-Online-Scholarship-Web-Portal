@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use App\Models\Application;
 use App\Models\Scholarship;
 use App\Models\StudentProfile;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -44,13 +45,13 @@ class StudentProfileController extends Controller
         $mimeType = $file->getMimeType();
         $rules = $this->getFileValidationRules();
 
-        if (in_array($extension, $rules['document']['extensions']) || 
-            in_array($mimeType, $rules['document']['mimes'])) {
+        if (in_array($extension, $rules['document']['extensions'], true) &&
+            in_array($mimeType, $rules['document']['mimes'], true)) {
             return 'document';
         }
 
-        if (in_array($extension, $rules['image']['extensions']) || 
-            in_array($mimeType, $rules['image']['mimes'])) {
+        if (in_array($extension, $rules['image']['extensions'], true) &&
+            in_array($mimeType, $rules['image']['mimes'], true)) {
             return 'image';
         }
 
@@ -141,7 +142,9 @@ class StudentProfileController extends Controller
 
         foreach ($flattenedFiles as $filePath) {
             try {
-                if (Storage::disk('public')->exists($filePath)) {
+                if (Storage::disk('local')->exists($filePath)) {
+                    Storage::disk('local')->delete($filePath);
+                } elseif (Storage::disk('public')->exists($filePath)) {
                     Storage::disk('public')->delete($filePath);
                     Log::info("Deleted old file: {$filePath}");
                 }
@@ -220,27 +223,6 @@ class StudentProfileController extends Controller
             // Assign grant type
             $data['grant_type'] = $isAcademic ? 'academic' : 'non-academic';
 
-            // Prevent duplicate applications for the same scholarship by the authenticated user
-            $existingApplication = StudentProfile::where('user_id', $user->id)
-                ->where('scholarship_name', $data['scholarship_name'])
-                ->first();
-
-            if ($existingApplication) {
-                return redirect()->route('dashboard', ['section' => 'non'])
-                    ->with('error', 'You have already applied for the ' . $data['scholarship_name'] . ' scholarship. Only one application per scholarship is allowed.');
-            }
-
-            // Limit two active applications per grant category for this user
-            $activeCategoryApplications = StudentProfile::where('user_id', $user->id)
-                ->where('grant_type', $data['grant_type'])
-                ->whereIn('application_status', ['pending', 'approved'])
-                ->count();
-
-            if ($activeCategoryApplications >= 2) {
-                return redirect()->route('dashboard', ['section' => 'non'])
-                    ->with('error', 'You already have two active applications in the ' . $data['grant_type'] . ' category. Only two open applications per category are allowed.');
-            }
-
             // Handle file uploads with custom validation
             $uploaded = [];
             $uploadErrors = [];
@@ -275,11 +257,11 @@ class StudentProfileController extends Controller
 
                     // Store the file
                     try {
-                        $filePath = $file->store('student_profiles', 'public');
+                        $filePath = $file->store('student_profiles', 'local');
                         $uploaded[$groupKey][] = $filePath;
                         Log::info("File uploaded successfully: {$filePath}");
                     } catch (\Exception $e) {
-                        $uploadErrors[] = "Failed to store file '{$file->getClientOriginalName()}': " . $e->getMessage();
+                        $uploadErrors[] = "Failed to store file '{$file->getClientOriginalName()}'.";
                         Log::error("File storage error: " . $e->getMessage());
                     }
                 }
@@ -305,16 +287,25 @@ class StudentProfileController extends Controller
             try {
                 DB::beginTransaction();
 
-                $profile = StudentProfile::create($data);
-
                 $scholarship = Scholarship::firstOrCreate(
                     ['name' => $data['scholarship_name']],
                     ['type' => $data['grant_type']]
                 );
 
-                // Check if an Application already exists for this user and scholarship_id
+                // Serialize application checks per user so concurrent submissions cannot bypass limits.
+                User::whereKey($user->id)->lockForUpdate()->first();
+
+                $isAcademicScholarship = $scholarship->type === 'academic';
+
+                if ($isAcademicScholarship !== $isAcademic) {
+                    DB::rollBack();
+                    return redirect()->route('dashboard', ['section' => 'non'])
+                        ->with('error', 'The selected scholarship does not match the application form category.');
+                }
+
                 $existingApp = Application::where('user_id', $user->id)
                     ->where('scholarship_id', $scholarship->id)
+                    ->whereIn('status', ['pending', 'approved'])
                     ->first();
 
                 if ($existingApp) {
@@ -324,11 +315,35 @@ class StudentProfileController extends Controller
                         ->with('error', 'You have already applied for the ' . $data['scholarship_name'] . ' scholarship. Only one application per scholarship is allowed.');
                 }
 
-                Application::create([
+                if ($isAcademicScholarship) {
+                    $activeCategoryApplications = Application::where('applications.user_id', $user->id)
+                        ->join('scholarships', 'scholarships.id', '=', 'applications.scholarship_id')
+                        ->where('scholarships.type', 'academic')
+                        ->whereIn('applications.status', ['pending', 'approved'])
+                        ->lockForUpdate()
+                        ->count();
+                } else {
+                    $activeCategoryApplications = StudentProfile::where('user_id', $user->id)
+                        ->where('grant_type', $data['grant_type'])
+                        ->whereIn('application_status', ['pending', 'approved'])
+                        ->lockForUpdate()
+                        ->count();
+                }
+
+                if ($activeCategoryApplications >= 2) {
+                    DB::rollBack();
+                    return redirect()->route('dashboard', ['section' => 'non'])
+                        ->with('error', 'You already have two active applications in the ' . $data['grant_type'] . ' category. Only two open applications per category are allowed.');
+                }
+
+                $application = Application::create([
                     'user_id' => $user->id,
                     'scholarship_id' => $scholarship->id,
-                    'status' => $profile->application_status ?? 'pending',
+                    'status' => 'pending',
                 ]);
+
+                $data['application_id'] = $application->id;
+                $profile = StudentProfile::create($data);
 
                 DB::commit();
 
@@ -379,8 +394,8 @@ class StudentProfileController extends Controller
             throw $e;
         } catch (\Exception $e) {
             Log::error('Error saving student profile', ['error' => $e->getMessage(), 'code' => $e->getCode()]);
-            return redirect()->back()
-                ->with('error', 'Failed to submit application: ' . $e->getMessage())
+                return redirect()->back()
+                    ->with('error', 'Failed to submit application.')
                 ->withInput();
         }
     }
@@ -421,10 +436,10 @@ class StudentProfileController extends Controller
                     }
 
                     try {
-                        $filePath = $file->store('student_profiles', 'public');
+                        $filePath = $file->store('student_profiles', 'local');
                         $newUploads[$groupKey][] = $filePath;
                     } catch (\Exception $e) {
-                        $uploadErrors[] = "Failed to store file: " . $e->getMessage();
+                        $uploadErrors[] = "Failed to store file.";
                     }
                 }
             }
@@ -449,7 +464,7 @@ class StudentProfileController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Error updating documents', ['error' => $e->getMessage()]);
-            return redirect()->back()->with('error', 'Failed to update documents: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to update documents.');
         }
     }
 

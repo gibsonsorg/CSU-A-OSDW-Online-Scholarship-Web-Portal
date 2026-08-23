@@ -7,6 +7,7 @@ use App\Models\BackupHistory;
 use App\Services\BackupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class BackupController extends Controller
 {
@@ -40,7 +41,7 @@ class BackupController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to create backup: ' . $e->getMessage(),
+                'message' => 'Failed to create backup.',
             ], 500);
         }
     }
@@ -52,7 +53,7 @@ class BackupController extends Controller
     {
         try {
             $backup = BackupHistory::findOrFail($id);
-            $filePath = storage_path('app/' . $backup->file_path);
+            $filePath = $this->backupService->backupPath($backup->file_path);
 
             if (!file_exists($filePath)) {
                 return response()->json([
@@ -65,7 +66,7 @@ class BackupController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Download failed: ' . $e->getMessage(),
+                'message' => 'Download failed.',
             ], 500);
         }
     }
@@ -98,7 +99,7 @@ class BackupController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'Unable to load backups.',
             ], 500);
         }
     }
@@ -125,7 +126,7 @@ class BackupController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Restore failed: ' . $e->getMessage(),
+                'message' => 'Restore failed.',
             ], 500);
         }
     }
@@ -152,7 +153,7 @@ class BackupController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Delete failed: ' . $e->getMessage(),
+                'message' => 'Delete failed.',
             ], 500);
         }
     }
@@ -184,7 +185,7 @@ class BackupController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'Unable to load backup schedule.',
             ], 500);
         }
     }
@@ -226,7 +227,7 @@ class BackupController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'Unable to update backup schedule.',
             ], 422);
         }
     }

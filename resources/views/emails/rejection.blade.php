@@ -11,8 +11,8 @@
 
     <p>This may be due to incomplete or invalid information provided during registration.</p>
 
-    @if (!empty($message))
-        <p><strong>Administrator message:</strong> {{ $message }}</p>
+    @if (!empty($rejectionReason))
+        <p><strong>Administrator message:</strong> {{ $rejectionReason }}</p>
     @endif
 
     <p>If you believe this decision was made in error or if you would like further clarification, please feel free to contact the administrator.</p>

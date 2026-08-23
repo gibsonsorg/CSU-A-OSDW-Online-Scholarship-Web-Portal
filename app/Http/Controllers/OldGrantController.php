@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Imports\OldGrantImport;
 use App\Models\OldGrantRecord;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
 class OldGrantController extends Controller
@@ -111,9 +112,10 @@ class OldGrantController extends Controller
                 'errors' => $errorCount > 0 ? $import->getErrors() : [],
             ]);
         } catch (\Exception $e) {
+            Log::error('Old grant import failed', ['exception' => $e]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'Import failed: ' . $e->getMessage(),
+                'message' => 'Import failed.',
             ], 500);
         }
     }

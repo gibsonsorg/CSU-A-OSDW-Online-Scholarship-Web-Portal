@@ -7,6 +7,7 @@ use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\WithValidation;
+use Illuminate\Support\Facades\Log;
 
 class OldGrantImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithValidation
 {
@@ -63,10 +64,31 @@ class OldGrantImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithVal
                 }
             }
 
-            // Validate that we have at least first_name
-            if (empty($data['first_name'])) {
+            $requiredFields = ['first_name', 'course', 'year', 'scholarship_name', 'funding_source', 'campus'];
+            foreach ($requiredFields as $field) {
+                if (empty($data[$field])) {
+                    $this->errorCount++;
+                    $this->errors[] = 'Row skipped: Missing ' . str_replace('_', ' ', $field);
+                    return null;
+                }
+            }
+
+            $maxLengths = [
+                'first_name' => 255, 'middle_name' => 255, 'sex' => 255,
+                'course' => 255, 'year' => 255, 'scholarship_name' => 255,
+                'funding_source' => 255, 'campus' => 255,
+            ];
+            foreach ($maxLengths as $field => $maxLength) {
+                if (isset($data[$field]) && strlen($data[$field]) > $maxLength) {
+                    $this->errorCount++;
+                    $this->errors[] = 'Row skipped: ' . str_replace('_', ' ', $field) . ' is too long';
+                    return null;
+                }
+            }
+
+            if (!in_array(strtolower($data['sex'] ?? ''), ['male', 'female'], true)) {
                 $this->errorCount++;
-                $this->errors[] = 'Row skipped: Missing first name';
+                $this->errors[] = 'Row skipped: Invalid sex value';
                 return null;
             }
 
@@ -77,7 +99,8 @@ class OldGrantImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithVal
             return new OldGrantRecord($data);
         } catch (\Exception $e) {
             $this->errorCount++;
-            $this->errors[] = 'Error: ' . $e->getMessage();
+            Log::error('Old grant row import failed', ['exception' => $e]);
+            $this->errors[] = 'Row skipped: malformed data';
             return null;
         }
     }
@@ -87,7 +110,16 @@ class OldGrantImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithVal
      */
     public function rules(): array
     {
-        return [];
+        return [
+            'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'sex' => 'required|in:Male,Female',
+            'course' => 'required|string|max:255',
+            'year' => 'required|string|max:255',
+            'scholarship_name' => 'required|string|max:255',
+            'funding_source' => 'required|string|max:255',
+            'campus' => 'required|string|max:255',
+        ];
     }
 
     /**

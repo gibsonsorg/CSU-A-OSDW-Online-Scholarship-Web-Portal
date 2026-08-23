@@ -27,7 +27,7 @@ class RejectionMail extends Mailable implements ShouldQueue
             ->view('emails.rejection')
             ->with([
                 'user' => $this->user,
-                'message' => $this->message,
+                'rejectionReason' => $this->message,
             ]);
     }
 }
