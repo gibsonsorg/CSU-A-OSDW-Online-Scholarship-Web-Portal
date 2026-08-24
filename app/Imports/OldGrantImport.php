@@ -3,146 +3,115 @@
 namespace App\Imports;
 
 use App\Models\OldGrantRecord;
-use Maatwebsite\Excel\Concerns\ToModel;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
-use Maatwebsite\Excel\Concerns\WithValidation;
-use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class OldGrantImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithValidation
+class OldGrantImport
 {
-    private $scholarshipType;
-    private $successCount = 0;
-    private $errorCount = 0;
-    private $errors = [];
+    private int $successCount = 0;
+    private int $academicCount = 0;
+    private int $nonAcademicCount = 0;
+    private int $errorCount = 0;
+    private int $duplicateCount = 0;
+    private array $errors = [];
 
-    public function __construct($scholarshipType = 'academic')
+    public function __construct(private ?string $ignoredGrantType = null) {}
+
+    public function import(string $path): void
     {
-        $this->scholarshipType = $scholarshipType;
-    }
-
-    /**
-     * Map Excel row to OldGrantRecord
-     */
-    public function model(array $row)
-    {
-        try {
-            // Map column names from Excel to model fields
-            // Excel columns should have these headers (case-insensitive):
-            // First Name, Middle Name, Sex, Course, Year, 
-            // Name of Scholarship / Financial Assistance, Type of Scholarship, Funding, Campus
-
-            $data = [];
-
-            // Extract and trim values from row using flexible column name mapping
-            foreach ($row as $key => $value) {
-                if ($value === null || $value === '') {
-                    continue;
-                }
-                
-                $normalizedKey = strtolower(trim($key));
-
-                // Map Excel column names to database fields
-                if (strpos($normalizedKey, 'first') !== false && strpos($normalizedKey, 'name') !== false) {
-                    $data['first_name'] = trim($value);
-                } elseif (strpos($normalizedKey, 'middle') !== false) {
-                    $data['middle_name'] = trim($value);
-                } elseif ($normalizedKey === 'sex') {
-                    $data['sex'] = trim($value);
-                } elseif ($normalizedKey === 'course') {
-                    $data['course'] = trim($value);
-                } elseif ($normalizedKey === 'year') {
-                    $data['year'] = trim($value);
-                } elseif (strpos($normalizedKey, 'scholarship') !== false && (strpos($normalizedKey, 'name') !== false || strpos($normalizedKey, 'assistance') !== false)) {
-                    $data['scholarship_name'] = trim($value);
-                } elseif (strpos($normalizedKey, 'type') !== false && strpos($normalizedKey, 'scholarship') !== false) {
-                    $data['scholarship_type'] = trim($value);
-                } elseif (strpos($normalizedKey, 'funding') !== false || strpos($normalizedKey, 'source') !== false) {
-                    $data['funding_source'] = trim($value);
-                } elseif ($normalizedKey === 'campus') {
-                    $data['campus'] = trim($value);
-                }
-            }
-
-            $requiredFields = ['first_name', 'course', 'year', 'scholarship_name', 'funding_source', 'campus'];
-            foreach ($requiredFields as $field) {
-                if (empty($data[$field])) {
-                    $this->errorCount++;
-                    $this->errors[] = 'Row skipped: Missing ' . str_replace('_', ' ', $field);
-                    return null;
-                }
-            }
-
-            $maxLengths = [
-                'first_name' => 255, 'middle_name' => 255, 'sex' => 255,
-                'course' => 255, 'year' => 255, 'scholarship_name' => 255,
-                'funding_source' => 255, 'campus' => 255,
-            ];
-            foreach ($maxLengths as $field => $maxLength) {
-                if (isset($data[$field]) && strlen($data[$field]) > $maxLength) {
-                    $this->errorCount++;
-                    $this->errors[] = 'Row skipped: ' . str_replace('_', ' ', $field) . ' is too long';
-                    return null;
-                }
-            }
-
-            if (!in_array(strtolower($data['sex'] ?? ''), ['male', 'female'], true)) {
-                $this->errorCount++;
-                $this->errors[] = 'Row skipped: Invalid sex value';
-                return null;
-            }
-
-            // Set scholarship_type based on constructor parameter
-            $data['scholarship_type'] = $this->scholarshipType;
-
-            $this->successCount++;
-            return new OldGrantRecord($data);
-        } catch (\Exception $e) {
-            $this->errorCount++;
-            Log::error('Old grant row import failed', ['exception' => $e]);
-            $this->errors[] = 'Row skipped: malformed data';
-            return null;
+        $workbook = IOFactory::load($path);
+        foreach ($workbook->getWorksheetIterator() as $sheet) {
+            $this->importSheet($sheet);
         }
     }
 
-    /**
-     * Validation rules
-     */
-    public function rules(): array
+    private function importSheet(Worksheet $sheet): void
     {
-        return [
-            'first_name' => 'required|string|max:255',
-            'middle_name' => 'nullable|string|max:255',
-            'sex' => 'required|in:Male,Female',
-            'course' => 'required|string|max:255',
-            'year' => 'required|string|max:255',
-            'scholarship_name' => 'required|string|max:255',
-            'funding_source' => 'required|string|max:255',
-            'campus' => 'required|string|max:255',
+        $header = $this->findHeader($sheet);
+        if ($header === null) {
+            $this->addError($sheet->getTitle(), 'Unable to find a valid header row.');
+            return;
+        }
+
+        $lastRow = $sheet->getHighestDataRow();
+        $lastColumn = $sheet->getHighestDataColumn();
+        for ($rowNumber = $header['row'] + 1; $rowNumber <= $lastRow; $rowNumber++) {
+            $values = $sheet->rangeToArray("A{$rowNumber}:{$lastColumn}{$rowNumber}", null, true, false)[0] ?? [];
+            $values = array_map(fn ($value) => $this->text($value), $values);
+            if (count(array_filter($values, fn ($value) => $value !== '')) === 0) continue;
+            $this->importRow($sheet->getTitle(), $rowNumber, $values, $header['map']);
+        }
+    }
+
+    private function findHeader(Worksheet $sheet): ?array
+    {
+        $required = ['sequence_no', 'last_name', 'first_name', 'program', 'year', 'scholarship_name', 'scholarship_type', 'funding', 'amount'];
+        $lastRow = $sheet->getHighestDataRow();
+        $lastColumn = $sheet->getHighestDataColumn();
+        for ($row = 1; $row <= $lastRow; $row++) {
+            $values = $sheet->rangeToArray("A{$row}:{$lastColumn}{$row}", null, true, false)[0] ?? [];
+            $map = [];
+            foreach ($required as $field) {
+                foreach ($values as $index => $value) {
+                    if ($this->matches($this->text($value), $field)) { $map[$field] = $index; break; }
+                }
+            }
+            if (count($map) === count($required)) {
+                foreach (['middle_name', 'sex'] as $field) {
+                    foreach ($values as $index => $value) {
+                        if ($this->matches($this->text($value), $field)) { $map[$field] = $index; break; }
+                    }
+                }
+                return ['row' => $row, 'map' => $map];
+            }
+        }
+        return null;
+    }
+
+    private function matches(string $value, string $field): bool
+    {
+        $value = $this->header($value);
+        $aliases = [
+            'sequence_no' => ['sequence no', 'sequence'], 'last_name' => ['last name', 'surname'],
+            'first_name' => ['first name', 'given name'], 'middle_name' => ['middle name'], 'sex' => ['sex', 'gender'],
+            'program' => ['program', 'course'], 'year' => ['year'],
+            'scholarship_name' => ['name of scholarship financial assistance', 'scholarship name', 'financial assistance'],
+            'scholarship_type' => ['type of scholarship'], 'funding' => ['funding'],
+            'amount' => ['amount of financial assistance', 'amount'],
         ];
+        foreach ($aliases[$field] as $alias) {
+            $alias = $this->header($alias);
+            if ($value === $alias || str_contains($value, $alias)) return true;
+        }
+        return false;
     }
 
-    /**
-     * Get success count
-     */
-    public function getSuccessCount()
+    private function importRow(string $sheet, int $rowNumber, array $values, array $map): void
     {
-        return $this->successCount;
+        $data = [];
+        foreach (['sequence_no', 'last_name', 'first_name', 'middle_name', 'sex', 'program', 'year', 'scholarship_name', 'scholarship_type', 'funding', 'amount'] as $field) {
+            $data[$field] = isset($map[$field], $values[$map[$field]]) && $values[$map[$field]] !== '' ? $values[$map[$field]] : null;
+        }
+        $data['course'] = $data['program']; unset($data['program']);
+        $data['funding_source'] = $data['funding']; unset($data['funding']);
+        $type = strtolower(trim((string) $data['scholarship_type']));
+        $data['scholarship_type'] = str_contains($type, 'non') && str_contains($type, 'academic') ? 'non_academic' : (str_contains($type, 'academic') ? 'academic' : null);
+        foreach (['sequence_no', 'last_name', 'first_name', 'scholarship_name', 'scholarship_type', 'funding_source', 'amount'] as $field) {
+            if ($data[$field] === null) { $this->addError($sheet, "Excel row {$rowNumber}: Missing {$field}."); return; }
+        }
+        if (OldGrantRecord::where('sequence_no', $data['sequence_no'])->where('last_name', $data['last_name'])->where('first_name', $data['first_name'])->where('scholarship_name', $data['scholarship_name'])->exists()) { $this->duplicateCount++; return; }
+        OldGrantRecord::create($data);
+        $this->successCount++;
+        $data['scholarship_type'] === 'academic' ? $this->academicCount++ : $this->nonAcademicCount++;
     }
 
-    /**
-     * Get error count
-     */
-    public function getErrorCount()
-    {
-        return $this->errorCount;
-    }
-
-    /**
-     * Get errors
-     */
-    public function getErrors()
-    {
-        return $this->errors;
-    }
+    private function header(string $value): string { return preg_replace('/\s+/', ' ', str_replace(["\r", "\n", "\t", "\u{00A0}", '.', '/', '(', ')', ','], ' ', strtolower(trim($value)))) ?? ''; }
+    private function text(mixed $value): string { return is_array($value) ? implode(' ', array_map(fn ($item) => $this->text($item), $value)) : trim((string) $value); }
+    private function addError(string $sheet, string $message): void { $this->errorCount++; $this->errors[] = "Sheet {$sheet}: {$message}"; }
+    public function getSuccessCount(): int { return $this->successCount; }
+    public function getAcademicCount(): int { return $this->academicCount; }
+    public function getNonAcademicCount(): int { return $this->nonAcademicCount; }
+    public function getErrorCount(): int { return $this->errorCount; }
+    public function getDuplicateCount(): int { return $this->duplicateCount; }
+    public function getErrors(): array { return $this->errors; }
 }

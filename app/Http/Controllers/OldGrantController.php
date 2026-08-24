@@ -6,7 +6,6 @@ use App\Imports\OldGrantImport;
 use App\Models\OldGrantRecord;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Maatwebsite\Excel\Facades\Excel;
 
 class OldGrantController extends Controller
 {
@@ -77,17 +76,15 @@ class OldGrantController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'grant_type' => 'required|in:academic,non_academic',
             'excel_file' => 'required|mimes:xlsx,xls|max:10240', // Max 10MB
         ]);
 
         try {
-            $grantType = $request->input('grant_type');
             $file = $request->file('excel_file');
 
             // Import the Excel file
-            $import = new OldGrantImport($grantType);
-            Excel::import($import, $file);
+            $import = new OldGrantImport();
+            $import->import($file->getRealPath());
 
             $successCount = $import->getSuccessCount();
             $errorCount = $import->getErrorCount();
@@ -96,6 +93,8 @@ class OldGrantController extends Controller
                 return response()->json([
                     'status' => 'warning',
                     'message' => 'No records were imported. Please check your Excel file format.',
+                    'academic_records' => $import->getAcademicCount(),
+                    'non_academic_records' => $import->getNonAcademicCount(),
                     'details' => $import->getErrors(),
                 ], 400);
             }
@@ -109,6 +108,9 @@ class OldGrantController extends Controller
                 'status' => 'success',
                 'message' => $message,
                 'count' => $successCount,
+                'academic_records' => $import->getAcademicCount(),
+                'non_academic_records' => $import->getNonAcademicCount(),
+                'duplicate_rows' => $import->getDuplicateCount(),
                 'errors' => $errorCount > 0 ? $import->getErrors() : [],
             ]);
         } catch (\Exception $e) {

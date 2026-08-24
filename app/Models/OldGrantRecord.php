@@ -12,6 +12,8 @@ class OldGrantRecord extends Model
     protected $table = 'old_grant_records';
 
     protected $fillable = [
+        'sequence_no',
+        'last_name',
         'first_name',
         'middle_name',
         'sex',
@@ -21,5 +23,6 @@ class OldGrantRecord extends Model
         'scholarship_type',
         'funding_source',
         'campus',
+        'amount',
     ];
 }

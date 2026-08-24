@@ -12,6 +12,11 @@
         .topbar-right .btn {
             margin-right: 4px;
         }
+
+        #admin-table-container .old-grants-pagination svg {
+            width: 1rem;
+            height: 1rem;
+        }
     </style>
     </head>
 <body>
@@ -183,6 +188,8 @@
         <table>
             <thead>
                 <tr>
+                    <th>Sequence No.</th>
+                    <th>Last Name</th>
                     <th>First Name</th>
                     <th>Middle Name</th>
                     <th>Sex</th>
@@ -192,13 +199,15 @@
                     <th>Type of Scholarship</th>
                     <th>Funding</th>
                     <th>Campus</th>
-                    <th>Date</th>
+                    <th>Amount of Financial Assistance</th>
                 </tr>
             </thead>
             <tbody>
             @if($oldRecords->count() > 0)
                 @foreach($oldRecords as $record)
                     <tr>
+                        <td>{{ $record->sequence_no ?? '' }}</td>
+                        <td>{{ $record->last_name ?? '' }}</td>
                         <td>{{ $record->first_name }}</td>
                         <td>{{ $record->middle_name }}</td>
                         <td>{{ $record->sex }}</td>
@@ -208,18 +217,20 @@
                         <td>{{ ucfirst(str_replace('_', ' ', $record->scholarship_type)) }}</td>
                         <td>{{ $record->funding_source }}</td>
                         <td>{{ $record->campus }}</td>
-                        <td>{{ optional($record->created_at)->format('Y-m-d') }}</td>
+                        <td>{{ $record->amount ?? '' }}</td>
                     </tr>
                 @endforeach
             @else
                 <tr>
-                    <td colspan="10" class="text-center text-gray">No applications found.</td>
+                    <td colspan="11" class="text-center text-gray">No applications found.</td>
                 </tr>
             @endif
         </tbody>
         </table>
         @if(method_exists($oldRecords, 'links'))
-            {{ $oldRecords->links() }}
+            <div class="old-grants-pagination">
+                {{ $oldRecords->links() }}
+            </div>
         @endif
         @else
         <table>
