@@ -235,7 +235,7 @@
             padding: 0.55rem 1rem;
             border-radius: 8px;
             background: #6b0f1a;
-            color:white;
+            color: white;
             font-size: 0.85rem;
             font-weight: 600;
             text-decoration: none;
@@ -243,10 +243,9 @@
         }
 
         .empty-cta:hover {
-        transform: translateY(-3px);
+            transform: translateY(-3px);
         }
 
-        /* Rejection detail modal */
         .detail-overlay {
             position: fixed;
             inset: 0;
@@ -442,218 +441,214 @@
 <body>
 
 <x-app-layout>
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8"></div>
-    </div>
-</x-app-layout>
+    @php
+        $allApplications = $academicApplications->concat($nonAcademicApplications);
+        $totalCount = $allApplications->count();
+        $pendingCount = $allApplications->where('application_status', 'pending')->count();
+        $approvedCount = $allApplications->where('application_status', 'approved')->count();
+        $rejectedCount = $allApplications->where('application_status', 'rejected')->count();
+    @endphp
 
-@php
-    $allApplications = $academicApplications->concat($nonAcademicApplications);
-    $totalCount = $allApplications->count();
-    $pendingCount = $allApplications->where('application_status', 'pending')->count();
-    $approvedCount = $allApplications->where('application_status', 'approved')->count();
-    $rejectedCount = $allApplications->where('application_status', 'rejected')->count();
-@endphp
-
-<div class="main">
-    <div class="status-page">
-        <div class="status-hero">
-            <div class="status-hero-top">
-                <h1>My Application Status</h1>
-                <p>Track all your scholarship applications in one place. Click any rejected application to read the administrator's feedback.</p>
-            </div>
-        </div>
-
-        <div class="stats-row">
-            <div class="stat-card">
-                <div class="stat-label">Total</div>
-                <div class="stat-value">{{ $totalCount }}</div>
-            </div>
-            <div class="stat-card pending">
-                <div class="stat-label">Pending</div>
-                <div class="stat-value">{{ $pendingCount }}</div>
-            </div>
-            <div class="stat-card approved">
-                <div class="stat-label">Approved</div>
-                <div class="stat-value">{{ $approvedCount }}</div>
-            </div>
-            <div class="stat-card rejected">
-                <div class="stat-label">Rejected</div>
-                <div class="stat-value">{{ $rejectedCount }}</div>
-            </div>
-        </div>
-
-        <div class="status-sections">
-            <section class="status-panel">
-                <div class="status-panel-header">
-                    <h2>Academic Scholarships</h2>
-                    <span class="count-badge">{{ $academicApplications->count() }} {{ Str::plural('application', $academicApplications->count()) }}</span>
+    <div class="main student-dashboard-main">
+        <div class="status-page">
+            <div class="status-hero">
+                <div class="status-hero-top">
+                    <h1>My Application Status</h1>
+                    <p>Track all your scholarship applications in one place. Click any rejected application to read the administrator's feedback.</p>
                 </div>
+            </div>
 
-                @if($academicApplications->isEmpty())
-                    <div class="empty-state">
-                        <h3>No academic applications yet</h3>
-                        <p>Browse available academic grants and submit your first application.</p>
-                        <a href="{{ route('dashboard', ['section' => 'acad']) }}" class="empty-cta">Browse Academic Grants</a>
-                    </div>
-                @else
-                    <div class="app-list">
-                        @foreach($academicApplications as $application)
-                            @include('student.partials.application-status-item', ['application' => $application])
-                        @endforeach
-                    </div>
-                @endif
-            </section>
-
-            <section class="status-panel">
-                <div class="status-panel-header">
-                    <h2>Non-Academic Scholarships</h2>
-                    <span class="count-badge">{{ $nonAcademicApplications->count() }} {{ Str::plural('application', $nonAcademicApplications->count()) }}</span>
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label">Total</div>
+                    <div class="stat-value">{{ $totalCount }}</div>
                 </div>
+                <div class="stat-card pending">
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-value">{{ $pendingCount }}</div>
+                </div>
+                <div class="stat-card approved">
+                    <div class="stat-label">Approved</div>
+                    <div class="stat-value">{{ $approvedCount }}</div>
+                </div>
+                <div class="stat-card rejected">
+                    <div class="stat-label">Rejected</div>
+                    <div class="stat-value">{{ $rejectedCount }}</div>
+                </div>
+            </div>
 
-                @if($nonAcademicApplications->isEmpty())
-                    <div class="empty-state">
-                        <h3>No non-academic applications yet</h3>
-                        <p>Explore non-academic grants and start a new application when you're ready.</p>
-                        <a href="{{ route('dashboard', ['section' => 'non']) }}" class="empty-cta">Browse Non-Academic Grants</a>
+            <div class="status-sections">
+                <section class="status-panel">
+                    <div class="status-panel-header">
+                        <h2>Academic Scholarships</h2>
+                        <span class="count-badge">{{ $academicApplications->count() }} {{ Str::plural('application', $academicApplications->count()) }}</span>
                     </div>
-                @else
-                    <div class="app-list">
-                        @foreach($nonAcademicApplications as $application)
-                            @include('student.partials.application-status-item', ['application' => $application])
-                        @endforeach
+
+                    @if($academicApplications->isEmpty())
+                        <div class="empty-state">
+                            <h3>No academic applications yet</h3>
+                            <p>Browse available academic grants and submit your first application.</p>
+                            <a href="{{ route('dashboard', ['section' => 'acad']) }}" class="empty-cta">Browse Academic Grants</a>
+                        </div>
+                    @else
+                        <div class="app-list">
+                            @foreach($academicApplications as $application)
+                                @include('student.partials.application-status-item', ['application' => $application])
+                            @endforeach
+                        </div>
+                    @endif
+                </section>
+
+                <section class="status-panel">
+                    <div class="status-panel-header">
+                        <h2>Non-Academic Scholarships</h2>
+                        <span class="count-badge">{{ $nonAcademicApplications->count() }} {{ Str::plural('application', $nonAcademicApplications->count()) }}</span>
                     </div>
-                @endif
-            </section>
+
+                    @if($nonAcademicApplications->isEmpty())
+                        <div class="empty-state">
+                            <h3>No non-academic applications yet</h3>
+                            <p>Explore non-academic grants and start a new application when you're ready.</p>
+                            <a href="{{ route('dashboard', ['section' => 'non']) }}" class="empty-cta">Browse Non-Academic Grants</a>
+                        </div>
+                    @else
+                        <div class="app-list">
+                            @foreach($nonAcademicApplications as $application)
+                                @include('student.partials.application-status-item', ['application' => $application])
+                            @endforeach
+                        </div>
+                    @endif
+                </section>
+            </div>
         </div>
     </div>
-</div>
 
-<div id="rejectionDetailOverlay" class="detail-overlay" role="dialog" aria-modal="true" aria-labelledby="rejectionDetailTitle">
-    <div class="detail-modal">
-        <div class="detail-modal-header">
-            <button type="button" class="detail-close" id="rejectionDetailClose" aria-label="Close">&times;</button>
-            <h2 id="rejectionDetailTitle"></h2>
-            <div class="detail-meta-row">
-                <span id="rejectionDetailType"></span>
-                <span id="rejectionDetailApplied"></span>
-                <span id="rejectionDetailUpdated"></span>
+    <div id="rejectionDetailOverlay" class="detail-overlay" role="dialog" aria-modal="true" aria-labelledby="rejectionDetailTitle">
+        <div class="detail-modal">
+            <div class="detail-modal-header">
+                <button type="button" class="detail-close" id="rejectionDetailClose" aria-label="Close">&times;</button>
+                <h2 id="rejectionDetailTitle"></h2>
+                <div class="detail-meta-row">
+                    <span id="rejectionDetailType"></span>
+                    <span id="rejectionDetailApplied"></span>
+                    <span id="rejectionDetailUpdated"></span>
+                </div>
             </div>
-        </div>
-        <div class="detail-modal-body">
-            <p class="detail-section-label">Message from Administrator</p>
-            <div id="rejectionDetailMessage" class="rejection-message-box"></div>
+            <div class="detail-modal-body">
+                <p class="detail-section-label">Message from Administrator</p>
+                <div id="rejectionDetailMessage" class="rejection-message-box"></div>
 
-            <div class="detail-help-box">
-                <p>You may review the feedback above, update your documents if needed, and apply for other available scholarships.</p>
-                <div class="detail-help-actions">
-                    <a href="{{ route('dashboard', ['section' => 'acad']) }}" class="detail-btn detail-btn-primary" id="rejectionBrowseLink">Browse Scholarships</a>
-                    <button type="button" class="detail-btn detail-btn-secondary" id="rejectionDetailCloseBtn">Close</button>
+                <div class="detail-help-box">
+                    <p>You may review the feedback above, update your documents if needed, and apply for other available scholarships.</p>
+                    <div class="detail-help-actions">
+                        <a href="{{ route('dashboard', ['section' => 'acad']) }}" class="detail-btn detail-btn-primary" id="rejectionBrowseLink">Browse Scholarships</a>
+                        <button type="button" class="detail-btn detail-btn-secondary" id="rejectionDetailCloseBtn">Close</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-@php
-    $rejectedApplicationsData = $allApplications
-        ->where('application_status', 'rejected')
-        ->map(function ($application) {
-            return [
-                'id' => $application->id,
-                'scholarship_name' => $application->scholarship_name,
-                'scholarship_type' => $application->scholarship_type,
-                'grant_type' => $application->grant_type,
-                'applied_at' => $application->created_at->format('M d, Y'),
-                'updated_at' => $application->updated_at->format('M d, Y'),
-                'rejection_reason' => $application->rejection_reason,
-            ];
-        })
-        ->values();
-@endphp
+    @php
+        $rejectedApplicationsData = $allApplications
+            ->where('application_status', 'rejected')
+            ->map(function ($application) {
+                return [
+                    'id' => $application->id,
+                    'scholarship_name' => $application->scholarship_name,
+                    'scholarship_type' => $application->scholarship_type,
+                    'grant_type' => $application->grant_type,
+                    'applied_at' => $application->created_at->format('M d, Y'),
+                    'updated_at' => $application->updated_at->format('M d, Y'),
+                    'rejection_reason' => $application->rejection_reason,
+                ];
+            })
+            ->values();
+    @endphp
 
-<script id="rejectedApplicationsData" type="application/json">@json($rejectedApplicationsData)</script>
+    <script id="rejectedApplicationsData" type="application/json">@json($rejectedApplicationsData)</script>
 
-<script>
-(function () {
-    const overlay = document.getElementById('rejectionDetailOverlay');
-    const titleEl = document.getElementById('rejectionDetailTitle');
-    const typeEl = document.getElementById('rejectionDetailType');
-    const appliedEl = document.getElementById('rejectionDetailApplied');
-    const updatedEl = document.getElementById('rejectionDetailUpdated');
-    const messageEl = document.getElementById('rejectionDetailMessage');
-    const browseLink = document.getElementById('rejectionBrowseLink');
-    const rejectedApplications = JSON.parse(
-        document.getElementById('rejectedApplicationsData').textContent || '[]'
-    );
-    const rejectedById = Object.fromEntries(
-        rejectedApplications.map(function (application) {
-            return [String(application.id), application];
-        })
-    );
+    <script>
+        (function () {
+            const overlay = document.getElementById('rejectionDetailOverlay');
+            const titleEl = document.getElementById('rejectionDetailTitle');
+            const typeEl = document.getElementById('rejectionDetailType');
+            const appliedEl = document.getElementById('rejectionDetailApplied');
+            const updatedEl = document.getElementById('rejectionDetailUpdated');
+            const messageEl = document.getElementById('rejectionDetailMessage');
+            const browseLink = document.getElementById('rejectionBrowseLink');
+            const rejectedApplications = JSON.parse(
+                document.getElementById('rejectedApplicationsData').textContent || '[]'
+            );
+            const rejectedById = Object.fromEntries(
+                rejectedApplications.map(function (application) {
+                    return [String(application.id), application];
+                })
+            );
 
-    function openRejectionDetail(applicationId) {
-        const application = rejectedById[String(applicationId)];
-        if (!application) {
-            return;
-        }
+            function openRejectionDetail(applicationId) {
+                const application = rejectedById[String(applicationId)];
+                if (!application) {
+                    return;
+                }
 
-        titleEl.textContent = application.scholarship_name || 'Scholarship Application';
-        typeEl.textContent = application.scholarship_type ? 'Type: ' + application.scholarship_type : '';
-        appliedEl.textContent = application.applied_at ? 'Applied: ' + application.applied_at : '';
-        updatedEl.textContent = application.updated_at ? 'Updated: ' + application.updated_at : '';
+                titleEl.textContent = application.scholarship_name || 'Scholarship Application';
+                typeEl.textContent = application.scholarship_type ? 'Type: ' + application.scholarship_type : '';
+                appliedEl.textContent = application.applied_at ? 'Applied: ' + application.applied_at : '';
+                updatedEl.textContent = application.updated_at ? 'Updated: ' + application.updated_at : '';
 
-        const reason = (application.rejection_reason || '').trim();
-        if (reason) {
-            messageEl.textContent = reason;
-            messageEl.classList.remove('is-empty');
-        } else {
-            messageEl.textContent = 'No specific reason was provided. Please contact the scholarship office for more information.';
-            messageEl.classList.add('is-empty');
-        }
+                const reason = (application.rejection_reason || '').trim();
+                if (reason) {
+                    messageEl.textContent = reason;
+                    messageEl.classList.remove('is-empty');
+                } else {
+                    messageEl.textContent = 'No specific reason was provided. Please contact the scholarship office for more information.';
+                    messageEl.classList.add('is-empty');
+                }
 
-        browseLink.href = application.grant_type === 'non-academic'
-            ? '{{ route('dashboard', ['section' => 'non']) }}'
-            : '{{ route('dashboard', ['section' => 'acad']) }}';
+                browseLink.href = application.grant_type === 'non-academic'
+                    ? '{{ route('dashboard', ['section' => 'non']) }}'
+                    : '{{ route('dashboard', ['section' => 'acad']) }}';
 
-        overlay.classList.add('is-open');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeRejectionDetail() {
-        overlay.classList.remove('is-open');
-        document.body.style.overflow = '';
-    }
-
-    document.querySelectorAll('.app-item.is-rejected').forEach(function (item) {
-        item.addEventListener('click', function () {
-            openRejectionDetail(item.dataset.applicationId);
-        });
-
-        item.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                openRejectionDetail(item.dataset.applicationId);
+                overlay.classList.add('is-open');
+                document.body.style.overflow = 'hidden';
             }
-        });
-    });
 
-    document.getElementById('rejectionDetailClose').addEventListener('click', closeRejectionDetail);
-    document.getElementById('rejectionDetailCloseBtn').addEventListener('click', closeRejectionDetail);
+            function closeRejectionDetail() {
+                overlay.classList.remove('is-open');
+                document.body.style.overflow = '';
+            }
 
-    overlay.addEventListener('click', function (event) {
-        if (event.target === overlay) {
-            closeRejectionDetail();
-        }
-    });
+            document.querySelectorAll('.app-item.is-rejected').forEach(function (item) {
+                item.addEventListener('click', function () {
+                    openRejectionDetail(item.dataset.applicationId);
+                });
 
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && overlay.classList.contains('is-open')) {
-            closeRejectionDetail();
-        }
-    });
-})();
-</script>
+                item.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openRejectionDetail(item.dataset.applicationId);
+                    }
+                });
+            });
 
+            document.getElementById('rejectionDetailClose').addEventListener('click', closeRejectionDetail);
+            document.getElementById('rejectionDetailCloseBtn').addEventListener('click', closeRejectionDetail);
+
+            overlay.addEventListener('click', function (event) {
+                if (event.target === overlay) {
+                    closeRejectionDetail();
+                }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && overlay.classList.contains('is-open')) {
+                    closeRejectionDetail();
+                }
+            });
+        })();
+    </script>
+</x-app-layout>
 </body>
 </html>
+

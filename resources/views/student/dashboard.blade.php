@@ -114,16 +114,7 @@
 <body>
 
 <x-app-layout>
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            
-            </div>
-        </div>
-    </div>
-</x-app-layout>
-
-<!-- ==================== MAIN CONTENT ==================== -->
-<div class="main">
+    <div class="main student-dashboard-main">
 
 <?php $section = request()->query('section', 'acad'); ?>
 
@@ -848,8 +839,11 @@ More info: https://unifaast.gov.ph/tes.html"
     <!-- Apply Modal -->
     <div id="applyModal" class="apply-modal" role="dialog" aria-hidden="true">
         <div class="modal-card">
-            <button class="modal-close" id="applyModalClose">✕</button>
-            <h1 class="form-title">Scholarship Application</h1>
+            <div class="application-modal-header">
+                <button type="button" class="academic-nav-btn academic-nav-back" data-non-academic-step="prev" aria-label="Back to previous step">← Back</button>
+                <h1 class="form-title">Scholarship Application</h1>
+                <button class="modal-close" id="applyModalClose" type="button" aria-label="Close scholarship application">✕</button>
+            </div>
             @if(session('success'))
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
@@ -875,7 +869,7 @@ More info: https://unifaast.gov.ph/tes.html"
                 </script>
             @endif
             
-                @php
+            @php
                 $currentUser = auth()->user();
                 $fullName = trim($currentUser->name ?? '');
                 $nameParts = preg_split('/\s+/', $fullName);
@@ -885,9 +879,31 @@ More info: https://unifaast.gov.ph/tes.html"
                 $emailDefault = old('email', $currentUser->email ?? '');
                 $studentIdDefault = old('student_id_number', $currentUser->student_id ?? '');
             @endphp
+
+            <div class="academic-progress-wrapper">
+                <div class="academic-progress-header">Step <span id="nonAcademicStepCounter">1</span> of 3</div>
+                <div class="academic-progress-track" aria-live="polite">
+                    <div class="academic-progress-step active" data-progress-step="1">
+                        <div class="academic-progress-dot">1</div>
+                        <div class="academic-progress-label">Student Information</div>
+                    </div>
+                    <div class="academic-progress-line"></div>
+                    <div class="academic-progress-step" data-progress-step="2">
+                        <div class="academic-progress-dot">2</div>
+                        <div class="academic-progress-label">Personal Information</div>
+                    </div>
+                    <div class="academic-progress-line"></div>
+                    <div class="academic-progress-step" data-progress-step="3">
+                        <div class="academic-progress-dot">3</div>
+                        <div class="academic-progress-label">Scholarship &amp; Requirements</div>
+                    </div>
+                </div>
+            </div>
+
             <form id="applyForm" method="POST" action="{{ route('student-profiles.store') }}" enctype="multipart/form-data">
                 @csrf
-                <div class="apply-row">
+
+                <div class="apply-row academic-step-panel active" data-non-academic-step="1">
                     <div>
                         <label>First name</label>
                         <input class="input" type="text" name="first_name" value="{{ $firstNameDefault }}" readonly required>
@@ -914,8 +930,7 @@ More info: https://unifaast.gov.ph/tes.html"
                             <option value="">Select</option>
                             <option>Single</option>
                             <option>Married</option>
-                            <option>In a Relationship</option>
-                            <option>Divorced</option>
+
                         </select>
                     </div>
                     <div>
@@ -925,10 +940,6 @@ More info: https://unifaast.gov.ph/tes.html"
                     <div>
                         <label>Student ID Number</label>
                         <input class="input" type="text" name="student_id_number" value="{{ $studentIdDefault }}" readonly>
-                    </div>
-                    <div class="full">
-                        <label>Home address</label>
-                        <textarea name="home_address" class="input" rows="2"></textarea>
                     </div>
                     <div>
                         <label>Contact number</label>
@@ -957,39 +968,68 @@ More info: https://unifaast.gov.ph/tes.html"
                             <option value="4th Year">4th Year</option>
                         </select>
                     </div>
+                </div>
+
+                <div class="apply-row academic-step-panel" data-non-academic-step="2">
+                    <div class="full">
+                        <label>Home address</label>
+                        <textarea name="home_address" class="input" rows="2"></textarea>
+                    </div>
                     <div>
-                        <label>Name of scholarship</label>
-                        <select id="scholarship_name" name="scholarship_name" class="input" required>
-                            <option value="">Select scholarship</option>
-                            <option value="Athletic Scholarship">Athletic Scholarship</option>
-                            <option value="Employees' Grant">Employees' Grant</option>
-                            <option value="Socio-Cultural Scholarship">Socio-Cultural Scholarship</option>
-                            <option value="Campus Student Publication">Campus Student Publication</option>
-                            <option value="Differently Abled Persons">Differently Abled Persons</option>
-                            <option value="Student Council Federation Grant">Student Council Federation Grant</option>
-                            <option value="CSU Aparri Alumni Association">CSU Aparri Alumni Association</option>
-                            <option value="Tertiary Education Subsidy">Tertiary Education Subsidy</option>
-                            <option value="Agkaykaysa">Agkaykaysa</option>
-                            <option value="Tulong Dunong Program">Tulong Dunong Program</option>
-                            <option value="Open Heart Scholarship">Open Heart Scholarship</option>
-                            <option value="Talamayan Scholarship">Talamayan Scholarship</option>
+                        <label>Sex</label>
+                        <select name="sex" class="input" required>
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
                         </select>
                     </div>
-                    <div class="full">
-                        <label>Types of scholarship</label>
-                        <select name="scholarship_type" class="input" required>
-                            <option value="">Select type</option>
-                            <option value="Sports Excellence Program In-House">Sports Excellence Program In-House</option>
-                            <option value="Employees' Grant In-House">Employees' Grant In-House</option>
-                            <option value="Arts & Culture Program In-House">Arts & Culture Program In-House</option>
-                            <option value="University Based Scholarship In-House">University Based Scholarship In-House</option>
-                            <option value="Alumni Grant Program In-House">Alumni Grant Program In-House</option>
-                            <option value="UniFAST – TES Program Government Based">UniFAST – TES Program Government Based</option>
-                            <option value="Regional Solidarity Grant Government Based">Regional Solidarity Grant Government Based</option>
-                            <option value="Sen. Loren Legarda Scholarship Government Based">Sen. Loren Legarda Scholarship Government Based</option>
-                            <option value="Private Foundation Grant Private Based">Private Foundation Grant Private Based</option>
-                            <option value="Community Support Grant Private Based">Community Support Grant Private Based</option>
+                    <div>
+                        <label>Status</label>
+                        <select name="status" class="input" required>
+                            <option value="">Select</option>
+                            <option>Single</option>
+                            <option>Married</option>
+                            <option>Divorced</option>
                         </select>
+                    </div>
+                    <div>
+                        <label>Contact number</label>
+                        <input class="input" type="text" name="contact_number">
+                    </div>
+                    <div>
+                        <label>Course</label>
+                        <select name="course" class="input" required>
+                            <option value="">Select course</option>
+                            <option>BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY</option>
+                            <option>BACHELOR OF SCIENCE IN CRIMINOLOGY</option>
+                            <option>BACHELOR OF SCIENCE IN FISHERIES</option>
+                            <option>BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY</option>
+                            <option>BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT</option>
+                            <option>BACHELOR OF SECONDARY EDUCATION</option>
+                            <option>BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Year Level</label>
+                        <select name="year_level" class="input" required>
+                            <option value="">Select year level</option>
+                            <option value="1st Year">1st Year</option>
+                            <option value="2nd Year">2nd Year</option>
+                            <option value="3rd Year">3rd Year</option>
+                            <option value="4th Year">4th Year</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="apply-row academic-step-panel" data-non-academic-step="3">
+                    <div>
+                        <label>Name of scholarship</label>
+                        <input id="scholarship_name" name="scholarship_name" class="input" type="text" value="" readonly required>
+                        <input type="hidden" id="scholarship_id" name="scholarship_id" value="">
+                    </div>
+                    <div>
+                        <label>Types of scholarship</label>
+                        <input id="scholarship_type" name="scholarship_type" class="input" type="text" value="" readonly required>
                     </div>
                     <div class="full">
                         <label>Upload files</label>
@@ -1001,7 +1041,6 @@ More info: https://unifaast.gov.ph/tes.html"
                             </ul>
                         </div>
 
-                        <!-- ID label to show for specific non-academic scholarships -->
                         <div id="nonAcademicIDLabel" style="display:none; font-weight:600; margin-bottom:8px; color:#333;">Front and Back School ID docs or PDF Format</div>
 
                         <div class="tes-docs-label" style="display:none; margin-bottom:10px; padding:12px; border-radius:8px; background:#f9f9f9; border:1px solid #e5e5e5;">
@@ -1061,8 +1100,10 @@ More info: https://unifaast.gov.ph/tes.html"
                         <input type="file" name="uploads[]" multiple id="nonAcademicUploadsInput" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
                     </div>
                 </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary" id="submitBtn">Submit Application</button>
+
+                <div class="academic-form-actions">
+                    <button type="button" class="academic-nav-btn academic-nav-next" data-non-academic-step="next">Next</button>
+                    <button type="submit" class="academic-nav-btn academic-nav-submit" data-non-academic-step="submit">Submit Application</button>
                 </div>
             </form>
 
@@ -1072,8 +1113,11 @@ More info: https://unifaast.gov.ph/tes.html"
     <!-- Academic Grants Application Modal -->
     <div id="academicApplyModal" class="apply-modal" role="dialog" aria-hidden="true">
         <div class="modal-card">
-            <button class="modal-close" id="academicApplyModalClose">✕</button>
-            <h1 class="form-title">Academic Scholarship Application</h1>
+            <div class="application-modal-header">
+                <button type="button" class="academic-nav-btn academic-nav-back" data-academic-step="prev" aria-label="Back to previous step">← Back</button>
+                <h1 class="form-title">Academic Scholarship Application</h1>
+                <button class="modal-close" id="academicApplyModalClose" type="button" aria-label="Close academic scholarship application">✕</button>
+            </div>
             
             @php
                 $academicEmailDefault = old('email', $currentUser->email ?? '');
@@ -1082,19 +1126,32 @@ More info: https://unifaast.gov.ph/tes.html"
                 $academicLastNameDefault = old('last_name', $lastNameDefault);
                 $academicStudentIdDefault = old('id_number', $currentUser->student_id ?? '');
             @endphp
+
+            <!-- Progress Indicator (moved to top) -->
+            <div class="academic-progress-wrapper">
+                <div class="academic-progress-header">Step <span id="academicStepCounter">1</span> of 3</div>
+                <div class="academic-progress-track" aria-live="polite">
+                    <div class="academic-progress-step active" data-progress-step="1">
+                        <div class="academic-progress-dot">1</div>
+                        <div class="academic-progress-label">Student Information</div>
+                    </div>
+                    <div class="academic-progress-line"></div>
+                    <div class="academic-progress-step" data-progress-step="2">
+                        <div class="academic-progress-dot">2</div>
+                        <div class="academic-progress-label">Personal Information</div>
+                    </div>
+                    <div class="academic-progress-line"></div>
+                    <div class="academic-progress-step" data-progress-step="3">
+                        <div class="academic-progress-dot">3</div>
+                        <div class="academic-progress-label">Scholarship &amp; Requirements</div>
+                    </div>
+                </div>
+            </div>
+
             <form id="academicApplyForm" method="POST" action="{{ route('student-profiles.store') }}" enctype="multipart/form-data">
                 @csrf
-                <div class="apply-row">
-                    <div>
-                        <label>Name of Scholarship/Name of Sponsor</label>
-                        <select id="academic_scholarship_name" name="scholarship_name" class="input" required>
-                            <option value="">Select scholarship</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Last name</label>
-                        <input class="input" type="text" name="last_name" value="{{ $academicLastNameDefault }}" readonly required>
-                    </div>
+
+                <div class="apply-row academic-step-panel active" data-academic-step="1">
                     <div>
                         <label>First name</label>
                         <input class="input" type="text" name="first_name" value="{{ $academicFirstNameDefault }}" readonly required>
@@ -1102,6 +1159,10 @@ More info: https://unifaast.gov.ph/tes.html"
                     <div>
                         <label>Middle name</label>
                         <input class="input" type="text" name="middle_name" value="{{ $academicMiddleNameDefault }}" readonly>
+                    </div>
+                    <div>
+                        <label>Last name</label>
+                        <input class="input" type="text" name="last_name" value="{{ $academicLastNameDefault }}" readonly required>
                     </div>
                     <div>
                         <label>Email</label>
@@ -1135,6 +1196,21 @@ More info: https://unifaast.gov.ph/tes.html"
                         </select>
                     </div>
                     <div>
+                        <label>Program</label>
+                        <input class="input" type="text" name="program" required>
+                    </div>
+                </div>
+
+                <div class="apply-row academic-step-panel" data-academic-step="2">
+                    <div>
+                        <label>Birthday</label>
+                        <input class="input" type="date" name="birthdate" required>
+                    </div>
+                    <div>
+                        <label>Birthplace</label>
+                        <input class="input" type="text" name="birthplace" required>
+                    </div>
+                    <div>
                         <label>Sex</label>
                         <select name="sex" class="input" required>
                             <option value="">Select</option>
@@ -1143,29 +1219,11 @@ More info: https://unifaast.gov.ph/tes.html"
                         </select>
                     </div>
                     <div>
-                        <label>Program</label>
-                        <input class="input" type="text" name="program" required>
-                    </div>
-                    <div>
-                        <label>ID Number</label>
-                        <input class="input" type="text" name="id_number" required>
-                    </div>
-                    <div>
-                        <label>Birthdate</label>
-                        <input class="input" type="date" name="birthdate" required>
-                    </div>
-                    <div>
-                        <label>Birthplace</label>
-                        <input class="input" type="text" name="birthplace" required>
-                    </div>
-                    <div>
                         <label>Status</label>
                         <select name="status" class="input" required>
                             <option value="">Select</option>
                             <option>Single</option>
                             <option>Married</option>
-                            <option>In a Relationship</option>
-                            <option>Widowed</option>
                         </select>
                     </div>
                     <div>
@@ -1180,11 +1238,17 @@ More info: https://unifaast.gov.ph/tes.html"
                         <label>Home Address</label>
                         <textarea name="home_address" class="input" rows="2" required></textarea>
                     </div>
+                </div>
+
+                <div class="apply-row academic-step-panel" data-academic-step="3">
+                    <div class="full">
+                        <label>Name of Scholarship / Sponsor</label>
+                        <input id="academic_scholarship_name" name="scholarship_name" class="input" type="text" value="" readonly required>
+                        <input type="hidden" id="academic_scholarship_id" name="scholarship_id" value="">
+                    </div>
                     <div class="full">
                         <label>Types of Scholarship</label>
-                        <select id="academic_scholarship_type" name="scholarship_type" class="input" required>
-                            <option value="">Select type</option>
-                        </select>
+                        <input id="academic_scholarship_type" name="scholarship_type" class="input" type="text" value="" readonly required>
                     </div>
                     <div class="full">
                         <label>Upload files</label>
@@ -1209,14 +1273,18 @@ More info: https://unifaast.gov.ph/tes.html"
                         </div>
                     </div>
                 </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary" id="academicSubmitBtn">Submit Application</button>
+
+                <div class="academic-form-actions">
+                    <button type="button" class="academic-nav-btn academic-nav-next" data-academic-step="next">Next</button>
+                    <button type="submit" class="academic-nav-btn academic-nav-submit" data-academic-step="submit">Submit Application</button>
                 </div>
             </form>
-
         </div>
     </div>
 
+  <script>
+      window.scholarshipIdMap = @json($scholarshipIdMap ?? []);
+  </script>
   <script src="{{ asset('js/users.js') }}"></script>
 
   <!-- File Validation Script -->
@@ -1493,8 +1561,28 @@ More info: https://unifaast.gov.ph/tes.html"
         }
 
                 const application = appliedScholarships.find(item => item.name === scholarshipTitle);
+                const rejectedAttempts = Number(application?.rejected_attempts ?? 0);
+                const isUnavailableByAttempts = rejectedAttempts >= 2;
                 const isApplied = Boolean(application && application.status !== 'rejected');
                 const cardFoot = card.querySelector('.card-foot');
+
+                if (isUnavailableByAttempts) {
+                    card.classList.add('card-unavailable');
+                    if (cardFoot) {
+                        const message = document.createElement('div');
+                        message.className = 'unavailable-text';
+                        message.textContent = 'You have reached the maximum application attempts for this scholarship.';
+                        cardFoot.prepend(message);
+                    }
+
+                    const applyButton = card.querySelector('.btn-apply');
+                    if (applyButton) {
+                        applyButton.textContent = 'UNAVAILABLE';
+                        applyButton.setAttribute('aria-disabled', 'true');
+                        applyButton.setAttribute('href', 'javascript:void(0);');
+                    }
+                    return;
+                }
 
                 if (application && application.status === 'rejected' && currentActiveApplications < maxApplications) {
                     card.classList.add('card-rejected');
@@ -1555,5 +1643,6 @@ More info: https://unifaast.gov.ph/tes.html"
       });
     })();
   </script>
+</x-app-layout>
 </body>
 </html>

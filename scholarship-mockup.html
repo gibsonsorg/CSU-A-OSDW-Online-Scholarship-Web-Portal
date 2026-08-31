@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Scholarship Application - UI Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .mockup-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 40px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        .step-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            padding: 48px 40px;
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-card.step-1 {
+            order: 1;
+        }
+
+        .step-card.step-2 {
+            order: 2;
+        }
+
+        .step-card.step-3 {
+            order: 3;
+        }
+
+        /* Header */
+        .form-header {
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .form-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .form-subtitle {
+            font-size: 14px;
+            color: #718096;
+            font-weight: 500;
+        }
+
+        /* Step Label */
+        .step-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        /* Form Grid */
+        .form-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 32px;
+            flex: 1;
+        }
+
+        .form-fields.full-width {
+            grid-template-columns: 1fr;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+            display: block;
+            letter-spacing: 0.3px;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="date"],
+        select,
+        textarea {
+            padding: 11px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            background: #fff;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="date"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-size: 13px;
+        }
+
+        /* File Upload Section */
+        .upload-section {
+            background: #f7fafc;
+            border: 1.5px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .upload-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .upload-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2d3748;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .upload-hint {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        /* Progress Indicator */
+        .progress-section {
+            margin-top: auto;
+            margin-bottom: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .progress-label {
+            font-size: 12px;
+            color: #718096;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .progress-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .progress-step {
+            flex: 1;
+            text-align: center;
+        }
+
+        .progress-step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            color: #718096;
+            font-size: 12px;
+            font-weight: 700;
+            margin: 0 auto 6px;
+            transition: all 0.3s ease;
+        }
+
+        .progress-step.active .progress-step-num {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .progress-step.completed .progress-step-num {
+            background: #48bb78;
+            color: white;
+        }
+
+        .progress-step-name {
+            font-size: 11px;
+            color: #718096;
+            font-weight: 500;
+        }
+
+        .progress-step.active .progress-step-name {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .progress-line {
+            height: 2px;
+            background: #cbd5e0;
+            flex: 1;
+            margin: 0 -4px;
+        }
+
+        .progress-line.active {
+            background: #667eea;
+        }
+
+        /* Navigation Buttons */
+        .form-navigation {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            padding-top: 16px;
+        }
+
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: 0.3px;
+            min-width: 140px;
+        }
+
+        .btn-back {
+            background: #f7fafc;
+            color: #4a5568;
+            border: 1.5px solid #cbd5e0;
+        }
+
+        .btn-back:hover {
+            background: #edf2f7;
+            border-color: #a0aec0;
+        }
+
+        .btn-next,
+        .btn-submit {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+        }
+
+        .btn-next:hover,
+        .btn-submit:hover {
+            background: #5568d3;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
+            transform: translateY(-2px);
+        }
+
+        .btn-submit {
+            background: #48bb78;
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.25);
+        }
+
+        .btn-submit:hover {
+            background: #38a169;
+            box-shadow: 0 6px 20px rgba(72, 187, 120, 0.35);
+        }
+
+        /* Step Headers */
+        .step-card .step-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 24px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .mockup-container {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+        }
+
+        /* Legend */
+        .mockup-legend {
+            grid-column: 1 / -1;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.6;
+            backdrop-filter: blur(10px);
+        }
+
+        .mockup-legend h3 {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .mockup-legend ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .mockup-legend li {
+            margin-bottom: 6px;
+        }
+
+        .mockup-legend strong {
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="mockup-container">
+        <!-- STEP 1: Student Information -->
+        <div class="step-card step-1">
+            <div class="form-header">
+                <div class="form-title">Academic Scholarship Application</div>
+                <div class="form-subtitle">Complete your scholarship application</div>
+            </div>
+
+            <span class="step-label">Step 1: Student Information</span>
+
+            <div class="form-fields">
+                <div class="form-group">
+                    <label>First Name</label>
+                    <input type="text" placeholder="Enter first name" value="">
+                </div>
+                <div class="form-group">
+                    <label>Middle Name</label>
+                    <input type="text" placeholder="Enter middle name" value="">
+                </div>
+
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input type="text" placeholder="Enter last name" value="">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" placeholder="your.email@csu.edu.ph" value="">
+                </div>
+
+                <div class="form-group">
+                    <label>Student ID Number</label>
+                    <input type="text" placeholder="e.g., 23-11941" value="">
+                </div>
+                <div class="form-group">
+                    <label>Course</label>
+                    <select>
+                        <option>Select course</option>
+                        <option>BS Information Technology</option>
+                        <option>BS Criminology</option>
+                        <option>BS Hospitality Management</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Year Level</label>
+                    <select>
+                        <option>Select year level</option>
+                        <option>1st Year</option>
+                        <option>2nd Year</option>
+                        <option>3rd Year</option>
+                        <option>4th Year</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Program</label>
+                    <input type="text" placeholder="Enter program name" value="">
+                </div>
+            </div>
+
+            <div class="progress-section">
+                <div class="progress-label">Progress</div>
+                <div class="progress-indicator">
+                    <div class="progress-step active">
+                        <div class="progress-step-num">1</div>
+                        <div class="progress-step-name">Student</div>
+                    </div>
+                    <div class="progress-line active"></div>
+                    <div class="progress-step">
+                        <div class="progress-step-num">2</div>
+                        <div class="progress-step-name">Personal</div>
+                    </div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">
+                        <div class="progress-step-num">3</div>
+                        <div class="progress-step-name">Scholarship</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-navigation">
+                <button class="btn btn-next">Next →</button>
+            </div>
+        </div>
+
+        <!-- STEP 2: Personal Information -->
+        <div class="step-card step-2">
+            <div class="form-header">
+                <div class="form-title">Academic Scholarship Application</div>
+                <div class="form-subtitle">Complete your scholarship application</div>
+            </div>
+
+            <span class="step-label">Step 2: Personal Information</span>
+
+            <div class="form-fields">
+                <div class="form-group">
+                    <label>Birthday</label>
+                    <input type="date" value="">
+                </div>
+                <div class="form-group">
+                    <label>Birthplace</label>
+                    <input type="text" placeholder="City, Province/Country" value="">
+                </div>
+
+                <div class="form-group">
+                    <label>Sex</label>
+                    <select>
+                        <option>Select sex</option>
+                        <option>Male</option>
+                        <option>Female</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select>
+                        <option>Select status</option>
+                        <option>Single</option>
+                        <option>Married</option>
+                        <option>In a Relationship</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Religion</label>
+                    <input type="text" placeholder="Enter religion" value="">
+                </div>
+                <div class="form-group">
+                    <label>Contact Number</label>
+                    <input type="text" placeholder="+63 9XX XXX XXXX" value="">
+                </div>
+
+                <div class="form-group full-width">
+                    <label>Home Address</label>
+                    <textarea placeholder="Enter complete home address"></textarea>
+                </div>
+            </div>
+
+            <div class="progress-section">
+                <div class="progress-label">Progress</div>
+                <div class="progress-indicator">
+                    <div class="progress-step completed">
+                        <div class="progress-step-num">✓</div>
+                        <div class="progress-step-name">Student</div>
+                    </div>
+                    <div class="progress-line active"></div>
+                    <div class="progress-step active">
+                        <div class="progress-step-num">2</div>
+                        <div class="progress-step-name">Personal</div>
+                    </div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">
+                        <div class="progress-step-num">3</div>
+                        <div class="progress-step-name">Scholarship</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-navigation">
+                <button class="btn btn-back">← Back</button>
+                <button class="btn btn-next">Next →</button>
+            </div>
+        </div>
+
+        <!-- STEP 3: Scholarship & Requirements -->
+        <div class="step-card step-3">
+            <div class="form-header">
+                <div class="form-title">Academic Scholarship Application</div>
+                <div class="form-subtitle">Complete your scholarship application</div>
+            </div>
+
+            <span class="step-label">Step 3: Scholarship & Requirements</span>
+
+            <div class="form-fields">
+                <div class="form-group full-width">
+                    <label>Name of Scholarship / Sponsor</label>
+                    <select>
+                        <option>Select scholarship</option>
+                        <option>University Based Scholarship</option>
+                        <option>ACEF – GIAHEP</option>
+                        <option>Gokongwei Brothers Foundation</option>
+                    </select>
+                </div>
+
+                <div class="form-group full-width">
+                    <label>Types of Scholarship</label>
+                    <select>
+                        <option>Select type</option>
+                        <option>Academic Excellence – In-House</option>
+                        <option>Agricultural Credit & Education Fund</option>
+                        <option>Foundation Scholarship Program</option>
+                    </select>
+                </div>
+
+                <div class="form-group full-width">
+                    <label style="display: block; margin-bottom: 16px; font-size: 14px; font-weight: 700; color: #2d3748;">Requirements</label>
+                    
+                    <label style="margin-bottom: 12px;">Certificate of Grades</label>
+                    <div class="upload-section">
+                        <div class="upload-icon">📎</div>
+                        <div class="upload-label">Choose File</div>
+                        <div class="upload-hint">PDF, DOCX, JPG, PNG (max 2MB)</div>
+                    </div>
+
+                    <label style="margin-top: 20px; margin-bottom: 12px;">Certificate of Enrollment</label>
+                    <div class="upload-section">
+                        <div class="upload-icon">📎</div>
+                        <div class="upload-label">Choose File</div>
+                        <div class="upload-hint">PDF, DOCX, JPG, PNG (max 2MB)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="progress-section">
+                <div class="progress-label">Progress</div>
+                <div class="progress-indicator">
+                    <div class="progress-step completed">
+                        <div class="progress-step-num">✓</div>
+                        <div class="progress-step-name">Student</div>
+                    </div>
+                    <div class="progress-line active"></div>
+                    <div class="progress-step completed">
+                        <div class="progress-step-num">✓</div>
+                        <div class="progress-step-name">Personal</div>
+                    </div>
+                    <div class="progress-line active"></div>
+                    <div class="progress-step active">
+                        <div class="progress-step-num">3</div>
+                        <div class="progress-step-name">Scholarship</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-navigation">
+                <button class="btn btn-back">← Back</button>
+                <button class="btn btn-submit">Submit Application</button>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="mockup-legend">
+            <h3>📋 UI/UX Mockup Overview</h3>
+            <ul>
+                <li><strong>Left (Step 1):</strong> Student Information — Collects name, email, student ID, course, year level, and program.</li>
+                <li><strong>Center (Step 2):</strong> Personal Information — Collects birthday, birthplace, sex, status, religion, contact, and address.</li>
+                <li><strong>Right (Step 3):</strong> Scholarship & Requirements — Selects scholarship, type, and uploads required documents.</li>
+                <li><strong>Progress Indicator:</strong> Shows current step with visual progress bar. Completed steps show checkmarks.</li>
+                <li><strong>Navigation:</strong> Back/Next buttons with final Submit button prominently displayed in green.</li>
+                <li><strong>Layout:</strong> Single unified form container with consistent styling across all three steps.</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

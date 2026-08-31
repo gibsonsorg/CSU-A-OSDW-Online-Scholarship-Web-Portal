@@ -8,6 +8,7 @@ use App\Http\Controllers\BackupSettingsController;
 use App\Http\Controllers\BackupController;
 use App\Models\StudentProfile;
 use App\Models\Application;
+use App\Models\Scholarship;
 use Illuminate\Support\Facades\Route;
 
 //HOME ROUTE
@@ -27,6 +28,8 @@ Route::get('/dashboard', function () {
     $activeAcademicApplications = 0;
     $activeNonAcademicApplications = 0;
 
+    $scholarshipIdMap = [];
+
     if (auth()->check()) {
         $appliedScholarships = StudentProfile::where('user_id', auth()->id())
             ->whereIn('application_status', ['pending', 'approved', 'rejected'])
@@ -34,11 +37,18 @@ Route::get('/dashboard', function () {
             ->orderByDesc('created_at')
             ->orderByDesc('application_id')
             ->get(['scholarship_name', 'application_status', 'application_id', 'created_at'])
-            ->unique('scholarship_name')
-            ->map(fn ($application) => [
-                'name' => trim($application->scholarship_name),
-                'status' => $application->application_status ?? 'pending',
-            ])
+            ->groupBy('scholarship_name')
+            ->map(function ($records, $scholarshipName) {
+                $latest = $records->sortByDesc('created_at')->first();
+                $rejectedAttempts = $records->where('application_status', 'rejected')->count();
+
+                return [
+                    'name' => trim($scholarshipName),
+                    'status' => $latest->application_status ?? 'pending',
+                    'attempts' => $records->count(),
+                    'rejected_attempts' => $rejectedAttempts,
+                ];
+            })
             ->values()
             ->toArray();
 
@@ -54,7 +64,9 @@ Route::get('/dashboard', function () {
             ->count();
     }
 
-    return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications'));
+    $scholarshipIdMap = Scholarship::pluck('id', 'name')->toArray();
+
+    return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications', 'scholarshipIdMap'));
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::get('/application-status', [StudentProfileController::class, 'applicationStatus'])

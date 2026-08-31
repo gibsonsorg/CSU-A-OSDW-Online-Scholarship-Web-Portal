@@ -60,6 +60,11 @@ function closeApplyModal() {
 
 function openAcademicApplyModal() {
     const m = document.getElementById('academicApplyModal');
+    const form = document.getElementById('academicApplyForm');
+    if (form) {
+        form.dataset.currentAcademicStep = '1';
+        updateAcademicStepUI(1);
+    }
     if (m) { m.classList.add('open'); m.setAttribute('aria-hidden','false'); document.body.style.overflow = 'hidden'; }
 }
 
@@ -213,7 +218,230 @@ function submitAcademicForm() {
     document.getElementById('academicApplyForm').submit();
 }
 
+function getAcademicStepControls() {
+    const form = document.getElementById('academicApplyForm');
+    const modal = document.getElementById('academicApplyModal');
+    if (!form || !modal) return null;
+
+    return {
+        form,
+        panels: Array.from(form.querySelectorAll('.academic-step-panel')),
+        stepCounter: modal.querySelector('#academicStepCounter'),
+        prevBtn: modal.querySelector('[data-academic-step="prev"]'),
+        nextBtn: modal.querySelector('[data-academic-step="next"]'),
+        submitBtn: modal.querySelector('[data-academic-step="submit"]'),
+        progressSteps: Array.from(modal.querySelectorAll('.academic-progress-step'))
+    };
+}
+
+function updateAcademicStepUI(stepNumber = 1) {
+    const controls = getAcademicStepControls();
+    if (!controls) return;
+
+    const { form, panels, stepCounter, prevBtn, nextBtn, submitBtn, progressSteps } = controls;
+    const totalSteps = panels.length || 3;
+    const currentStep = Math.min(Math.max(Number(stepNumber) || 1, 1), totalSteps);
+    form.dataset.currentAcademicStep = String(currentStep);
+
+    panels.forEach((panel, index) => {
+        panel.classList.toggle('active', index + 1 === currentStep);
+    });
+
+    if (stepCounter) stepCounter.textContent = currentStep;
+
+    progressSteps.forEach((step, index) => {
+        const stepIndex = index + 1;
+        step.classList.toggle('active', stepIndex === currentStep);
+        step.classList.toggle('completed', stepIndex < currentStep);
+    });
+
+    if (prevBtn) {
+        prevBtn.classList.toggle('is-hidden', currentStep === 1);
+        prevBtn.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+        prevBtn.style.display = currentStep === 1 ? 'none' : '';
+        prevBtn.setAttribute('aria-hidden', currentStep === 1 ? 'true' : 'false');
+    }
+
+    if (nextBtn) {
+        nextBtn.style.display = currentStep === totalSteps ? 'none' : 'inline-flex';
+    }
+
+    if (submitBtn) {
+        submitBtn.style.display = currentStep === totalSteps ? 'inline-flex' : 'none';
+    }
+}
+
+function getNonAcademicStepControls() {
+    const form = document.getElementById('applyForm');
+    const modal = document.getElementById('applyModal');
+    if (!form || !modal) return null;
+
+    return {
+        form,
+        panels: Array.from(form.querySelectorAll('.academic-step-panel')),
+        stepCounter: modal.querySelector('#nonAcademicStepCounter'),
+        prevBtn: modal.querySelector('[data-non-academic-step="prev"]'),
+        nextBtn: modal.querySelector('[data-non-academic-step="next"]'),
+        submitBtn: modal.querySelector('[data-non-academic-step="submit"]'),
+        progressSteps: Array.from(modal.querySelectorAll('.academic-progress-step'))
+    };
+}
+
+function updateNonAcademicStepUI(stepNumber = 1) {
+    const controls = getNonAcademicStepControls();
+    if (!controls) return;
+
+    const { form, panels, stepCounter, prevBtn, nextBtn, submitBtn, progressSteps } = controls;
+    const totalSteps = panels.length || 3;
+    const currentStep = Math.min(Math.max(Number(stepNumber) || 1, 1), totalSteps);
+    form.dataset.nonAcademicStep = String(currentStep);
+
+    panels.forEach((panel, index) => {
+        panel.classList.toggle('active', index + 1 === currentStep);
+    });
+
+    if (stepCounter) stepCounter.textContent = currentStep;
+
+    progressSteps.forEach((step, index) => {
+        const stepIndex = index + 1;
+        step.classList.toggle('active', stepIndex === currentStep);
+        step.classList.toggle('completed', stepIndex < currentStep);
+    });
+
+    if (prevBtn) {
+        prevBtn.classList.toggle('is-hidden', currentStep === 1);
+        prevBtn.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+        prevBtn.style.display = currentStep === 1 ? 'none' : '';
+        prevBtn.setAttribute('aria-hidden', currentStep === 1 ? 'true' : 'false');
+    }
+
+    if (nextBtn) {
+        nextBtn.style.display = currentStep === totalSteps ? 'none' : 'inline-flex';
+    }
+
+    if (submitBtn) {
+        submitBtn.style.display = currentStep === totalSteps ? 'inline-flex' : 'none';
+    }
+}
+
+function validateAcademicCurrentStep() {
+    const form = document.getElementById('academicApplyForm');
+    if (!form) return true;
+
+    const currentStep = Number(form.dataset.currentAcademicStep || 1);
+    const panel = form.querySelector(`.academic-step-panel[data-academic-step="${currentStep}"]`);
+    if (!panel) return true;
+
+    const requiredFields = panel.querySelectorAll('input[required], select[required], textarea[required]');
+
+    for (const field of requiredFields) {
+        if (!field.checkValidity()) {
+            field.reportValidity();
+            field.focus();
+            return false;
+        }
+    }
+
+    return true;
+}
+
 document.addEventListener('DOMContentLoaded', function(){
+    const scholarshipIdMap = window.scholarshipIdMap || {};
+    const setSelectedScholarship = (title, map, hiddenIdField, nameField, typeField) => {
+        if (!title || !map[title]) {
+            if (hiddenIdField) hiddenIdField.value = '';
+            return;
+        }
+
+        const selectedName = map[title].name;
+        const selectedType = map[title].type;
+        if (nameField) nameField.value = selectedName;
+        if (typeField) typeField.value = selectedType;
+        if (hiddenIdField) {
+            hiddenIdField.value = scholarshipIdMap[selectedName] || '';
+        }
+    };
+
+    const academicForm = document.getElementById('academicApplyForm');
+    const academicModal = document.getElementById('academicApplyModal');
+    if (academicForm && academicModal) {
+        const currentStep = Number(academicForm.dataset.currentAcademicStep || 1);
+        updateAcademicStepUI(currentStep);
+
+        const prevBtn = academicModal.querySelector('[data-academic-step="prev"]');
+        const nextBtn = academicModal.querySelector('[data-academic-step="next"]');
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', function() {
+                const current = Number(academicForm.dataset.currentAcademicStep || 1);
+                if (current > 1) {
+                    updateAcademicStepUI(current - 1);
+                }
+            });
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const current = Number(academicForm.dataset.currentAcademicStep || 1);
+                if (validateAcademicCurrentStep()) {
+                    updateAcademicStepUI(current + 1);
+                }
+            });
+        }
+
+        academicForm.addEventListener('submit', function(e) {
+            const current = Number(academicForm.dataset.currentAcademicStep || 1);
+            if (current < 3) {
+                e.preventDefault();
+                updateAcademicStepUI(3);
+                return;
+            }
+
+            if (!validateAcademicCurrentStep()) {
+                e.preventDefault();
+            }
+        });
+    }
+
+    const nonAcademicForm = document.getElementById('applyForm');
+    const nonAcademicModal = document.getElementById('applyModal');
+    if (nonAcademicForm && nonAcademicModal) {
+        const currentStep = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
+        updateNonAcademicStepUI(currentStep);
+
+        const prevBtn = nonAcademicModal.querySelector('[data-non-academic-step="prev"]');
+        const nextBtn = nonAcademicModal.querySelector('[data-non-academic-step="next"]');
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', function() {
+                const current = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
+                if (current > 1) {
+                    updateNonAcademicStepUI(current - 1);
+                }
+            });
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const current = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
+                if (current < 3) {
+                    updateNonAcademicStepUI(current + 1);
+                }
+            });
+        }
+
+        nonAcademicForm.addEventListener('submit', function(e) {
+            const current = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
+            if (current < 3) {
+                e.preventDefault();
+                updateNonAcademicStepUI(3);
+                return;
+            }
+        });
+    }
+
     // Academic scholarships mapping
     const academicScholarshipMap = {
         'Cagayan Valley Assoc. of Hawaii': { name: 'Cagayan Valley Assoc. of Hawaii', type: 'International Educational Grant' },
@@ -249,35 +477,16 @@ document.addEventListener('DOMContentLoaded', function(){
             const card = btn.closest('.s-card');
             const title = card?.querySelector('.card-names h3')?.textContent?.trim();
             const description = card?.dataset.description || '';
-            const nameSel = document.getElementById('academic_scholarship_name');
-            const typeSel = document.getElementById('academic_scholarship_type');
+            const nameInput = document.getElementById('academic_scholarship_name');
+            const typeInput = document.getElementById('academic_scholarship_type');
+            const scholarshipIdInput = document.getElementById('academic_scholarship_id');
 
-            // reset any previous generated options
-            if (nameSel) Array.from(nameSel.options).forEach(o => { if (o.dataset.generated === '1') o.remove(); });
-            if (typeSel) Array.from(typeSel.options).forEach(o => { if (o.dataset.generated === '1') o.remove(); });
+            if (nameInput) nameInput.value = '';
+            if (typeInput) typeInput.value = '';
+            if (scholarshipIdInput) scholarshipIdInput.value = '';
 
-            if (title && academicScholarshipMap[title]) {
-                const map = academicScholarshipMap[title];
-
-                if (nameSel) {
-                    let found = false;
-                    for (let i=0;i<nameSel.options.length;i++){
-                        if (nameSel.options[i].value === map.name) { nameSel.selectedIndex = i; found = true; break; }
-                    }
-                    if (!found) { const opt = document.createElement('option'); opt.text = map.name; opt.value = map.name; opt.dataset.generated = '1'; nameSel.appendChild(opt); nameSel.value = map.name; }
-                    nameSel.value = map.name;
-                    nameSel.dataset.autofilled = '1';
-                }
-
-                if (typeSel) {
-                    let foundT = false;
-                    for (let i=0;i<typeSel.options.length;i++){
-                        if (typeSel.options[i].value === map.type) { typeSel.selectedIndex = i; foundT = true; break; }
-                    }
-                    if (!foundT) { const opt = document.createElement('option'); opt.text = map.type; opt.value = map.type; opt.dataset.generated = '1'; typeSel.appendChild(opt); typeSel.value = map.type; }
-                    typeSel.value = map.type;
-                    typeSel.dataset.autofilled = '1';
-                }
+            if (title) {
+                setSelectedScholarship(title, academicScholarshipMap, scholarshipIdInput, nameInput, typeInput);
             }
 
             const enrollmentSection = document.getElementById('academicEnrollmentSection');
@@ -296,35 +505,16 @@ document.addEventListener('DOMContentLoaded', function(){
             const card = btn.closest('.s-card');
             const title = card?.querySelector('.card-names h3')?.textContent?.trim();
             const description = card?.dataset.description || '';
-            const nameSel = document.getElementById('scholarship_name');
-            const typeSel = document.querySelector('select[name="scholarship_type"]');
+            const nameInput = document.getElementById('scholarship_name');
+            const typeInput = document.getElementById('scholarship_type');
+            const scholarshipIdInput = document.getElementById('scholarship_id');
 
-            // reset any previous generated options
-            if (nameSel) Array.from(nameSel.options).forEach(o => { if (o.dataset.generated === '1') o.remove(); });
-            if (typeSel) Array.from(typeSel.options).forEach(o => { if (o.dataset.generated === '1') o.remove(); });
+            if (nameInput) nameInput.value = '';
+            if (typeInput) typeInput.value = '';
+            if (scholarshipIdInput) scholarshipIdInput.value = '';
 
-            if (title && nonAcademicScholarshipMap[title]) {
-                const map = nonAcademicScholarshipMap[title];
-
-                if (nameSel) {
-                    let found = false;
-                    for (let i=0;i<nameSel.options.length;i++){
-                        if (nameSel.options[i].value === map.name) { nameSel.selectedIndex = i; found = true; break; }
-                    }
-                    if (!found) { const opt = document.createElement('option'); opt.text = map.name; opt.value = map.name; opt.dataset.generated = '1'; nameSel.appendChild(opt); nameSel.value = map.name; }
-                    nameSel.value = map.name;
-                    nameSel.dataset.autofilled = '1';
-                }
-
-                if (typeSel) {
-                    let foundT = false;
-                    for (let i=0;i<typeSel.options.length;i++){
-                        if (typeSel.options[i].value === map.type) { typeSel.selectedIndex = i; foundT = true; break; }
-                    }
-                    if (!foundT) { const opt = document.createElement('option'); opt.text = map.type; opt.value = map.type; opt.dataset.generated = '1'; typeSel.appendChild(opt); typeSel.value = map.type; }
-                    typeSel.value = map.type;
-                    typeSel.dataset.autofilled = '1';
-                }
+            if (title) {
+                setSelectedScholarship(title, nonAcademicScholarshipMap, scholarshipIdInput, nameInput, typeInput);
             }
 
             // Show ID label for Open Heart and Talamayan only
@@ -348,10 +538,12 @@ document.addEventListener('DOMContentLoaded', function(){
     function resetAndCloseNonAcademic(){
         const form = document.getElementById('applyForm');
         if (form) form.reset();
-        const nameSel = document.getElementById('scholarship_name');
-        const typeSel = document.querySelector('select[name="scholarship_type"]');
-        if (nameSel) { Array.from(nameSel.options).forEach(o=>{ if (o.dataset.generated==='1') o.remove(); }); nameSel.dataset.autofilled = ''; }
-        if (typeSel) { Array.from(typeSel.options).forEach(o=>{ if (o.dataset.generated==='1') o.remove(); }); typeSel.dataset.autofilled = ''; }
+        const nameInput = document.getElementById('scholarship_name');
+        const typeInput = document.getElementById('scholarship_type');
+        const scholarshipIdInput = document.getElementById('scholarship_id');
+        if (nameInput) nameInput.value = '';
+        if (typeInput) typeInput.value = '';
+        if (scholarshipIdInput) scholarshipIdInput.value = '';
         const nonAcademicIDLabel = document.getElementById('nonAcademicIDLabel');
         const nonAcademicUploadsInput = document.getElementById('nonAcademicUploadsInput');
         if (nonAcademicIDLabel) nonAcademicIDLabel.style.display = 'none';
@@ -386,19 +578,24 @@ document.addEventListener('DOMContentLoaded', function(){
     // Academic form close handlers
     function resetAndCloseAcademic(){
         const form = document.getElementById('academicApplyForm');
-        if (form) form.reset();
-        const nameSel = document.getElementById('academic_scholarship_name');
-        const typeSel = document.getElementById('academic_scholarship_type');
+        if (form) {
+            form.reset();
+            form.dataset.currentAcademicStep = '1';
+            updateAcademicStepUI(1);
+        }
+        const nameInput = document.getElementById('academic_scholarship_name');
+        const typeInput = document.getElementById('academic_scholarship_type');
+        const scholarshipIdInput = document.getElementById('academic_scholarship_id');
         const enrollmentSection = document.getElementById('academicEnrollmentSection');
-        if (nameSel) { Array.from(nameSel.options).forEach(o=>{ if (o.dataset.generated==='1') o.remove(); }); nameSel.dataset.autofilled = ''; }
-        if (typeSel) { Array.from(typeSel.options).forEach(o=>{ if (o.dataset.generated==='1') o.remove(); }); typeSel.dataset.autofilled = ''; }
+        if (nameInput) nameInput.value = '';
+        if (typeInput) typeInput.value = '';
+        if (scholarshipIdInput) scholarshipIdInput.value = '';
         if (enrollmentSection) { enrollmentSection.style.display = 'none'; }
         closeAcademicApplyModal();
     }
 
     const academicCloseBtn = document.getElementById('academicApplyModalClose');
     if (academicCloseBtn) academicCloseBtn.addEventListener('click', resetAndCloseAcademic);
-    const academicModal = document.getElementById('academicApplyModal');
     if (academicModal) academicModal.addEventListener('click', function(e){ if (e.target === academicModal) resetAndCloseAcademic(); });
 
     // File validation for academic form
@@ -428,15 +625,15 @@ document.addEventListener('DOMContentLoaded', function(){
     }
 
     // Academic form file validation
-    const academicForm = document.getElementById('academicApplyForm');
-    if (academicForm) {
-        academicForm.addEventListener('submit', function(e) {
+    const academicSubmitForm = document.getElementById('academicApplyForm');
+    if (academicSubmitForm) {
+        academicSubmitForm.addEventListener('submit', function(e) {
             if (allowSubmitAcademic) {
                 allowSubmitAcademic = false;
                 return true;
             }
 
-            const fileInput = academicForm.querySelector('input[name="uploads[]"]');
+            const fileInput = academicSubmitForm.querySelector('input[name="uploads[]"]');
             const files = fileInput.files;
 
             if (files.length === 0) {

@@ -27,4 +27,27 @@ class StudentProfile extends Model
     {
         return $this->belongsTo(Application::class);
     }
+
+    public static function scholarshipAttemptSummaryForUser(int $userId, string $scholarshipName): array
+    {
+        $records = static::where('user_id', $userId)
+            ->where('scholarship_name', $scholarshipName)
+            ->orderByDesc('created_at')
+            ->get(['application_status', 'created_at']);
+
+        $latestStatus = $records->first()->application_status ?? null;
+
+        return [
+            'total_attempts' => $records->count(),
+            'rejected_attempts' => $records->where('application_status', 'rejected')->count(),
+            'latest_status' => $latestStatus,
+        ];
+    }
+
+    public static function hasReachedScholarshipAttemptLimit(int $userId, string $scholarshipName): bool
+    {
+        $summary = static::scholarshipAttemptSummaryForUser($userId, $scholarshipName);
+
+        return $summary['rejected_attempts'] >= 2;
+    }
 }

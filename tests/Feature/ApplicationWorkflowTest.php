@@ -50,6 +50,7 @@ class ApplicationWorkflowTest extends TestCase
             'email' => $student->email,
             'course' => 'BSIT',
             'year_level' => '1st Year',
+            'scholarship_id' => $scholarship->id,
             'scholarship_name' => $scholarship->name,
             'scholarship_type' => 'Academic',
             'program' => 'Information Technology',
@@ -65,6 +66,42 @@ class ApplicationWorkflowTest extends TestCase
             'status' => 'rejected',
         ]);
         $this->assertSame(2, Application::where('user_id', $student->id)->where('scholarship_id', $scholarship->id)->count());
+        $this->assertDatabaseHas('applications', [
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_selected_scholarship_id_is_authoritative_for_submission(): void
+    {
+        $student = User::factory()->approved()->create([
+            'student_id' => '23-10001',
+        ]);
+        $scholarship = Scholarship::create(['name' => 'Athletic Scholarship', 'type' => 'non-academic']);
+
+        $response = $this->actingAs($student)->post('/student-profiles', [
+            'first_name' => 'Test',
+            'last_name' => 'Student',
+            'sex' => 'Male',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => $student->student_id,
+            'home_address' => 'Aparri',
+            'contact_number' => '09123456789',
+            'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
+            'year_level' => '2nd Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => 'Tampered Scholarship Name',
+            'scholarship_type' => 'Tampered scholarship type',
+        ]);
+
+        $response->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false));
+        $this->assertDatabaseHas('student_profiles', [
+            'user_id' => $student->id,
+            'scholarship_name' => 'Athletic Scholarship',
+            'scholarship_type' => 'Sports Excellence Program In-House',
+        ]);
         $this->assertDatabaseHas('applications', [
             'user_id' => $student->id,
             'scholarship_id' => $scholarship->id,

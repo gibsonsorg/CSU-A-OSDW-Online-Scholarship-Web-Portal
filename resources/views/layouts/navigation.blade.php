@@ -1,118 +1,253 @@
-<nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
-    <!-- Primary Navigation Menu -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-            <div class="flex">
-                <!-- Logo -->
-                <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}">
-                       
-                    </a>
-                </div>
 
-                <!-- Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                   
-                    <x-nav-link :href="route('dashboard', ['section' => 'acad'])" :active="request()->routeIs('dashboard') && request()->query('section') === 'acad'">
-                        {{ __('Academic Grants') }}
-                    </x-nav-link>
-                    <x-nav-link :href="route('dashboard', ['section' => 'non'])" :active="request()->routeIs('dashboard') && request()->query('section') === 'non'">
-                        {{ __('Non-Academic Grants') }}
-                    </x-nav-link>
-                    <x-nav-link :href="route('application-status')" :active="request()->routeIs('application-status')">
-                        {{ __('Application Status') }}
-                    </x-nav-link>
-                    
-                </div>
-            </div>
-            
 
-            <!-- Settings Dropdown -->
-            <div class="hidden sm:flex sm:items-center sm:ms-6">
-                <x-dropdown align="right" width="48">
-                    <x-slot name="trigger">
-                        <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
-                            <div>{{ Auth::user()->name }}</div>
-
-                            <div class="ms-1">
-                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                        </button>
-                    </x-slot>
-
-                    <x-slot name="content">
-                        <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profile') }}
-                        </x-dropdown-link>
-
-                        <!-- Authentication -->
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-
-                            <x-dropdown-link :href="route('logout')"
-                                    onclick="event.preventDefault();
-                                                this.closest('form').submit();">
-                                {{ __('Log Out') }}
-                            </x-dropdown-link>
-                        </form>
-                    </x-slot>
-                </x-dropdown>
-            </div>
-
-            <!-- Hamburger -->
-            <div class="-me-2 flex items-center sm:hidden">
-                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out">
-                    <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                        <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                        <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
+<nav id="studentSidebar" class="student-sidebar-nav">
+    <a href="{{ route('dashboard', ['section' => 'acad']) }}" class="student-sidebar-logo">
+        <div class="logo-img">
+            <img src="{{ asset('images/csua-nobg.png') }}" alt="CSU Logo">
         </div>
-    </div>
-
-    <!-- Responsive Navigation Menu -->
-    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
-        <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard') && request()->query('section') === null">
-                {{ __('Users Dashboard') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('dashboard', ['section' => 'acad'])" :active="request()->routeIs('dashboard') && request()->query('section') === 'acad'">
-                {{ __('Academic Grants') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('dashboard', ['section' => 'non'])" :active="request()->routeIs('dashboard') && request()->query('section') === 'non'">
-                {{ __('Non-Academic Grants') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('application-status')" :active="request()->routeIs('application-status')">
-                {{ __('Application Status') }}
-            </x-responsive-nav-link>
+        <div class="logo-text">
+            <h2>CSU Grants</h2>
+            <p>Management System</p>
         </div>
+    </a>
 
-        <!-- Responsive Settings Options -->
-        <div class="pt-4 pb-1 border-t border-gray-200">
-            <div class="px-4">
-                <div class="font-medium text-base text-gray-800">{{ Auth::user()->name }}</div>
-                <div class="font-medium text-sm text-gray-500">{{ Auth::user()->email }}</div>
-            </div>
+    <nav class="student-sidebar-menu" aria-label="Student dashboard navigation">
+        <a href="{{ route('dashboard', ['section' => 'acad']) }}" class="student-sidebar-link {{ request()->routeIs('dashboard') && request()->query('section') === 'acad' ? 'active' : '' }}">
+            {{ __('Academic Grants') }}
+        </a>
+        <a href="{{ route('dashboard', ['section' => 'non']) }}" class="student-sidebar-link {{ request()->routeIs('dashboard') && request()->query('section') === 'non' ? 'active' : '' }}">
+            {{ __('Non-Academic Grants') }}
+        </a>
+        <a href="{{ route('application-status') }}" class="student-sidebar-link {{ request()->routeIs('application-status') ? 'active' : '' }}">
+            {{ __('Application Status') }}
+        </a>
 
-            <div class="mt-3 space-y-1">
-                <x-responsive-nav-link :href="route('profile.edit')">
-                    {{ __('Profile') }}
-                </x-responsive-nav-link>
-
-                <!-- Authentication -->
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-
-                    <x-responsive-nav-link :href="route('logout')"
-                            onclick="event.preventDefault();
-                                        this.closest('form').submit();">
-                        {{ __('Log Out') }}
-                    </x-responsive-nav-link>
-                </form>
-            </div>
-        </div>
-    </div>
+        <form method="POST" action="{{ route('logout') }}" class="student-sidebar-logout-form">
+            @csrf
+            <button type="submit" class="student-sidebar-link student-sidebar-logout">
+                {{ __('Logout') }}
+            </button>
+        </form>
+    </nav>
 </nav>
+
+<button class="sidebar-toggle" id="studentSidebarToggle" type="button" aria-label="Toggle sidebar">
+    <span class="hamburger-icon"></span>
+    <span class="hamburger-icon"></span>
+    <span class="hamburger-icon"></span>
+    <img class="arrow-icon" src="{{ asset('images/arrow.svg') }}" alt="Arrow icon">
+</button>
+
+<style>
+    .student-app-shell {
+        display: flex;
+        min-height: 100vh;
+        width: 100%;
+        background: var(--cream, #f5f4f0);
+    }
+
+    .student-main-content {
+        margin-left: 250px;
+        width: calc(100% - 250px);
+        flex: 1;
+        min-width: 0;
+        transition: all 0.3s ease;
+    }
+
+    .student-app-shell.sidebar-collapsed .student-main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .student-sidebar-nav {
+        width: 250px;
+        background: var(--maroon-dark, #4a0a12);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 200;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.08);
+    }
+
+    .student-sidebar-nav.collapsed {
+        width: 0;
+        overflow: hidden;
+        border-right: none;
+    }
+
+    .student-sidebar-nav.collapsed .student-sidebar-logo,
+    .student-sidebar-nav.collapsed .student-sidebar-menu {
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .student-sidebar-logo {
+        padding: 24px 20px 18px;
+        border-bottom: 1px solid rgba(201, 168, 76, 0.15);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        position: relative;
+        padding-right: 56px;
+    }
+
+    .logo-img {
+        width: 54px;
+        height: 54px;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .logo-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 15%;
+    }
+
+    .logo-text h2 {
+        font-family: 'Cormorant Garamond', serif;
+        color: var(--gold-light, #f5d9a7);
+        font-size: 0.95rem;
+        line-height: 1.2;
+    }
+
+    .logo-text p {
+        color: rgba(255, 255, 255, 0.35);
+        font-size: 0.62rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        margin-top: 2px;
+    }
+
+    .student-sidebar-menu {
+        flex: 1;
+        padding: 16px 10px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .student-sidebar-link,
+    .student-sidebar-logout {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 9px;
+        color: rgba(255, 255, 255, 0.55);
+        font-size: 0.83rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.18s ease;
+        text-decoration: none;
+        border: none;
+        text-align: left;
+        background: transparent;
+    }
+
+    .student-sidebar-link:hover,
+    .student-sidebar-logout:hover {
+        background: rgba(255, 255, 255, 0.07);
+        color: #fff;
+    }
+
+    .student-sidebar-link.active {
+        background: linear-gradient(135deg, var(--maroon-light, #8b1a28), var(--maroon, #6b0f1a));
+        color: var(--gold-light, #f5d9a7);
+    }
+
+    .student-sidebar-logout-form {
+        margin-top: auto;
+        padding: 0 10px 16px;
+    }
+
+    .student-sidebar-logout {
+        justify-content: flex-start;
+    }
+
+    .sidebar-toggle {
+        position: fixed;
+        top: 18px;
+        left: calc(250px - 70px);
+        border: none;
+        width: 42px;
+        height: 42px;
+        background-color: transparent;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 4px;
+        padding: 0;
+        color: var(--maroon-dark, #4a0a12);
+        transition: all 0.3s ease;
+        z-index: 400;
+    }
+
+    .sidebar-toggle .hamburger-icon {
+        display: block;
+        width: 18px;
+        height: 2px;
+        background: currentColor;
+        border-radius: 2px;
+        transition: all 0.3s ease;
+        background-color: #fff;
+    }
+
+    .sidebar-toggle.active {
+        left: 18px;
+    }
+
+    .sidebar-toggle .arrow-icon {
+        display: none;
+        width: 20px;
+        height: 20px;
+        transition: all 0.3s ease;
+    }
+
+    .sidebar-toggle.active .hamburger-icon {
+        display: none;
+    }
+
+    .sidebar-toggle.active .arrow-icon {
+        display: block;
+    }
+
+    @media (max-width: 768px) {
+        .student-app-shell {
+            display: block;
+        }
+
+        .student-sidebar-nav {
+            width: 250px;
+            position: fixed;
+            transform: translateX(0);
+        }
+
+        .student-sidebar-nav.collapsed {
+            width: 0;
+        }
+
+        .student-main-content {
+            margin-left: 0;
+            width: 100%;
+        }
+
+        .student-app-shell.sidebar-collapsed .student-main-content {
+            margin-left: 0;
+            width: 100%;
+        }
+    }
+</style>

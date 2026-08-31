@@ -154,6 +154,49 @@ class StudentProfileController extends Controller
         }
     }
 
+    private function resolveScholarshipMetadata(Scholarship $scholarship): array
+    {
+        $name = trim((string) $scholarship->name);
+
+        $academicMap = [
+            'Cagayan Valley Assoc. of Hawaii' => 'International Educational Grant',
+            'University Based Scholarship' => 'Academic Excellence – In-House',
+            'ACEF – GIAHEP' => 'Agricultural Credit & Education Fund',
+            'DOST SEI Project Strand' => 'Graduate School Scholarship',
+            'Tulong Dunong Program' => 'Kuya Win Scholarship Program',
+            'LGU Aparri' => 'Local Government Unit Scholarship',
+            'Natalged A Lasam' => 'Educational Assistance Grant',
+            'Andres Tamayo Scholarship' => 'Private Foundation Grant',
+            'Gokongwei Brothers Foundation' => 'Foundation Scholarship Program',
+        ];
+
+        $nonAcademicMap = [
+            'Athletic Scholarship' => 'Sports Excellence Program In-House',
+            "Employees' Grant" => "Employees' Grant In-House",
+            'Socio-Cultural Scholarship' => 'Arts & Culture Program In-House',
+            'Campus Student Publication' => 'University Based Scholarship In-House',
+            'Differently Abled Persons' => 'University Based Scholarship In-House',
+            'Student Council Federation Grant' => 'University Based Scholarship In-House',
+            'CSU Aparri Alumni Association' => 'Alumni Grant Program In-House',
+            'Tertiary Education Subsidy' => 'UniFAST – TES Program Government Based',
+            'Agkaykaysa' => 'Regional Solidarity Grant Government Based',
+            'Open Heart Scholarship' => 'Private Foundation Grant Private Based',
+            'Talamayan Scholarship' => 'Community Support Grant Private Based',
+        ];
+
+        if ($scholarship->type === 'academic') {
+            return [
+                $name,
+                $academicMap[$name] ?? 'Academic Excellence – In-House',
+            ];
+        }
+
+        return [
+            $name,
+            $nonAcademicMap[$name] ?? 'University Based Scholarship In-House',
+        ];
+    }
+
     public function store(Request $request)
     {
         try {
@@ -173,6 +216,7 @@ class StudentProfileController extends Controller
                 'contact_number' => 'nullable|string|max:50',
                 'course' => 'required|string',
                 'year_level' => 'required|in:1st Year,2nd Year,3rd Year,4th Year',
+                'scholarship_id' => 'nullable|integer|min:1',
                 'scholarship_name' => 'required|string',
                 'scholarship_type' => 'required|string',
             ];
@@ -192,6 +236,17 @@ class StudentProfileController extends Controller
             $user = Auth::user();
             $data['user_id'] = $user->id;
             $data['student_id_number'] = $request->input('student_id_number') ?? $request->input('id_number') ?? $user->student_id ?? null;
+
+            $selectedScholarshipId = $request->input('scholarship_id');
+            $selectedScholarship = !empty($selectedScholarshipId)
+                ? Scholarship::find($selectedScholarshipId)
+                : Scholarship::where('name', trim((string) $data['scholarship_name']))->first();
+
+            if ($selectedScholarship) {
+                [$resolvedName, $resolvedType] = $this->resolveScholarshipMetadata($selectedScholarship);
+                $data['scholarship_name'] = $resolvedName;
+                $data['scholarship_type'] = $resolvedType;
+            }
 
             // Fill missing name parts from authenticated user name when available
             if (!empty($user->name)) {
@@ -287,10 +342,25 @@ class StudentProfileController extends Controller
             try {
                 DB::beginTransaction();
 
-                $scholarship = Scholarship::firstOrCreate(
-                    ['name' => $data['scholarship_name']],
-                    ['type' => $data['grant_type']]
-                );
+                $scholarship = !empty($selectedScholarshipId)
+                    ? Scholarship::find($selectedScholarshipId)
+                    : Scholarship::where('name', trim((string) $data['scholarship_name']))->first();
+
+                if (!$scholarship && !empty($data['scholarship_name'])) {
+                    $scholarship = Scholarship::firstOrCreate(
+                        ['name' => $data['scholarship_name']],
+                        ['type' => $data['grant_type']]
+                    );
+                }
+
+                if (!$scholarship) {
+                    DB::rollBack();
+                    return redirect()->back()->with('error', 'The selected scholarship could not be found. Please choose a valid scholarship.')->withInput();
+                }
+
+                [$resolvedName, $resolvedType] = $this->resolveScholarshipMetadata($scholarship);
+                $data['scholarship_name'] = $resolvedName;
+                $data['scholarship_type'] = $resolvedType;
 
                 // Serialize application checks per user so concurrent submissions cannot bypass limits.
                 User::whereKey($user->id)->lockForUpdate()->first();
@@ -301,6 +371,14 @@ class StudentProfileController extends Controller
                     DB::rollBack();
                     return redirect()->route('dashboard', ['section' => 'non'])
                         ->with('error', 'The selected scholarship does not match the application form category.');
+                }
+
+                $scholarshipAttemptSummary = StudentProfile::scholarshipAttemptSummaryForUser($user->id, $data['scholarship_name']);
+
+                if ($scholarshipAttemptSummary['rejected_attempts'] >= 2) {
+                    DB::rollBack();
+                    return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
+                        ->with('error', 'You have reached the maximum application attempts for the ' . $data['scholarship_name'] . ' scholarship. This scholarship is no longer available to you.');
                 }
 
                 $existingApp = Application::where('user_id', $user->id)

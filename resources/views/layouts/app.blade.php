@@ -15,7 +15,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
-        <div>
+        <div class="student-app-shell" id="studentAppShell">
             @include('layouts.navigation')
 
             <!-- Page Heading -->
@@ -28,10 +28,37 @@
             @endisset
 
             <!-- Page Content -->
-            <main>
+            <main class="student-main-content">
                 {{ $slot }}
             </main>
         </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const shell = document.getElementById('studentAppShell');
+                const sidebar = document.getElementById('studentSidebar');
+                const toggle = document.getElementById('studentSidebarToggle');
+
+                if (!shell || !sidebar || !toggle) {
+                    return;
+                }
+
+                const applySidebarState = function (collapsed) {
+                    sidebar.classList.toggle('collapsed', collapsed);
+                    shell.classList.toggle('sidebar-collapsed', collapsed);
+                    toggle.classList.toggle('active', collapsed);
+                    localStorage.setItem('studentSidebarCollapsed', collapsed ? 'true' : 'false');
+                };
+
+                const storedState = localStorage.getItem('studentSidebarCollapsed') === 'true';
+                applySidebarState(storedState);
+
+                toggle.addEventListener('click', function () {
+                    const isCollapsed = sidebar.classList.contains('collapsed');
+                    applySidebarState(!isCollapsed);
+                });
+            });
+        </script>
 
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
