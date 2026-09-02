@@ -128,6 +128,39 @@
         </script>
     @endif
 
+    @if(session('error'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const errorType = '{{ session('error') }}';
+                let title = 'Registration Error';
+                let message = 'An error occurred. Please try again.';
+                
+                if (errorType === 'approved') {
+                    title = 'Account Already Approved';
+                    message = 'Your account has already been approved. You can now log in to the system.';
+                } else if (errorType === 'pending') {
+                    title = 'Registration Pending';
+                    message = 'Your registration is currently pending admin approval. Please wait for the decision before submitting another registration.';
+                } else if (errorType === 'max_attempts') {
+                    title = 'Registration Limit Reached';
+                    message = 'You\'ve reached the maximum attempt of registration. Please contact the System Administrator.';
+                }
+                
+                Swal.fire({
+                    title: title,
+                    text: message,
+                    icon: 'error',
+                    draggable: true,
+                    confirmButtonText: 'OK'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = '{{ route('login') }}';
+                    }
+                });
+            });
+        </script>
+    @endif
+
     <script>
         // Frontend file validation for school ID
         document.getElementById('registerForm').addEventListener('submit', function(e){

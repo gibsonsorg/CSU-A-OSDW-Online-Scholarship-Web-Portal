@@ -14,20 +14,27 @@ class RejectionMail extends Mailable implements ShouldQueue
 
     public User $user;
     public string $message;
+    public int $attempt;
 
-    public function __construct(User $user, string $message = '')
+    public function __construct(User $user, string $message = '', int $attempt = 1)
     {
         $this->user = $user;
         $this->message = $message;
+        $this->attempt = $attempt;
     }
 
     public function build(): self
     {
-        return $this->subject('Account Application Status')
+        $subject = $this->attempt >= 2 
+            ? 'Registration Application Rejected — Maximum Attempts Reached'
+            : 'Registration Application Rejected';
+            
+        return $this->subject($subject)
             ->view('emails.rejection')
             ->with([
                 'user' => $this->user,
                 'rejectionReason' => $this->message,
+                'attempt' => $this->attempt,
             ]);
     }
 }

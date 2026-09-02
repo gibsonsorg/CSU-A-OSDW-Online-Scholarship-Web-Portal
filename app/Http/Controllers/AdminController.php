@@ -8,6 +8,7 @@ use App\Mail\RejectionMail;
 use App\Models\Application;
 use App\Models\Scholarship;
 use App\Models\StudentProfile;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -18,17 +19,40 @@ class AdminController extends Controller
     /**
      * Display main admin dashboard with all applications
      */
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        $recentApplications = StudentProfile::whereNull('deleted_at')
+        $search = trim((string) $request->query('search', ''));
+        $status = strtolower((string) $request->query('status', 'all'));
+        $allowedStatuses = ['all', 'approved', 'pending', 'rejected'];
+
+        if (!in_array($status, $allowedStatuses, true)) {
+            $status = 'all';
+        }
+
+        $query = StudentProfile::whereNull('deleted_at')
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%' . $search . '%';
+                $query->where(function ($query) use ($like) {
+                    $query->where('last_name', 'like', $like)
+                        ->orWhere('first_name', 'like', $like)
+                        ->orWhere('middle_name', 'like', $like)
+                        ->orWhere('course', 'like', $like)
+                        ->orWhere('scholarship_name', 'like', $like);
+                });
+            })
+            ->when($status !== 'all', function ($query) use ($status) {
+                $query->where('application_status', $status);
+            })
             ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
             ->orderBy('applications.created_at')
             ->orderBy('student_profiles.created_at')
-            ->select('student_profiles.*')
-            ->take(10)
-            ->get();
+            ->select('student_profiles.*');
+
+        $recentApplications = $query->take(10)->get();
         $filterType = 'all';
-        return view('admin.welcome', compact('recentApplications', 'filterType'));
+        $stats = $this->buildDashboardStats();
+
+        return view('admin.welcome', compact('recentApplications', 'filterType', 'stats'));
     }
 
     /**
@@ -38,7 +62,9 @@ class AdminController extends Controller
     {
         $recentApplications = $this->filteredApplications($request, 'academic');
         $filterType = 'academic';
-        return view('admin.welcome', compact('recentApplications', 'filterType'));
+        $stats = $this->buildDashboardStats();
+
+        return view('admin.welcome', compact('recentApplications', 'filterType', 'stats'));
     }
 
     /**
@@ -48,7 +74,46 @@ class AdminController extends Controller
     {
         $recentApplications = $this->filteredApplications($request, 'non-academic');
         $filterType = 'non-academic';
-        return view('admin.welcome', compact('recentApplications', 'filterType'));
+        $stats = $this->buildDashboardStats();
+
+        return view('admin.welcome', compact('recentApplications', 'filterType', 'stats'));
+    }
+
+    private function buildDashboardStats(): array
+    {
+        $now = now();
+
+        $totalGrants = Scholarship::count();
+        $grantsAddedThisMonth = Scholarship::whereMonth('created_at', $now->month)
+            ->whereYear('created_at', $now->year)
+            ->count();
+
+        $applicationsBaseQuery = StudentProfile::whereNull('deleted_at');
+        $totalApplications = $applicationsBaseQuery->count();
+        $applicationsThisWeek = $applicationsBaseQuery
+            ->whereBetween('created_at', [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()])
+            ->count();
+
+        $approved = $applicationsBaseQuery->where('application_status', 'approved')->count();
+        $approvalRate = $totalApplications > 0 ? (int) round(($approved / $totalApplications) * 100) : 0;
+
+        $registeredUsersQuery = User::where('role', '!=', 0)->whereNull('deleted_at');
+        $registeredUsers = $registeredUsersQuery->count();
+        $newRegisteredThisMonth = $registeredUsersQuery
+            ->whereMonth('created_at', $now->month)
+            ->whereYear('created_at', $now->year)
+            ->count();
+
+        return [
+            'total_grants' => $totalGrants,
+            'grants_added_this_month' => $grantsAddedThisMonth,
+            'total_applications' => $totalApplications,
+            'applications_this_week' => $applicationsThisWeek,
+            'approved' => $approved,
+            'approval_rate' => $approvalRate,
+            'registered_users' => $registeredUsers,
+            'new_registered_this_month' => $newRegisteredThisMonth,
+        ];
     }
 
     private function filteredApplications(Request $request, string $grantType)
@@ -86,11 +151,34 @@ class AdminController extends Controller
     }
 
     /**
-     * List registered users for admin.
+     * List registered users for admin with optional status and search filtering.
      */
     public function users(\Illuminate\Http\Request $request)
     {
-        $users = \App\Models\User::orderBy('created_at', 'desc')->get();
+        $search = trim((string) $request->query('search', ''));
+        $status = strtolower((string) $request->query('status', 'all'));
+        $allowedStatuses = ['all', 'pending', 'approved', 'rejected'];
+
+        if (!in_array($status, $allowedStatuses, true)) {
+            $status = 'all';
+        }
+
+        $query = \App\Models\User::where('role', '!=', 0)
+            ->whereNull('deleted_at')
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%' . $search . '%';
+                $query->where(function ($query) use ($like) {
+                    $query->where('name', 'like', $like)
+                        ->orWhere('email', 'like', $like)
+                        ->orWhere('student_id', 'like', $like);
+                });
+            })
+            ->when($status !== 'all', function ($query) use ($status) {
+                $query->where('account_status', $status);
+            })
+            ->orderBy('created_at', 'desc');
+
+        $users = $query->get();
         $recentApplications = collect();
         $filterType = 'users';
 
@@ -224,7 +312,9 @@ class AdminController extends Controller
         ])->save();
 
         try {
-            Mail::to($user->email)->send(new RejectionMail($user, $message));
+            // Get the attempt number for the email
+            $attempt = $user->registered_attempt ?? 1;
+            Mail::to($user->email)->send(new RejectionMail($user, $message, $attempt));
         } catch (\Throwable $e) {
             Log::error('User rejection notification failed', ['user_id' => $id, 'exception' => $e]);
             return response()->json([
@@ -236,6 +326,37 @@ class AdminController extends Controller
         return response()->json([
             'status' => 'ok',
             'message' => 'User account rejected',
+        ]);
+    }
+
+    /**
+     * Delete a rejected user registration after the final rejection.
+     * Kept separate from rejectUser so second rejection does not remove the record automatically.
+     */
+    public function deleteUser($id)
+    {
+        $user = \App\Models\User::withTrashed()->find($id);
+
+        if (! $user) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+
+        if ($user->account_status !== 'rejected' && ! $user->trashed()) {
+            return response()->json(['status' => 'error', 'message' => 'Only rejected users can be deleted'], 422);
+        }
+
+        // Preserve the user's attempt history by storing the record in a deleted state instead of deleting the history fields.
+        // This ensures the user remains permanently blocked from a third registration attempt after final rejection.
+        $attempt = (int) ($user->registered_attempt ?? 2);
+        $user->forceFill([
+            'registered_attempt' => $attempt,
+        ]); 
+
+        $user->delete();
+
+        return response()->json([
+            'status' => 'ok',
+            'message' => 'User registration deleted',
         ]);
     }
 

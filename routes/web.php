@@ -94,6 +94,7 @@ Route::get('/admin/users/{id}/id-document', [AdminController::class, 'viewIdDocu
 Route::get('/admin/applications/{id}/document/{group}/{index}', [AdminController::class, 'viewApplicationDocument'])->whereNumber('id')->whereNumber('index')->middleware(['auth', 'verified', 'admin'])->name('admin.applications.document');
 Route::post('/admin/users/{id}/approve', [AdminController::class, 'approveUser'])->middleware(['auth', 'verified', 'admin']);
 Route::post('/admin/users/{id}/reject', [AdminController::class, 'rejectUser'])->middleware(['auth', 'verified', 'admin']);
+Route::post('/admin/users/{id}/delete', [AdminController::class, 'deleteUser'])->middleware(['auth', 'verified', 'admin']);
 
 // ADMIN APPLICATION MANAGEMENT ROUTES
 // Fetch single application details as JSON

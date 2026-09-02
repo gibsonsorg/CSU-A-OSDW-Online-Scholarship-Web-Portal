@@ -2,20 +2,32 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Account Application Status</title>
+    <title>Registration Application Rejected</title>
 </head>
 <body>
     <p>Dear {{ $user->name }},</p>
 
-    <p>We regret to inform you that your account application has not been approved at this time.</p>
+    @if($attempt >= 2)
+        <p>Your registration application has been rejected for the second time.</p>
 
-    <p>This may be due to incomplete or invalid information provided during registration.</p>
+        @if (!empty($rejectionReason))
+            <p><strong>Reason:</strong> {{ $rejectionReason }}</p>
+        @endif
 
-    @if (!empty($rejectionReason))
-        <p><strong>Administrator message:</strong> {{ $rejectionReason }}</p>
+        <p>You have reached the maximum of 2 registration attempts and cannot submit another registration using these credentials.</p>
+
+        <p>If you believe this decision was made in error, please contact the System Administrator at lgu.camal.gov.ph@gmail.com.</p>
+    @else
+        <p>Your registration application has been rejected by the System Administrator.</p>
+
+        @if (!empty($rejectionReason))
+            <p><strong>Reason:</strong> {{ $rejectionReason }}</p>
+        @endif
+
+        <p>You may submit another registration. Please make sure that your information and submitted documents are complete and accurate.</p>
+
+        <p>If you believe this rejection was made in error, please contact the System Administrator at lgu.camal.gov.ph@gmail.com.</p>
     @endif
-
-    <p>If you believe this decision was made in error or if you would like further clarification, please feel free to contact the administrator.</p>
 
     <p>Thank you for your understanding.</p>
 

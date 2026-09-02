@@ -28,7 +28,7 @@
 
         .left-panel {
             flex: 1;
-            background: linear-gradient(135deg, #C85A00, #E07B00, #F0A500);
+            background: linear-gradient(135deg, #C85A00, #C85A00, #C85A00);
             color: white;
             padding: 60px;
             display: flex;
@@ -119,7 +119,7 @@
         }
 
         .form-group input:focus {
-            border-color: #FFC107;
+            border-color: #C85A00;
             box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
         }
 
@@ -151,13 +151,13 @@
         }
 
         .forgot-password a:hover {
-            color:#FFC107;
+            color:#C85A00;
         }
 
         .btn {
             width: 100%;
             padding: 16px;
-            background: #FFC107;
+            background: #C85A00;
             color: white;
             border: none;
             border-radius: 10px;
@@ -170,7 +170,7 @@
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow:  #FFC107;
+            box-shadow:  #C85A00;
         }
 
         .btn:active {
@@ -215,7 +215,7 @@
         }
 
         .switch-form a:hover {
-            color:  #FFC107;
+            color:  #C85A00;
         }
 
         .checkbox-group {
@@ -229,7 +229,7 @@
             height: 18px;
             margin-right: 10px;
             cursor: pointer;
-            accent-color: #FFC107;
+            accent-color: #C85A00;
         }
 
         .checkbox-group label {

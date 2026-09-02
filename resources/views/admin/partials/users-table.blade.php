@@ -2,7 +2,9 @@
     <thead>
         <tr>
             <th>Name</th>
+            <th>Email</th>
             <th>Student ID</th>
+            <th>Registered Attempt</th>
             <th>Status</th>
             <th>Uploaded ID</th>
             <th>Registered</th>
@@ -13,7 +15,11 @@
         @forelse($users as $user)
             <tr>
                 <td>{{ $user->name }}</td>
+                <td>{{ $user->email ?? '—' }}</td>
                 <td>{{ $user->student_id ?? '—' }}</td>
+                <td>
+                    <span class="badge info">{{ $user->registered_attempt ?? 1 }}</span>
+                </td>
                 <td>
                     @if(($user->account_status ?? 'pending') === 'approved')
                         <span class="badge approved">Approved</span>
@@ -35,9 +41,13 @@
                     @if((int) $user->role !== 0)
                         @if(($user->account_status ?? 'pending') === 'approved')
                             <span class="text-gray">Approved</span>
+                        @elseif(($user->account_status ?? 'pending') === 'rejected' && (int) $user->registered_attempt >= 2)
+                            <button type="button" class="btn small" style="background:#dc3545;color:white;" onclick="confirmDeleteUser({{ $user->id }})">Delete</button>
                         @else
-                            <button type="button" class="btn small" onclick="confirmApproveUser({{ $user->id }})">Approve</button>
-                            <button type="button" class="btn small" style="background:#e74c3c;color:white;" onclick="rejectUser({{ $user->id }})">Reject</button>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <button type="button" class="btn small" onclick="confirmApproveUser({{ $user->id }})">Approve</button>
+                                <button type="button" class="btn small" style="background:#e74c3c;color:white;" onclick="rejectUser({{ $user->id }})">Reject</button>
+                            </div>
                         @endif
                     @else
                         <span class="text-gray">—</span>
@@ -46,7 +56,7 @@
             </tr>
         @empty
             <tr>
-                <td colspan="6" class="text-center text-gray">No users yet.</td>
+                <td colspan="8" class="text-center text-gray">No users yet.</td>
             </tr>
         @endforelse
     </tbody>

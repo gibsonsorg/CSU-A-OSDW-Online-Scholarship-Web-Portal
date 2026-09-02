@@ -18,7 +18,7 @@ body {
 
 /* Navigation Styles */
 nav {
-    background: linear-gradient(135deg, #C85A00, #E07B00, #F0A500);;
+    background: linear-gradient(135deg, #C85A00, #C85A00, #C85A00);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -85,7 +85,7 @@ nav {
 }
 
 .hero {
-    background-color:orange;
+    background-color:#C85A00;
     padding: 0.5rem;
     text-align: center;
     display: flex;
@@ -210,7 +210,7 @@ nav {
     }
 
     .nav-links a:hover {
-        color:orange;
+        color:#C85A00;
     }
 
     .nav-links a::after {
@@ -221,7 +221,7 @@ nav {
         transform: translateX(-50%);
         width: 0;
         height: 2px;
-        background-color:orange;
+        background-color:#C85A00;
         transition: width 0.3s;
     }
 
@@ -248,7 +248,7 @@ nav {
     }
 
     .nav-auth a:hover {
-        color:#FFC107;
+        color:#C85A00;
     }
 }
 
@@ -327,7 +327,7 @@ nav {
     }
 
     .menu-close:hover {
-        color: #FFC107;
+        color: #C85A00;
     }
 
     /* Menu Items Container */
@@ -357,18 +357,18 @@ nav {
         width: 24px;
         text-align: center;
         font-size: 1.2rem;
-        color: #FFC107;
+        color: #C85A00;
     }
 
     .menu-item:hover {
         background-color: #f8f9fa;
-        color: #FFC107;
+        color: #C85A00;
     }
 
     .menu-item.active {
         background-color: #f0f0f0;
-        color: #FFC107;
-        border-left-color: #FFC107;
+        color: #C85A00;
+        border-left-color: #C85A00;
     }
 
     /* Menu Divider */
@@ -393,18 +393,18 @@ nav {
 
     .login-item:hover {
         background-color: #f8f9fa;
-        color: #FFC107;
+        color: #C85A00;
     }
 
     .register-item {
-        background-color: #FFC107;
+        background-color: #C85A00;
         color: #333;
         border-bottom: none;
         border-left: none;
     }
 
     .register-item:hover {
-        background-color: #FFB300;
+        background-color: #A94B00;
         color: #fff;
     }
 
@@ -505,11 +505,12 @@ nav {
 
 .welcome-content h2 {
     font-size: 2.3rem;
-    color:white;
+    line-height: 1.2;
+    color: white;
     margin-bottom: 1rem;
     font-weight: 700;
-     
- 
+    letter-spacing: -0.02em;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 
 .welcome-content p {
@@ -517,8 +518,8 @@ nav {
     color: white;
     max-width: 800px;
     margin: 0 auto 2rem;
-    line-height: 1.6;
-    
+    line-height: 1.7;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .cta-buttons {
@@ -539,13 +540,13 @@ nav {
 }
 
 .btn-primary {
-    background-color: #FFC107;
-    color: #333;
+    background-color: #C85A00;
+    color: #fff;
     border-radius: 25px;
 }
 
 .btn-primary:hover {
-    background-color: #FFB300;
+    background-color: #A94B00;
     transform: translateY(-2px);
 }
 
@@ -643,8 +644,8 @@ nav {
 .step-number {
     width: 60px;
     height: 60px;
-    background-color: #FFC107;
-    color: #333;
+    background-color: #C85A00;
+    color: #fff;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -699,7 +700,7 @@ nav {
 
 .stat-item h3 {
     font-size: 2.5rem;
-    color: #FFC107;
+    color: #C85A00;
     margin-bottom: 0.5rem;
 }
 
@@ -753,7 +754,7 @@ nav {
 /* CTA Section */
 .cta-section {
     padding: 4rem 0;
-background: linear-gradient(135deg, #C85A00, #E07B00, #F0A500);
+background: linear-gradient(135deg, #C85A00, #C85A00, #C85A00);
     color: white;
     text-align: center;
 }
@@ -772,12 +773,12 @@ background: linear-gradient(135deg, #C85A00, #E07B00, #F0A500);
 .btn-large {
     padding: 1rem 3rem;
     font-size: 1.1rem;
-    color:  #FFC107;
+    color:  #C85A00;
 }
 
 /* Footer */
 footer {
-   background: linear-gradient(135deg, #C85A00, #E07B00, #F0A500);
+   background: linear-gradient(135deg, #C85A00, #C85A00, #C85A00);
     color: white;
     padding: 3rem 0 1rem;
 }
@@ -790,7 +791,7 @@ footer {
 }
 
 .footer-section h3 {
-    color: #FFC107;
+    color: #C85A00;
     margin-bottom: 1rem;
 }
 
@@ -817,7 +818,7 @@ footer {
 
 .footer-section ul li a:hover {
     opacity: 1;
-    color: #FFC107;
+    color: #C85A00;
 }
 
 .footer-bottom {
@@ -838,7 +839,11 @@ footer {
     .about-content h2,
     .contact-section h2,
     .cta-content h2 {
-        font-size: 2rem;
+        font-size: clamp(1.7rem, 6vw, 2.3rem);
+    }
+
+    .welcome-content p {
+        font-size: 1rem;
     }
 
     .services-grid,
@@ -854,17 +859,26 @@ footer {
 
     .btn {
         width: 100%;
-        max-width: 300px;
+        max-width: 220px;
+        padding: 0.7rem 1.2rem;
+        font-size: 0.95rem;
     }
 }
 
 @media (max-width: 600px) {
-    .welcome-content h2 {
-        font-size: 1.2rem;
-        
+    .welcome-section {
+        min-height: 520px;
+        padding-top: 3rem;
     }
-    .welcome-content p
-    {
-        margin-top: 7.5rem;
+
+    .welcome-content h2 {
+        font-size: clamp(1.8rem, 7vw, 2.5rem);
+        line-height: 1.25;
+    }
+
+    .welcome-content p {
+        font-size: 1rem;
+        margin-top: 0.5rem;
+        margin-bottom: 1.5rem;
     }
 }

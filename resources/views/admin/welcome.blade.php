@@ -132,27 +132,27 @@
             <div class="stats-row stats-4">
         <div class="stat-card">
             <div class="stat-icon"></div>
-            <div class="stat-val">0</div>
+            <div class="stat-val">{{ $stats['total_grants'] ?? 0 }}</div>
             <div class="stat-label">Total Grants</div>
-            <div class="stat-change up">↑ 0 added this month</div>
+            <div class="stat-change up">↑ {{ $stats['grants_added_this_month'] ?? 0 }} added this month</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon"></div>
-            <div class="stat-val">0</div>
+            <div class="stat-val">{{ $stats['total_applications'] ?? 0 }}</div>
             <div class="stat-label">Total Applications</div>
-            <div class="stat-change up">↑ 0 this week</div>
+            <div class="stat-change up">↑ {{ $stats['applications_this_week'] ?? 0 }} this week</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon"></div>
-            <div class="stat-val">0</div>
+            <div class="stat-val">{{ $stats['approved'] ?? 0 }}</div>
             <div class="stat-label">Approved</div>
-            <div class="stat-change up">0% approval rate</div>
+            <div class="stat-change up">{{ $stats['approval_rate'] ?? 0 }}% approval rate</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon"> </div>
-            <div class="stat-val">3</div>
+            <div class="stat-val">{{ $stats['registered_users'] ?? 0 }}</div>
             <div class="stat-label">Registered Users</div>
-            <div class="stat-change up">↑ 3 new this month</div>
+            <div class="stat-change up">↑ {{ $stats['new_registered_this_month'] ?? 0 }} new this month</div>
         </div>
     </div>
 
@@ -176,6 +176,10 @@
         @endif
         @if(in_array($filterType, ['academic', 'non-academic', 'old-academic', 'old-non-academic'], true))
             @include('admin.partials.grant-filters', ['filterType' => $filterType])
+        @elseif($filterType === 'users')
+            @include('admin.partials.users-filters')
+        @elseif($filterType === 'all')
+            @include('admin.partials.application-filters')
         @endif
         @if($filterType !== 'old-academic' && $filterType !== 'old-non-academic')
             <a href="http://127.0.0.1:8000/admin/applications" class="card-action">View All →</a>
@@ -337,17 +341,6 @@
     </div>
 </div>
 
-<!-- Reject User Modal -->
-<div id="rejectModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
-    <div class="modal-content" style="max-width:400px;width:90%;background:white;border-radius:8px;padding:30px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-        <h2 style="margin-top:0;color:#e74c3c;">Reject User</h2>
-        <p style="font-size:14px;color:#666;margin:15px 0;">Enter rejection reason:</p>
-        <textarea id="rejectReason" placeholder="Enter rejection reason (optional)" style="width:100%;height:80px;padding:10px;border:1px solid #ddd;border-radius:4px;font-family:Arial;font-size:13px;box-sizing:border-box;resize:vertical;"></textarea>
-        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">
-            <button id="rejectCancel" class="btn" style="background:#ccc;color:#333;padding:10px 20px;border:none;border-radius:4px;cursor:pointer;font-size:14px;flex:1;">Cancel</button>
-            <button id="rejectConfirm" class="btn" style="background:#e74c3c;color:white;padding:10px 20px;border:none;border-radius:4px;cursor:pointer;font-size:14px;flex:1;">Reject</button>
-        </div>
-    </div>
 </div>
 
           <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -475,7 +468,6 @@
               // Modals
               const schoolIDModal = document.getElementById('schoolIDModal');
               const approveModal = document.getElementById('approveModal');
-              const rejectModal = document.getElementById('rejectModal');
               
               let pendingUserId = null;
 
@@ -517,31 +509,6 @@
               approveModal.addEventListener('click', function(event) {
                   if (event.target === approveModal) {
                       approveModal.style.display = 'none';
-                      pendingUserId = null;
-                  }
-              });
-
-              // Reject Modal
-              document.getElementById('rejectCancel').addEventListener('click', function() {
-                  rejectModal.style.display = 'none';
-                  document.getElementById('rejectReason').value = '';
-                  pendingUserId = null;
-              });
-
-              document.getElementById('rejectConfirm').addEventListener('click', function() {
-                  if (pendingUserId) {
-                      const reason = document.getElementById('rejectReason').value || 'Account rejected by administrator';
-                      performReject(pendingUserId, reason);
-                      rejectModal.style.display = 'none';
-                      document.getElementById('rejectReason').value = '';
-                      pendingUserId = null;
-                  }
-              });
-
-              rejectModal.addEventListener('click', function(event) {
-                  if (event.target === rejectModal) {
-                      rejectModal.style.display = 'none';
-                      document.getElementById('rejectReason').value = '';
                       pendingUserId = null;
                   }
               });
@@ -591,9 +558,24 @@
               }
 
               function rejectUser(userId) {
-                  pendingUserId = userId;
-                  document.getElementById('rejectReason').value = '';
-                  rejectModal.style.display = 'flex';
+                  Swal.fire({
+                      title: 'Reject Registration',
+                      html: '<textarea id="rejectReasonInput" placeholder="Enter rejection reason (optional)" style="width:100%;height:80px;padding:10px;border:1px solid #ddd;border-radius:4px;font-family:Arial;font-size:13px;box-sizing:border-box;resize:vertical;"></textarea>',
+                      icon: 'warning',
+                      showCancelButton: true,
+                      confirmButtonText: 'Reject',
+                      cancelButtonText: 'Cancel',
+                      confirmButtonColor: '#e74c3c',
+                      cancelButtonColor: '#6c757d',
+                      preConfirm: () => {
+                          const reason = document.getElementById('rejectReasonInput').value || 'Account rejected by administrator';
+                          return reason;
+                      }
+                  }).then(result => {
+                      if (result.isConfirmed) {
+                          performReject(userId, result.value);
+                      }
+                  });
               }
 
               function performReject(userId, reason) {
@@ -610,15 +592,83 @@
                   .then(response => response.json())
                   .then(data => {
                       if (data.status === 'ok') {
-                          alert('User rejected!');
+                          Swal.fire({
+                              toast: true,
+                              position: 'top-end',
+                              icon: 'success',
+                              title: 'User rejected successfully',
+                              showConfirmButton: false,
+                              timer: 2000,
+                              timerProgressBar: true
+                          });
                           loadUsers();
                       } else {
-                          alert('Error: ' + (data.message || 'Failed'));
+                          Swal.fire({
+                              icon: 'error',
+                              title: 'Error',
+                              text: data.message || 'Failed to reject user'
+                          });
                       }
                   })
                   .catch(error => {
                       console.error('Error:', error);
-                      alert('Error rejecting user');
+                      Swal.fire({
+                          icon: 'error',
+                          title: 'Error',
+                          text: 'Error rejecting user'
+                      });
+                  });
+              }
+
+              function confirmDeleteUser(userId) {
+                  Swal.fire({
+                      title: 'Delete Registration?',
+                      text: 'Are you sure you want to delete this registration?',
+                      icon: 'warning',
+                      showCancelButton: true,
+                      confirmButtonText: 'Delete',
+                      cancelButtonText: 'Cancel',
+                      confirmButtonColor: '#dc3545',
+                      cancelButtonColor: '#6c757d'
+                  }).then(result => {
+                      if (result.isConfirmed) {
+                          fetch(`/admin/users/${userId}/delete`, {
+                              method: 'POST',
+                              headers: {
+                                  'Content-Type': 'application/json',
+                                  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                              }
+                          })
+                          .then(response => response.json())
+                          .then(data => {
+                              if (data.status === 'ok') {
+                                  Swal.fire({
+                                      toast: true,
+                                      position: 'top-end',
+                                      icon: 'success',
+                                      title: 'Registration deleted successfully',
+                                      showConfirmButton: false,
+                                      timer: 2000,
+                                      timerProgressBar: true
+                                  });
+                                  loadUsers();
+                              } else {
+                                  Swal.fire({
+                                      icon: 'error',
+                                      title: 'Error',
+                                      text: data.message || 'Failed to delete registration'
+                                  });
+                              }
+                          })
+                          .catch(error => {
+                              console.error('Error:', error);
+                              Swal.fire({
+                                  icon: 'error',
+                                  title: 'Error',
+                                  text: 'Error deleting registration'
+                              });
+                          });
+                      }
                   });
               }
           </script>

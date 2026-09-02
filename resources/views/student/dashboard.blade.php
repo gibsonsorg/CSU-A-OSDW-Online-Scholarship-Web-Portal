@@ -1046,11 +1046,10 @@ More info: https://unifaast.gov.ph/tes.html"
                         <div class="tes-docs-label" style="display:none; margin-bottom:10px; padding:12px; border-radius:8px; background:#f9f9f9; border:1px solid #e5e5e5;">
                             <p style="margin:0 0 8px 0; font-weight:600; color:#333; font-size:0.9rem;">Required Documents (PDF Format)</p>
                             <ul style="margin:0; padding-left:18px; color:#666; font-size:0.85rem; line-height:1.5;">
-                                <li>COE of the Present Semester</li>
-                                <li>School ID (Front and Back)</li>
-                                <li>ATM Proof of Account Number</li>
-                                <li>Three (3) Signatures</li>
-                                <li>Contact Number</li>
+                                <li>Coe of the present semester</li>
+                                <li>Id back to back</li>
+                                <li>Atm proof of account number</li>
+                                <li>3 specimen signature</li>
                             </ul>
                         </div>
 
