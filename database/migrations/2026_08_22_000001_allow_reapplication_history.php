@@ -9,9 +9,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('student_profiles', function (Blueprint $table) {
-            $table->foreignId('application_id')->nullable()->after('user_id')->constrained()->nullOnDelete();
-        });
+        if (!Schema::hasColumn('student_profiles', 'application_id')) {
+    Schema::table('student_profiles', function (Blueprint $table) {
+        $table->foreignId('application_id')
+            ->nullable()
+            ->after('user_id')
+            ->constrained()
+            ->nullOnDelete();
+    });
+}
 
         if (DB::getDriverName() === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
