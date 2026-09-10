@@ -48,9 +48,11 @@ return new class extends Migration
             }
         }
 
-        Schema::table('applications', function (Blueprint $table) {
-            $table->dropUnique(['user_id', 'scholarship_id']);
-        });
+       if (Schema::hasIndex('applications', ['user_id', 'scholarship_id'], 'unique')) {
+    Schema::table('applications', function (Blueprint $table) {
+        $table->dropUnique(['user_id', 'scholarship_id']);
+    });
+}
 
         if (DB::getDriverName() === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
