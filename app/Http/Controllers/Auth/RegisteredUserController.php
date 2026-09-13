@@ -68,14 +68,14 @@ class RegisteredUserController extends Controller
             ]));
         }
 
-        Mail::to($user->email)->send(new EmailVerificationCodeMail($verificationCode));
+        Mail::to($user->email)->queue(new EmailVerificationCodeMail($verificationCode));
 
         $request->session()->put([
             'verification_user_id' => $user->getKey(),
             'verification_email' => $user->email,
         ]);
 
-        return redirect()->route('verification.code');
+        return redirect()->route('verification.code')->with('success', 'verification_queued');
     }
 
     public function showVerificationCode(Request $request): View|RedirectResponse
@@ -152,7 +152,7 @@ class RegisteredUserController extends Controller
             'email_verification_attempts' => 0,
         ]);
 
-        Mail::to($user->email)->send(new EmailVerificationCodeMail($verificationCode));
+        Mail::to($user->email)->queue(new EmailVerificationCodeMail($verificationCode));
 
         return redirect()->back()->with('success', 'verification_resent');
     }

@@ -107,8 +107,12 @@
         <script>
             const successType = @json(session('success'));
             Swal.fire({
-                title: successType === 'registration_verified' ? 'Registration Successful' : 'Verification Code Sent',
-                text: successType === 'registration_verified' ? 'You can now login.' : 'A new verification code has been sent to your email.',
+                title: successType === 'registration_verified'
+                    ? 'Registration Successful'
+                    : (successType === 'verification_resent' ? 'Verification Code Queued' : 'Registration Successful'),
+                text: successType === 'registration_verified'
+                    ? 'You can now login.'
+                    : 'Your verification code has been queued and will be sent to your email shortly.',
                 icon: 'success',
                 confirmButtonText: 'OK'
             }).then((result) => {

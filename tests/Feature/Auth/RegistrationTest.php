@@ -37,7 +37,7 @@ class RegistrationTest extends TestCase
             'account_status' => 'pending',
         ]);
         $response->assertRedirect(route('verification.code'));
-        Mail::assertSent(EmailVerificationCodeMail::class);
+        Mail::assertQueued(EmailVerificationCodeMail::class);
     }
 
     public function test_verification_code_activates_the_account(): void
@@ -50,7 +50,7 @@ class RegistrationTest extends TestCase
             'password_confirmation' => 'password',
         ]);
 
-        $mail = Mail::sent(EmailVerificationCodeMail::class)->first();
+        $mail = Mail::queued(EmailVerificationCodeMail::class)->first();
         $user = User::where('email', 'test.user@example.com')->firstOrFail();
         $this->get('/verify-code')->assertOk();
 
@@ -167,7 +167,7 @@ class RegistrationTest extends TestCase
             ->post(route('verification.resend'));
 
         $response->assertSessionHas('success', 'verification_resent');
-        $newCode = Mail::sent(EmailVerificationCodeMail::class)->last()->code;
+        $newCode = Mail::queued(EmailVerificationCodeMail::class)->last()->code;
         $this->assertFalse(Hash::check('483921', $user->fresh()->email_verification_code_hash));
         $this->assertTrue(Hash::check($newCode, $user->fresh()->email_verification_code_hash));
         $this->assertSame(0, $user->fresh()->email_verification_attempts);
