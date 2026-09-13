@@ -28,7 +28,7 @@
 
         .left-panel {
             flex: 1;
-            background: linear-gradient(135deg, #C85A00, #C85A00, #C85A00);
+            background-color:#8b1a28;
             color: white;
             padding: 60px;
             display: flex;
@@ -41,7 +41,7 @@
         .logo {
             width: 200px;
             height: 200px;
-            background: #FFD700;
+            background-color:#8b1a28;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -157,7 +157,7 @@
         .btn {
             width: 100%;
             padding: 16px;
-            background: #C85A00;
+            background:#8b1a28;
             color: white;
             border: none;
             border-radius: 10px;

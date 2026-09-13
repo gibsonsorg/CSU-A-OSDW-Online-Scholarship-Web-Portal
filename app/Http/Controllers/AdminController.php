@@ -44,8 +44,9 @@ class AdminController extends Controller
                 $query->where('application_status', $status);
             })
             ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
-            ->orderBy('applications.created_at')
-            ->orderBy('student_profiles.created_at')
+            ->orderByDesc('applications.created_at')
+            ->orderByDesc('applications.id')
+            ->orderByDesc('student_profiles.id')
             ->select('student_profiles.*');
 
         $recentApplications = $query->take(10)->get();
@@ -144,8 +145,9 @@ class AdminController extends Controller
             })
             ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
             ->select('student_profiles.*')
-            ->orderBy('applications.created_at')
-            ->orderBy('student_profiles.created_at');
+            ->orderByDesc('applications.created_at')
+            ->orderByDesc('applications.id')
+            ->orderByDesc('student_profiles.id');
 
         return $query->paginate(10)->withQueryString();
     }

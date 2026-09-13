@@ -36,7 +36,9 @@ class LoginRequest extends FormRequest
         }
 
         return [
-            'student_id' => ['required', 'string', 'regex:/^[0-9]{1,2}-[0-9]{1,5}$/'],
+            'login_identifier' => ['required_without_all:email,student_id', 'nullable', 'string'],
+            'email' => ['nullable', 'string', 'email'],
+            'student_id' => ['nullable', 'string', 'regex:/^[0-9]{1,2}-[0-9]{1,5}$/'],
             'password' => ['required', 'string'],
         ];
     }
@@ -62,12 +64,13 @@ class LoginRequest extends FormRequest
                 ]);
             }
         } else {
-            // Student login using student_id
-            if (! Auth::attempt(['student_id' => $this->input('student_id'), 'password' => $this->input('password')], $this->boolean('remember'))) {
+            $identifier = $this->input('login_identifier') ?: ($this->input('email') ?: $this->input('student_id'));
+            $credentialField = str_contains($identifier, '@') ? 'email' : 'student_id';
+            if (! Auth::attempt([$credentialField => $identifier, 'password' => $this->input('password')], $this->boolean('remember'))) {
                 RateLimiter::hit($this->throttleKey());
 
                 throw ValidationException::withMessages([
-                    'student_id' => 'Invalid Student ID or password.',
+                    $credentialField => 'Invalid email or password.',
                 ]);
             }
         }
@@ -103,7 +106,7 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('student_id')).'|'.$this->ip());
+        return Str::transliterate(Str::lower($this->input('login_identifier', $this->input('email', $this->input('student_id', '')))).'|'.$this->ip());
     }
 }
 

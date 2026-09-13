@@ -60,7 +60,7 @@ class ApplicationWorkflowTest extends TestCase
             'religion' => 'None',
         ]);
 
-        $response->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false));
+        $response->assertRedirect(route('dashboard', ['section' => 'acad'], absolute: false));
         $this->assertDatabaseHas('applications', [
             'id' => $oldApplication->id,
             'status' => 'rejected',
@@ -186,8 +186,8 @@ class ApplicationWorkflowTest extends TestCase
         preg_match('/<th>Last Name<\/th>.*?<tbody>(.*?)<\/tbody>/s', $response->getContent(), $matches);
         $table = $matches[1] ?? '';
         $this->assertLessThan(
-            strpos($table, '<td>Latest</td>'),
-            strpos($table, '<td>Earliest</td>')
+            strpos($table, '<td>Earliest</td>'),
+            strpos($table, '<td>Latest</td>')
         );
     }
 

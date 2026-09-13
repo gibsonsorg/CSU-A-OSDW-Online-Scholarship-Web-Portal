@@ -33,8 +33,8 @@
         }
 
         .tab-button.active {
-            color: #FF9800;
-            border-bottom-color: #FF9800;
+            color: #8b1a28;
+            border-bottom-color: #8b1a28;
         }
 
         .tab-content {
@@ -47,25 +47,36 @@
         }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
     </style>
 </head>
 <body>
-    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    @if(session('verification_success'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    icon: 'success',
+                    text: @json(session('verification_success')),
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    window.location.href = @json(route('login'));
+                });
+            });
+        </script>
+    @endif
+
     <div class="container">
         <div class="left-panel">
             <div class="logo">
-             <img src="{{ asset('images/osdw logo.jpg') }}" alt="OSDW Logo">
+                <img src="{{ asset('images/osdw logo.jpg') }}" alt="OSDW Logo">
             </div>
-            <h2 style="color:black;">Your gateway to Scholarship and beneficiaries web portal</h2>
-        </div>  
-           
+            <h2 style="color:white;">Your gateway to Scholarship and beneficiaries web portal</h2>
+        </div>
+
         <div class="right-panel">
             @if(session('status'))
                 <div class="alert alert-success">{{ session('status') }}</div>
@@ -78,28 +89,21 @@
                 </a>
             </div>
 
-            <!-- Sign In Header -->
             <div class="auth-header">
                 <h2>Sign in</h2>
                 <p>Sign in to access your Scholarship Portal account</p>
             </div>
 
-            <!-- Tabs -->
-            <div class="tabs-container">
-                <button type="button" class="tab-button active" onclick="switchTab('student')">Student Login</button>
-                <button type="button" class="tab-button" onclick="switchTab('admin')">Admin Login</button>
-            </div>
 
-            <!-- Student Login Form -->
             <div id="student" class="tab-content active">
                 <form action="{{ route('login') }}" method="POST">
                     @csrf
                     <input type="hidden" name="login_type" value="student">
-                    
+
                     <div class="form-group">
-                        <label for="studentId">STUDENT ID NUMBER</label>
-                        <input type="text" id="studentId" name="student_id" placeholder="Enter Student ID (e.g., 23-11941)" value="{{ old('student_id') }}" pattern="[0-9\-]{1,8}" maxlength="10" required>
-                        @error('student_id')
+                        <label for="studentIdentifier">EMAIL ADDRESS </label>
+                        <input type="text" id="studentIdentifier" name="login_identifier" placeholder="Enter your email or Student ID" value="{{ old('login_identifier') }}" required>
+                        @error('login_identifier')
                             <div class="error-message">{{ $message }}</div>
                         @enderror
                     </div>
@@ -121,22 +125,16 @@
 
                     <button type="submit" class="btn">Sign In</button>
 
-                    <div class="divider">
-                        <span>or</span>
-                    </div>
-
-                    <div class="switch-form">
-                        Don't have an account? <a href="{{ route('register') }}">Create Account</a>
-                    </div>
+                    <div class="divider"><span>or</span></div>
+                    <div class="switch-form">Don't have an account? <a href="{{ route('register') }}">Create Account</a></div>
                 </form>
             </div>
 
-            <!-- Admin Login Form -->
             <div id="admin" class="tab-content">
                 <form action="{{ route('login') }}" method="POST">
                     @csrf
                     <input type="hidden" name="login_type" value="admin">
-                    
+
                     <div class="form-group">
                         <label for="adminEmail">EMAIL ADDRESS</label>
                         <input type="email" id="adminEmail" name="email" placeholder="Enter your email address" value="{{ old('email') }}" required>
@@ -162,47 +160,26 @@
 
                     <button type="submit" class="btn">Sign In</button>
 
-                    <div class="divider">
-                        <span>or</span>
-                    </div>
-
-                    <div class="switch-form">
-                        Back to <a href="#" onclick="switchTab('student'); return false;">Student Login</a>
-                    </div>
+                    <div class="divider"><span>or</span></div>
+                    <div class="switch-form">Back to <a href="#" onclick="switchTab('student', document.querySelector('.tab-button')); return false;">Student Login</a></div>
                 </form>
             </div>
         </div>
     </div>
 
     <script>
-        function switchTab(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Remove active class from all buttons
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Show selected tab
+        function switchTab(tabName, button) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(tab => tab.classList.remove('active'));
             document.getElementById(tabName).classList.add('active');
-            
-            // Add active class to clicked button
-            event.target.classList.add('active');
+            button.classList.add('active');
         }
 
         function togglePassword(fieldId) {
             const field = document.getElementById(fieldId);
-            if (field.type === 'password') {
-                field.type = 'text';
-            } else {
-                field.type = 'password';
-            }
+            field.type = field.type === 'password' ? 'text' : 'password';
         }
     </script>
-
 </body>
 </html>
 

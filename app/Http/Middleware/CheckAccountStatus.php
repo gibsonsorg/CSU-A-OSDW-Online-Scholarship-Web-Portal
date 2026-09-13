@@ -18,9 +18,10 @@ class CheckAccountStatus
         if (auth()->check()) {
             $user = auth()->user();
 
-            // If user account is pending, redirect to approval waiting page
+            // Pending accounts must complete email verification first.
             if ($user->account_status === 'pending') {
-                return redirect(route('approval.waiting'))->with('error', 'Your account is pending approval. Please wait for admin approval.');
+                auth()->logout();
+                return redirect(route('login'))->with('error', 'Please verify your email before logging in.');
             }
 
             // If user account is rejected, logout and redirect to login

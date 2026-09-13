@@ -18,7 +18,7 @@ body {
 
 /* Navigation Styles */
 nav {
-    background: linear-gradient(135deg, #C85A00, #C85A00, #C85A00);
+    background:#8b1a28;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -28,7 +28,9 @@ nav {
     padding: 0.8rem 2rem;
     height: 70px; /* Fixed height helps stability */
     width: 100%;
+     
 }
+
 
 .logo {
     display: flex;
@@ -46,7 +48,7 @@ nav {
 .logo h2 {
     font-size: 1.5rem;
     font-weight: 600;
-    color: #333;
+    color: white;
 }
 
 /* Hamburger Menu Button */
@@ -101,7 +103,7 @@ nav {
     margin: 0;
     padding: 0 1rem;
     line-height: 1.5;
-    color: #333;
+    color: white;
     font-weight: 600;
     max-width: 100%;
     word-wrap: break-word;
@@ -203,10 +205,11 @@ nav {
 
     .nav-links a {
         text-decoration: none;
-        color: #333;
+        color: white;
         font-weight: 500;
         transition: color 0.3s;
         position: relative;
+        right: 14rem;
     }
 
     .nav-links a:hover {
@@ -234,6 +237,7 @@ nav {
     */
     .nav-auth {
         display: flex;
+        align-items: center;
         gap: 1.5rem;
         position: absolute;
         right: 6rem;
@@ -242,14 +246,37 @@ nav {
 
     .nav-auth a {
         text-decoration: none;
-        color: #333;
+        color:white;
         font-weight: 500;
         transition: color 0.3s;
+        
+    }
+    .regBtn {
+        display: inline-flex;
+        align-items: center;
+        background: #ffffff;
+        color: #000000 !important;
+        text-decoration: none;
+        border: none;
+        border-radius: 25px;
+        padding: 8px 20px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
     }
 
-    .nav-auth a:hover {
-        color:#C85A00;
+    .regBtn b {
+        color: #000000;
     }
+
+.regBtn:hover {
+    background: #f2f2f2;
+    color: #000000;
+    transform: translateY(-1px);
+}
+
+
 }
 
 /* =========================================
@@ -540,13 +567,13 @@ nav {
 }
 
 .btn-primary {
-    background-color: #C85A00;
+    background-color:#8b1a28;
     color: #fff;
     border-radius: 25px;
 }
 
 .btn-primary:hover {
-    background-color: #A94B00;
+      background-color:#701923;
     transform: translateY(-2px);
 }
 
@@ -644,7 +671,7 @@ nav {
 .step-number {
     width: 60px;
     height: 60px;
-    background-color: #C85A00;
+    background-color: #8b1a28;
     color: #fff;
     border-radius: 50%;
     display: flex;
@@ -700,7 +727,7 @@ nav {
 
 .stat-item h3 {
     font-size: 2.5rem;
-    color: #C85A00;
+    color: #8b1a28;
     margin-bottom: 0.5rem;
 }
 
@@ -754,7 +781,7 @@ nav {
 /* CTA Section */
 .cta-section {
     padding: 4rem 0;
-background: linear-gradient(135deg, #C85A00, #C85A00, #C85A00);
+background:#8b1a28;
     color: white;
     text-align: center;
 }
@@ -773,12 +800,12 @@ background: linear-gradient(135deg, #C85A00, #C85A00, #C85A00);
 .btn-large {
     padding: 1rem 3rem;
     font-size: 1.1rem;
-    color:  #C85A00;
+    color:white;
 }
 
 /* Footer */
 footer {
-   background: linear-gradient(135deg, #C85A00, #C85A00, #C85A00);
+   background-color:#8b1a28;
     color: white;
     padding: 3rem 0 1rem;
 }
@@ -791,7 +818,7 @@ footer {
 }
 
 .footer-section h3 {
-    color: #C85A00;
+    color:white;
     margin-bottom: 1rem;
 }
 

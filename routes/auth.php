@@ -17,9 +17,15 @@ Route::middleware('guest')->group(function () {
 
     Route::post('register', [RegisteredUserController::class, 'store']);
 
-    Route::get('approval-waiting', function () {
-        return view('auth.approval-waiting');
-    })->name('approval.waiting');
+    Route::get('verify-code', [RegisteredUserController::class, 'showVerificationCode'])
+        ->name('verification.code');
+
+    Route::post('verify-code', [RegisteredUserController::class, 'verifyCode'])
+        ->name('verification.submit');
+
+    Route::post('verify-code/resend', [RegisteredUserController::class, 'resendCode'])
+        ->middleware('throttle:3,1')
+        ->name('verification.resend');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');

@@ -11,7 +11,7 @@
   <nav>
     <div class="logo">
         <img src="{{ asset('images/osdw logo.jpg') }}" alt="Municipality Logo">
-        <h2>OSDW web portal</h2>
+        <h2>OSDW</h2>
     </div>
 
     <button class="hamburger-menu" id="hamburgerBtn">
@@ -32,7 +32,7 @@
 
         <div class="nav-auth">
             <a href="{{ route('login') }}"><b>Login</b></a>
-            <a href="{{ route('register') }}"><b>Register</b></a>
+            <a href="{{ route('register') }}" class="regBtn"><b>Register</b></a>
         </div>
 
         <!-- Mobile Navigation -->
@@ -84,7 +84,7 @@
   <section class="welcome-section" >
     <div class="container">
         <div class="welcome-content">
-            <h2>Web-Based Scholarship Management and RequirementsMonitoring System For Cagayan State University Aparri Campus</h2>
+            <h2>Web-Based Scholarship Management and Requirements Monitoring System For Cagayan State University Aparri Campus</h2>
             <p>Providing easy access to scholarships, financial aid, and essential community services through a streamlined online platform.</p>
             <div class="cta-buttons">
                 <a href="{{ route('register') }}" class="btn btn-primary">Get Started</a>
@@ -129,22 +129,22 @@
             <div class="step">
                 <div class="step-number">1</div>
                 <h3>Register</h3>
-                <p>Create your account with your basic information and valid Student ID number</p>
+                <p>Create your account using your Gmail address and a secure password.</p>
             </div>
             <div class="step">
                 <div class="step-number">2</div>
-                <h3>Submit Application</h3>
-                <p>Fill out the application form and upload required documents</p>
+                <h3>Verify Email</h3>
+                <p>Enter the 6-digit verification code sent to your Gmail account.</p>
             </div>
             <div class="step">
                 <div class="step-number">3</div>
-                <h3>Review By Admin</h3>
-                <p>Our Admin evaluates your eligibility based on set criteria</p>
+                <h3>Verify Your Identity</h3>
+                <p> Upload your valid student ID and complete face verification to confirm your identity.</p>
             </div>
             <div class="step">
                 <div class="step-number">4</div>
-                <h3>Get Approved</h3>
-                <p>Receive notification and access your benefits once approved</p>
+                <h3>Identity Verified</h3>
+                <p>Email Notification Continue to Scholarship Application</p>
             </div>
         </div>
     </div>

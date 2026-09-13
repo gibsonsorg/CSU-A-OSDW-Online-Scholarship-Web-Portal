@@ -29,12 +29,12 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
         $user = Auth::user();
 
-        // Check if user account is pending approval
+        // Pending accounts must complete email verification first.
         if ($user && $user->account_status === 'pending') {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
-            return redirect(route('approval.waiting'))->with('error', 'Your account is pending approval. Please wait for admin approval.');
+            return redirect(route('login'))->with('error', 'Please verify your email before logging in.');
         }
 
         // Check if user account was rejected

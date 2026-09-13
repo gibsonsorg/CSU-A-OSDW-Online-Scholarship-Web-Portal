@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\EmailVerificationCodeMail;
 use App\Models\User;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
@@ -29,106 +29,132 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        // Check for existing registration with the same credentials (including soft-deleted)
-        $existingUser = User::withTrashed()
-            ->where('email', $request->email)
-            ->orWhere('student_id', $request->student_id)
-            ->first();
-
-        if ($existingUser) {
-            // User exists - check if they can register again
-            if ($existingUser->account_status === 'approved') {
-                // Already approved - cannot register again
-                return redirect()->back()->with('error', 'approved');
-            } elseif ($existingUser->account_status === 'pending') {
-                // Registration still pending - cannot register again
-                return redirect()->back()->with('error', 'pending');
-            } elseif ($existingUser->account_status === 'rejected') {
-                // Rejected - check attempt number
-                if ($existingUser->registered_attempt >= 2) {
-                    // Second attempt already rejected - cannot register again
-                    return redirect()->back()->with('error', 'max_attempts');
-                }
-                // First attempt was rejected - allow second attempt
-                // Validate the new registration data
-                $request->validate([
-                    'name' => ['required', 'string', 'max:255'],
-                    'email' => ['required', 'string', 'email', 'max:255'],
-                    'student_id' => ['required', 'string', 'regex:/^[0-9]{1,2}-[0-9]{1,5}$/'],
-                    'password' => ['required', 'confirmed', Rules\Password::defaults()],
-                    'id_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'extensions:jpg,jpeg,png,pdf', 'max:1024'],
-                ], [
-                    'name.required' => 'Full name is required',
-                    'email.required' => 'Email address is required',
-                    'email.email' => 'Please enter a valid email address',
-                    'student_id.regex' => 'Student ID must be in format like 23-11941 (digits-digits)',
-                    'password.confirmed' => 'Passwords do not match',
-                    'id_document.required' => 'School ID upload is required',
-                    'id_document.mimes' => 'School ID must be a JPG, PNG or PDF file',
-                    'id_document.max' => 'School ID must be no larger than 1MB',
-                ]);
-
-                // Update the existing registration for second attempt
-                $idPath = null;
-                if ($request->hasFile('id_document') && $request->file('id_document')->isValid()) {
-                    $idPath = Storage::disk('local')->putFile('ids', $request->file('id_document'));
-                }
-
-                $existingUser->update([
-                    'name' => $request->name,
-                    'student_id' => $request->student_id,
-                    'password' => Hash::make($request->password),
-                    'account_status' => 'pending',
-                    'rejection_reason' => null,
-                    'id_document' => $idPath,
-                    'registered_attempt' => 2, // Second attempt
-                ]);
-
-                return redirect()->back()->with('success', true);
-            }
-        }
-
-        // No existing user - validate and create new registration
         $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:users,name'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'student_id' => ['required', 'string', 'regex:/^[0-9]{1,2}-[0-9]{1,5}$/', 'unique:users,student_id'],
+            'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'id_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'extensions:jpg,jpeg,png,pdf', 'max:1024'],
         ], [
-            'name.unique' => 'This full name is already registered',
             'email.required' => 'Email address is required',
             'email.email' => 'Please enter a valid email address',
-            'email.unique' => 'This email address is already registered',
-            'student_id.regex' => 'Student ID must be in format like 23-11941 (digits-digits)',
-            'student_id.unique' => 'This Student ID is already registered',
             'password.confirmed' => 'Passwords do not match',
-            'id_document.required' => 'School ID upload is required',
-            'id_document.mimes' => 'School ID must be a JPG, PNG or PDF file',
-            'id_document.max' => 'School ID must be no larger than 1MB',
         ]);
 
-        // store uploaded ID document
-        $idPath = null;
-        if ($request->hasFile('id_document') && $request->file('id_document')->isValid()) {
-            $idPath = Storage::disk('local')->putFile('ids', $request->file('id_document'));
+        $existingUser = User::withTrashed()->where('email', $request->email)->first();
+
+        if ($existingUser?->email_verified_at && $existingUser->account_status === 'approved') {
+            return redirect()->back()->with('error', 'approved');
         }
 
-        $user = User::create([
-            'name' => $request->name,
-            'student_id' => $request->student_id,
-            'email' => $request->email,
-            'email_verified_at' => now(),
+        $verificationCode = (string) random_int(100000, 999999);
+        $attributes = [
             'password' => Hash::make($request->password),
-            'role' => 1, // default = USER
+            'email_verified_at' => null,
             'account_status' => 'pending',
-            'id_document' => $idPath,
-            'registered_attempt' => 1, // First attempt
+            'rejection_reason' => null,
+            'email_verification_code_hash' => Hash::make($verificationCode),
+            'email_verification_expires_at' => now()->addMinutes(10),
+            'email_verification_attempts' => 0,
+        ];
+
+        if ($existingUser) {
+            $existingUser->update($attributes);
+            $user = $existingUser;
+        } else {
+            $user = User::create(array_merge($attributes, [
+                'name' => null,
+                'student_id' => null,
+                'email' => $request->email,
+                'role' => 1,
+                'registered_attempt' => 1,
+            ]));
+        }
+
+        Mail::to($user->email)->send(new EmailVerificationCodeMail($verificationCode));
+
+        $request->session()->put([
+            'verification_user_id' => $user->getKey(),
+            'verification_email' => $user->email,
         ]);
 
-        event(new Registered($user));
+        return redirect()->route('verification.code');
+    }
 
-        return redirect()->back()->with('success', true);
+    public function showVerificationCode(Request $request): View|RedirectResponse
+    {
+        $userId = $request->session()->get('verification_user_id');
+        $email = $request->session()->get('verification_email');
+
+        if (!$userId || !$email) {
+            return redirect()->route('register');
+        }
+
+        return view('auth.verify-code', compact('email'));
+    }
+
+    public function verifyCode(Request $request): RedirectResponse
+    {
+        $request->merge([
+            'verification_code' => trim((string) $request->input('verification_code', '')),
+        ]);
+
+        $request->validate([
+            'verification_code' => ['required', 'regex:/^\d{6}$/'],
+        ]);
+
+        $userId = $request->session()->get('verification_user_id');
+        $user = $userId ? User::find($userId) : null;
+
+        if (!$user || !$user->email_verification_code_hash) {
+            return redirect()->route('register')->with('error', 'verification_missing');
+        }
+
+        if (!$user->email_verification_expires_at || $user->email_verification_expires_at->isPast()) {
+            return redirect()->back()->with('error', 'verification_expired');
+        }
+
+        if ($user->email_verification_attempts >= 5) {
+            return redirect()->back()->with('error', 'verification_attempts');
+        }
+
+        if (!Hash::check($request->string('verification_code')->trim(), $user->email_verification_code_hash)) {
+            $user->increment('email_verification_attempts');
+            return redirect()->back()->with('error', 'verification_incorrect');
+        }
+
+        $user->update([
+            'email_verified_at' => now(),
+            'account_status' => 'approved',
+            'email_verification_code_hash' => null,
+            'email_verification_expires_at' => null,
+            'email_verification_attempts' => 0,
+        ]);
+
+        $request->session()->forget(['verification_user_id', 'verification_email']);
+
+        return redirect()->route('login')->with(
+            'verification_success',
+            'Email verified Successfully you can now login'
+        );
+    }
+
+    public function resendCode(Request $request): RedirectResponse
+    {
+        $userId = $request->session()->get('verification_user_id');
+        $user = $userId ? User::find($userId) : null;
+
+        if (!$user || $user->email_verified_at) {
+            return redirect()->route('register');
+        }
+
+        $verificationCode = (string) random_int(100000, 999999);
+        $user->update([
+            'email_verification_code_hash' => Hash::make($verificationCode),
+            'email_verification_expires_at' => now()->addMinutes(10),
+            'email_verification_attempts' => 0,
+        ]);
+
+        Mail::to($user->email)->send(new EmailVerificationCodeMail($verificationCode));
+
+        return redirect()->back()->with('success', 'verification_resent');
     }
 }
 

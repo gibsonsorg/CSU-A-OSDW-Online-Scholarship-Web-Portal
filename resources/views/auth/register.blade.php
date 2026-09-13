@@ -14,7 +14,7 @@
             <div class="logo">
              <img src="{{ asset('images/osdw logo.jpg') }}" alt="OSDW Logo">
             </div>
-            <h2 style="color:black;">Your gateway to Scholarship and beneficiaries web portal</h2>
+            <h2 style="color:white;">Your gateway to Scholarship and beneficiaries web portal</h2>
         </div>  
 
         <div class="right-panel">
@@ -30,7 +30,7 @@
             </div>
 
             <!-- Register Form -->
-            <form id="registerForm" action="{{ route('register') }}" method="POST" enctype="multipart/form-data">
+            <form id="registerForm" action="{{ route('register') }}" method="POST">
                 @csrf
                 <div class="auth-header">
                     <h2>Create Account</h2>
@@ -38,25 +38,9 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="regFullName">FULL NAME</label>
-                    <input type="text" id="regFullName" name="name" placeholder="Enter your full name" value="{{ old('name') }}" required>
-                    @error('name')
-                        <div class="error-message">{{ $message }}</div>
-                    @enderror
-                </div>
-
-                <div class="form-group">
                     <label for="regEmail">EMAIL ADDRESS</label>
                     <input type="email" id="regEmail" name="email" placeholder="Enter your email address" value="{{ old('email') }}" required>
                     @error('email')
-                        <div class="error-message">{{ $message }}</div>
-                    @enderror
-                </div>
-
-                <div class="form-group">
-                    <label for="regStudentId">STUDENT ID NUMBER</label>
-                    <input type="text" id="regStudentId" name="student_id" placeholder="Enter Student ID (e.g., 23-11941)" value="{{ old('student_id') }}" pattern="[0-9\-]{1,8}" maxlength="10" required>
-                    @error('student_id')
                         <div class="error-message">{{ $message }}</div>
                     @enderror
                 </div>
@@ -83,15 +67,6 @@
                     @enderror
                 </div>
 
-                <div class="form-group">
-                    <label for="regIdDocument">UPLOAD SCHOOL ID (JPG, PNG or PDF) — max 1MB</label>
-                    <input type="file" id="regIdDocument" name="id_document" accept=".jpg,.jpeg,.png,.pdf" required>
-                    @error('id_document')
-                        <div class="error-message">{{ $message }}</div>
-                    @enderror
-                    <div id="idError" class="error-message" style="display:none;"></div>
-                </div>
-
                 <div class="checkbox-group">
                     <input type="checkbox" id="agreeTerms" required>
                     <label for="agreeTerms">I agree to the Terms and Conditions</label>
@@ -110,24 +85,6 @@
         </div>
     </div>
        
-    @if(session('success'))
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                Swal.fire({
-                    title: 'Registration Successful',
-                    text: 'Your account has been created. Please wait for admin approval.',
-                    icon: 'success',
-                    draggable: true,
-                    confirmButtonText: 'OK'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        window.location.href = '{{ route('approval.waiting') }}';
-                    }
-                });
-            });
-        </script>
-    @endif
-
     @if(session('error'))
         <script>
             document.addEventListener('DOMContentLoaded', function () {
@@ -138,12 +95,6 @@
                 if (errorType === 'approved') {
                     title = 'Account Already Approved';
                     message = 'Your account has already been approved. You can now log in to the system.';
-                } else if (errorType === 'pending') {
-                    title = 'Registration Pending';
-                    message = 'Your registration is currently pending admin approval. Please wait for the decision before submitting another registration.';
-                } else if (errorType === 'max_attempts') {
-                    title = 'Registration Limit Reached';
-                    message = 'You\'ve reached the maximum attempt of registration. Please contact the System Administrator.';
                 }
                 
                 Swal.fire({
@@ -153,44 +104,12 @@
                     draggable: true,
                     confirmButtonText: 'OK'
                 }).then((result) => {
-                    if (result.isConfirmed) {
-                        window.location.href = '{{ route('login') }}';
-                    }
                 });
             });
         </script>
     @endif
 
     <script>
-        // Frontend file validation for school ID
-        document.getElementById('registerForm').addEventListener('submit', function(e){
-            const fileInput = document.getElementById('regIdDocument');
-            const errorEl = document.getElementById('idError');
-            errorEl.style.display = 'none';
-            errorEl.textContent = '';
-            if (!fileInput || fileInput.files.length === 0) {
-                errorEl.textContent = 'School ID upload is required.';
-                errorEl.style.display = 'block';
-                e.preventDefault();
-                return false;
-            }
-            const file = fileInput.files[0];
-            const allowed = ['jpg','jpeg','png','pdf'];
-            const ext = file.name.split('.').pop().toLowerCase();
-            if (!allowed.includes(ext)) {
-                errorEl.textContent = 'Invalid file format. Allowed: JPG, PNG, PDF.';
-                errorEl.style.display = 'block';
-                e.preventDefault();
-                return false;
-            }
-            if (file.size > 1024 * 1024) {
-                errorEl.textContent = 'File too large. Maximum size is 1MB.';
-                errorEl.style.display = 'block';
-                e.preventDefault();
-                return false;
-            }
-            return true;
-        });
         function togglePassword(fieldId) {
             const field = document.getElementById(fieldId);
             if (field.type === 'password') {

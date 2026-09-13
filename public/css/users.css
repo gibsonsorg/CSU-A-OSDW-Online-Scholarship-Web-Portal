@@ -857,6 +857,11 @@ select {
     border: 1px solid #ddd;
 }
 
+.email-readonly {
+    background-color: #f3f4f6;
+    cursor: not-allowed;
+}
+
 .form-actions {
     display: flex;
     gap: 8px;

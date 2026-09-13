@@ -235,6 +235,7 @@ class StudentProfileController extends Controller
             
             $user = Auth::user();
             $data['user_id'] = $user->id;
+            $data['email'] = $user->email;
             $data['student_id_number'] = $request->input('student_id_number') ?? $request->input('id_number') ?? $user->student_id ?? null;
 
             $selectedScholarshipId = $request->input('scholarship_id');
@@ -265,16 +266,6 @@ class StudentProfileController extends Controller
                 }
             }
 
-            // If academic form and no email provided, use authenticated user's email
-            if ($isAcademic && (empty($data['email']) || !isset($data['email']))) {
-                $data['email'] = $user->email ?? 'no-email@scholarship.local';
-            }
-
-            // Always use the authenticated user's email if the field is empty for any form
-            if (empty($data['email']) && $user->email) {
-                $data['email'] = $user->email;
-            }
-            
             // Assign grant type
             $data['grant_type'] = $isAcademic ? 'academic' : 'non-academic';
 
@@ -369,7 +360,7 @@ class StudentProfileController extends Controller
 
                 if ($isAcademicScholarship !== $isAcademic) {
                     DB::rollBack();
-                    return redirect()->route('dashboard', ['section' => 'non'])
+                    return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
                         ->with('error', 'The selected scholarship does not match the application form category.');
                 }
 
@@ -389,7 +380,7 @@ class StudentProfileController extends Controller
                 if ($existingApp) {
                     // Rollback and return the same friendly error message used earlier
                     DB::rollBack();
-                    return redirect()->route('dashboard', ['section' => 'non'])
+                    return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
                         ->with('error', 'You have already applied for the ' . $data['scholarship_name'] . ' scholarship. Only one application per scholarship is allowed.');
                 }
 
@@ -410,7 +401,7 @@ class StudentProfileController extends Controller
 
                 if ($activeCategoryApplications >= 2) {
                     DB::rollBack();
-                    return redirect()->route('dashboard', ['section' => 'non'])
+                    return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
                         ->with('error', 'You already have two active applications in the ' . $data['grant_type'] . ' category. Only two open applications per category are allowed.');
                 }
 
@@ -438,7 +429,7 @@ class StudentProfileController extends Controller
                     $successMessage .= "\n\ Note: Some files could not be processed:\n" . implode("\n", $uploadErrors);
                 }
 
-                return redirect()->route('dashboard', ['section' => 'non'])
+                return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
                     ->with('success', $successMessage);
 
             } catch (QueryException $e) {
@@ -449,7 +440,7 @@ class StudentProfileController extends Controller
                 $msg = strtolower($e->getMessage());
                 if (str_contains($msg, 'duplicate') || str_contains($msg, 'unique') || $e->getCode() == '23000') {
                     DB::rollBack();
-                    return redirect()->route('dashboard', ['section' => 'non'])
+                    return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
                         ->with('error', 'You have already applied for the ' . $data['scholarship_name'] . ' scholarship. Only one application per scholarship is allowed.');
                 }
 

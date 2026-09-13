@@ -841,7 +841,7 @@ More info: https://unifaast.gov.ph/tes.html"
         <div class="modal-card">
             <div class="application-modal-header">
                 <button type="button" class="academic-nav-btn academic-nav-back" data-non-academic-step="prev" aria-label="Back to previous step">← Back</button>
-                <h1 class="form-title">Scholarship Application</h1>
+                <h1 class="form-title">Non-Academic Scholarship Application</h1>
                 <button class="modal-close" id="applyModalClose" type="button" aria-label="Close scholarship application">✕</button>
             </div>
             @if(session('success'))
@@ -906,15 +906,15 @@ More info: https://unifaast.gov.ph/tes.html"
                 <div class="apply-row academic-step-panel active" data-non-academic-step="1">
                     <div>
                         <label>First name</label>
-                        <input class="input" type="text" name="first_name" value="{{ $firstNameDefault }}" readonly required>
+                        <input class="input" type="text" name="first_name" value="{{ $firstNameDefault }}" required>
                     </div>
                     <div>
                         <label>Middle name</label>
-                        <input class="input" type="text" name="middle_name" value="{{ $middleNameDefault }}" readonly>
+                        <input class="input" type="text" name="middle_name" value="{{ $middleNameDefault }}">
                     </div>
                     <div>
                         <label>Last name</label>
-                        <input class="input" type="text" name="last_name" value="{{ $lastNameDefault }}" readonly required>
+                        <input class="input" type="text" name="last_name" value="{{ $lastNameDefault }}" required>
                     </div>
                     <div>
                         <label>Sex</label>
@@ -935,11 +935,11 @@ More info: https://unifaast.gov.ph/tes.html"
                     </div>
                     <div>
                         <label>Email address</label>
-                        <input class="input" type="email" name="email" value="{{ $emailDefault }}" readonly required>
+                        <input class="input email-readonly" type="email" name="email" value="{{ $emailDefault }}" readonly aria-readonly="true" title="Verified account email" required>
                     </div>
                     <div>
                         <label>Student ID Number</label>
-                        <input class="input" type="text" name="student_id_number" value="{{ $studentIdDefault }}" readonly>
+                        <input class="input" type="text" name="student_id_number" value="{{ $studentIdDefault }}">
                     </div>
                     <div>
                         <label>Contact number</label>
@@ -975,61 +975,17 @@ More info: https://unifaast.gov.ph/tes.html"
                         <label>Home address</label>
                         <textarea name="home_address" class="input" rows="2"></textarea>
                     </div>
-                    <div>
-                        <label>Sex</label>
-                        <select name="sex" class="input" required>
-                            <option value="">Select</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Status</label>
-                        <select name="status" class="input" required>
-                            <option value="">Select</option>
-                            <option>Single</option>
-                            <option>Married</option>
-                            <option>Divorced</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Contact number</label>
-                        <input class="input" type="text" name="contact_number">
-                    </div>
-                    <div>
-                        <label>Course</label>
-                        <select name="course" class="input" required>
-                            <option value="">Select course</option>
-                            <option>BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY</option>
-                            <option>BACHELOR OF SCIENCE IN CRIMINOLOGY</option>
-                            <option>BACHELOR OF SCIENCE IN FISHERIES</option>
-                            <option>BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY</option>
-                            <option>BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT</option>
-                            <option>BACHELOR OF SECONDARY EDUCATION</option>
-                            <option>BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Year Level</label>
-                        <select name="year_level" class="input" required>
-                            <option value="">Select year level</option>
-                            <option value="1st Year">1st Year</option>
-                            <option value="2nd Year">2nd Year</option>
-                            <option value="3rd Year">3rd Year</option>
-                            <option value="4th Year">4th Year</option>
-                        </select>
-                    </div>
                 </div>
 
                 <div class="apply-row academic-step-panel" data-non-academic-step="3">
                     <div>
                         <label>Name of scholarship</label>
-                        <input id="scholarship_name" name="scholarship_name" class="input" type="text" value="" readonly required>
+                        <input id="scholarship_name" name="scholarship_name" class="input" type="text" value="" required>
                         <input type="hidden" id="scholarship_id" name="scholarship_id" value="">
                     </div>
                     <div>
                         <label>Types of scholarship</label>
-                        <input id="scholarship_type" name="scholarship_type" class="input" type="text" value="" readonly required>
+                        <input id="scholarship_type" name="scholarship_type" class="input" type="text" value="" required>
                     </div>
                     <div class="full">
                         <label>Upload files</label>
@@ -1153,23 +1109,23 @@ More info: https://unifaast.gov.ph/tes.html"
                 <div class="apply-row academic-step-panel active" data-academic-step="1">
                     <div>
                         <label>First name</label>
-                        <input class="input" type="text" name="first_name" value="{{ $academicFirstNameDefault }}" readonly required>
+                        <input class="input" type="text" name="first_name" value="{{ $academicFirstNameDefault }}" required>
                     </div>
                     <div>
                         <label>Middle name</label>
-                        <input class="input" type="text" name="middle_name" value="{{ $academicMiddleNameDefault }}" readonly>
+                        <input class="input" type="text" name="middle_name" value="{{ $academicMiddleNameDefault }}">
                     </div>
                     <div>
                         <label>Last name</label>
-                        <input class="input" type="text" name="last_name" value="{{ $academicLastNameDefault }}" readonly required>
+                        <input class="input" type="text" name="last_name" value="{{ $academicLastNameDefault }}" required>
                     </div>
                     <div>
                         <label>Email</label>
-                        <input class="input" type="email" name="email" value="{{ $academicEmailDefault }}" readonly>
+                        <input class="input email-readonly" type="email" name="email" value="{{ $academicEmailDefault }}" readonly aria-readonly="true" title="Verified account email">
                     </div>
                     <div>
                         <label>Student ID Number</label>
-                        <input class="input" type="text" name="id_number" value="{{ $academicStudentIdDefault }}" readonly required>
+                        <input class="input" type="text" name="id_number" value="{{ $academicStudentIdDefault }}" required>
                     </div>
                     <div>
                         <label>Course</label>
@@ -1242,12 +1198,12 @@ More info: https://unifaast.gov.ph/tes.html"
                 <div class="apply-row academic-step-panel" data-academic-step="3">
                     <div class="full">
                         <label>Name of Scholarship / Sponsor</label>
-                        <input id="academic_scholarship_name" name="scholarship_name" class="input" type="text" value="" readonly required>
+                        <input id="academic_scholarship_name" name="scholarship_name" class="input" type="text" value="" required>
                         <input type="hidden" id="academic_scholarship_id" name="scholarship_id" value="">
                     </div>
                     <div class="full">
                         <label>Types of Scholarship</label>
-                        <input id="academic_scholarship_type" name="scholarship_type" class="input" type="text" value="" readonly required>
+                        <input id="academic_scholarship_type" name="scholarship_type" class="input" type="text" value="" required>
                     </div>
                     <div class="full">
                         <label>Upload files</label>

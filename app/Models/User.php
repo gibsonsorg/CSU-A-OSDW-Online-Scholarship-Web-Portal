@@ -22,12 +22,16 @@ class User extends Authenticatable
         'name',
         'student_id',
         'email',
+        'email_verified_at',
         'password',
         'role',
         'account_status',
         'rejection_reason',
         'id_document',
         'registered_attempt',
+        'email_verification_code_hash',
+        'email_verification_expires_at',
+        'email_verification_attempts',
     ];
 
     /**
@@ -49,6 +53,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'email_verification_expires_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
