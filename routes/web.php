@@ -84,6 +84,7 @@ Route::get('/scholarships/{scholarship}/continue', [\App\Http\Controllers\DiditV
     ->name('didit.continue');
 
 Route::post('/webhooks/didit', [\App\Http\Controllers\DiditVerificationController::class, 'webhook'])
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrf::class])
     ->name('didit.webhook');
 
 Route::get('/application-status', [StudentProfileController::class, 'applicationStatus'])
