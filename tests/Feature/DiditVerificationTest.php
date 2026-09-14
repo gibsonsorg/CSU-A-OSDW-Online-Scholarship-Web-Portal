@@ -90,4 +90,64 @@ class DiditVerificationTest extends TestCase
         ]);
         Mail::assertQueued(IdentityVerificationApprovedMail::class, 1);
     }
+
+    public function test_generic_didit_test_webhook_with_unknown_vendor_data_is_acknowledged_without_creating_a_record(): void
+    {
+        config(['services.didit.webhook_secret' => 'test-webhook-secret']);
+
+        $payload = [
+            'session_id' => 'didit-test-session',
+            'status' => 'Approved',
+            'vendor_data' => 'test-vendor-data-123',
+        ];
+        $signature = hash_hmac('sha256', json_encode($payload), 'test-webhook-secret');
+
+        $this->postJson(route('didit.webhook'), $payload, ['X-Signature-V2' => $signature])
+            ->assertOk()
+            ->assertJson(['status' => 'ok']);
+
+        $this->assertDatabaseMissing('identity_verifications', [
+            'provider_session_id' => 'didit-test-session',
+        ]);
+    }
+
+    public function test_valid_webhook_with_existing_user_creates_verification_when_session_record_is_missing(): void
+    {
+        config(['services.didit.webhook_secret' => 'test-webhook-secret']);
+
+        $user = User::factory()->create();
+        $payload = [
+            'session_id' => 'didit-real-session',
+            'status' => 'In Review',
+            'vendor_data' => (string) $user->id,
+        ];
+        $signature = hash_hmac('sha256', json_encode($payload), 'test-webhook-secret');
+
+        $this->postJson(route('didit.webhook'), $payload, ['X-Signature-V2' => $signature])
+            ->assertOk();
+
+        $this->assertDatabaseHas('identity_verifications', [
+            'user_id' => $user->id,
+            'provider_session_id' => 'didit-real-session',
+            'status' => 'In Review',
+        ]);
+    }
+
+    public function test_invalid_didit_webhook_signature_is_rejected_without_creating_a_record(): void
+    {
+        config(['services.didit.webhook_secret' => 'test-webhook-secret']);
+
+        $payload = [
+            'session_id' => 'didit-invalid-signature-session',
+            'status' => 'Approved',
+            'vendor_data' => 'test-vendor-data-123',
+        ];
+
+        $this->postJson(route('didit.webhook'), $payload, ['X-Signature-V2' => 'invalid-signature'])
+            ->assertUnauthorized();
+
+        $this->assertDatabaseMissing('identity_verifications', [
+            'provider_session_id' => 'didit-invalid-signature-session',
+        ]);
+    }
 }
