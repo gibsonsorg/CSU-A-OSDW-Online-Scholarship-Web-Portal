@@ -66,26 +66,8 @@ Route::get('/dashboard', function () {
 
     $scholarshipIdMap = Scholarship::pluck('id', 'name')->toArray();
 
-    return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications', 'scholarshipIdMap'))
-        ->with('show_application', request()->query('show_application'))
-        ->with('scholarship_id', request()->query('scholarship_id'));
+    return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications', 'scholarshipIdMap'));
 })->middleware(['auth', 'verified'])->name('dashboard');
-
-Route::get('/scholarships/{scholarship}/verify', [\App\Http\Controllers\DiditVerificationController::class, 'start'])
-    ->middleware(['auth', 'verified'])
-    ->name('didit.start');
-
-Route::get('/scholarships/{scholarship}/verify/status', [\App\Http\Controllers\DiditVerificationController::class, 'status'])
-    ->middleware(['auth', 'verified'])
-    ->name('didit.status');
-
-Route::get('/scholarships/{scholarship}/continue', [\App\Http\Controllers\DiditVerificationController::class, 'continueToApplication'])
-    ->middleware(['auth', 'verified'])
-    ->name('didit.continue');
-
-Route::post('/webhooks/didit', [\App\Http\Controllers\DiditVerificationController::class, 'webhook'])
-    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrf::class])
-    ->name('didit.webhook');
 
 Route::get('/application-status', [StudentProfileController::class, 'applicationStatus'])
     ->middleware(['auth', 'verified'])

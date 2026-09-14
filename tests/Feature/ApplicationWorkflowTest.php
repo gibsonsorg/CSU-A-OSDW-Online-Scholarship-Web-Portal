@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Application;
-use App\Models\IdentityVerification;
 use App\Models\Scholarship;
 use App\Models\StudentProfile;
 use App\Models\User;
@@ -43,15 +42,6 @@ class ApplicationWorkflowTest extends TestCase
             'application_status' => 'rejected',
         ]);
 
-        IdentityVerification::create([
-            'user_id' => $student->id,
-            'scholarship_id' => $scholarship->id,
-            'provider' => 'didit',
-            'provider_session_id' => 'session-1',
-            'status' => 'Approved',
-            'verified_at' => now(),
-        ]);
-
         $response = $this->actingAs($student)->post('/student-profiles', [
             'first_name' => 'Test',
             'last_name' => 'Student',
@@ -89,15 +79,6 @@ class ApplicationWorkflowTest extends TestCase
             'student_id' => '23-10001',
         ]);
         $scholarship = Scholarship::create(['name' => 'Athletic Scholarship', 'type' => 'non-academic']);
-
-        IdentityVerification::create([
-            'user_id' => $student->id,
-            'scholarship_id' => $scholarship->id,
-            'provider' => 'didit',
-            'provider_session_id' => 'session-2',
-            'status' => 'Approved',
-            'verified_at' => now(),
-        ]);
 
         $response = $this->actingAs($student)->post('/student-profiles', [
             'first_name' => 'Test',

@@ -57,9 +57,4 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-
-    public function identityVerifications()
-    {
-        return $this->hasMany(IdentityVerification::class);
-    }
 }

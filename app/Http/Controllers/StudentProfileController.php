@@ -234,27 +234,14 @@ class StudentProfileController extends Controller
             $data = $request->validate($validationRules);
             
             $user = Auth::user();
-            $selectedScholarshipId = $request->input('scholarship_id');
-            $selectedScholarship = !empty($selectedScholarshipId)
-                ? Scholarship::find($selectedScholarshipId)
-                : Scholarship::where('name', trim((string) $request->input('scholarship_name')))->first();
-
-            if ($selectedScholarship) {
-                $verification = \App\Models\IdentityVerification::query()
-                    ->where('user_id', $user->id)
-                    ->where('scholarship_id', $selectedScholarship->id)
-                    ->latest('updated_at')
-                    ->first();
-
-                if (! $verification || $verification->status !== 'Approved') {
-                    return redirect()->route('didit.start', $selectedScholarship)
-                        ->with('error', 'Identity verification is required before submitting this scholarship application.');
-                }
-            }
-
             $data['user_id'] = $user->id;
             $data['email'] = $user->email;
             $data['student_id_number'] = $request->input('student_id_number') ?? $request->input('id_number') ?? $user->student_id ?? null;
+
+            $selectedScholarshipId = $request->input('scholarship_id');
+            $selectedScholarship = !empty($selectedScholarshipId)
+                ? Scholarship::find($selectedScholarshipId)
+                : Scholarship::where('name', trim((string) $data['scholarship_name']))->first();
 
             if ($selectedScholarship) {
                 [$resolvedName, $resolvedType] = $this->resolveScholarshipMetadata($selectedScholarship);

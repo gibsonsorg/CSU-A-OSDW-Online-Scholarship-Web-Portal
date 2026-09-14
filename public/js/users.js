@@ -563,15 +563,6 @@ document.addEventListener('DOMContentLoaded', function(){
         closeScholarshipDetailsModal();
         const modal = document.getElementById('scholarshipDetailsModal');
         const modalType = modal?.dataset.modalType || 'non';
-        const selectedId = (modalType === 'academic')
-            ? (document.getElementById('academic_scholarship_id')?.value || '')
-            : (document.getElementById('scholarship_id')?.value || '');
-
-        if (selectedId) {
-            window.location.href = `/scholarships/${selectedId}/verify`;
-            return;
-        }
-
         if (modalType === 'academic') {
             openAcademicApplyModal();
         } else {

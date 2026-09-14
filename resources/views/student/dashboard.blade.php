@@ -1239,50 +1239,8 @@ More info: https://unifaast.gov.ph/tes.html"
 
   <script>
       window.scholarshipIdMap = @json($scholarshipIdMap ?? []);
-      window.scholarshipById = @json(array_flip($scholarshipIdMap ?? []));
-      window.autoOpenScholarshipId = {{ request()->query('scholarship_id', 0) }};
   </script>
   <script src="{{ asset('js/users.js') }}"></script>
-  <script>
-      document.addEventListener('DOMContentLoaded', function () {
-          const scholarshipId = Number(window.autoOpenScholarshipId || 0);
-          if (!scholarshipId || !window.scholarshipById || !window.scholarshipById[scholarshipId]) {
-              return;
-          }
-
-          const title = window.scholarshipById[scholarshipId];
-          const academicMap = {
-              'Cagayan Valley Assoc. of Hawaii': true,
-              'University Based Scholarship': true,
-              'ACEF – GIAHEP': true,
-              'DOST SEI Project Strand': true,
-              'Tulong Dunong Program': true,
-              'LGU Aparri': true,
-              'Natalged A Lasam': true,
-              'Andres Tamayo Scholarship': true,
-              'Gokongwei Brothers Foundation': true,
-          };
-
-          if (academicMap[title]) {
-              const nameInput = document.getElementById('academic_scholarship_name');
-              const typeInput = document.getElementById('academic_scholarship_type');
-              const idInput = document.getElementById('academic_scholarship_id');
-              if (nameInput) nameInput.value = title;
-              if (typeInput) typeInput.value = title.includes('University Based Scholarship') ? 'Academic Excellence – In-House' : 'Academic Scholarship';
-              if (idInput) idInput.value = scholarshipId;
-              openAcademicApplyModal();
-              return;
-          }
-
-          const nameInput = document.getElementById('scholarship_name');
-          const typeInput = document.getElementById('scholarship_type');
-          const idInput = document.getElementById('scholarship_id');
-          if (nameInput) nameInput.value = title;
-          if (typeInput) typeInput.value = 'Non-Academic Scholarship';
-          if (idInput) idInput.value = scholarshipId;
-          openApplyModal();
-      });
-  </script>
 
   <!-- File Validation Script -->
   <script>
