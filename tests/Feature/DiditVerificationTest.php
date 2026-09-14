@@ -49,7 +49,7 @@ class DiditVerificationTest extends TestCase
         $response->assertRedirect(route('didit.start', $scholarship));
     }
 
-    public function test_duplicate_approved_webhooks_queue_only_one_approval_email(): void
+    public function test_valid_didit_webhook_is_not_rejected_by_csrf_and_duplicate_approved_webhooks_queue_only_one_approval_email(): void
     {
         Mail::fake();
         config(['services.didit.webhook_secret' => 'test-webhook-secret']);
