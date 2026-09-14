@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Mail\IdentityVerificationApprovedMail;
 use App\Models\IdentityVerification;
 use App\Models\Scholarship;
-use App\Models\User;
 use App\Services\DiditVerificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -145,29 +144,14 @@ class DiditVerificationController extends Controller
             $vendorData = $payload['vendor_data'] ?? null;
             $userId = is_numeric((string) $vendorData) ? (int) $vendorData : null;
 
-            if ($userId && User::query()->whereKey($userId)->exists()) {
-                $verification = IdentityVerification::query()
-                    ->where('user_id', $userId)
-                    ->latest('updated_at')
-                    ->first();
+            if ($userId) {
+                $verification = IdentityVerification::query()->where('user_id', $userId)->latest('updated_at')->first();
             }
         }
 
         if (! $verification) {
-            $vendorData = $payload['vendor_data'] ?? null;
-            $userId = is_numeric((string) $vendorData) ? (int) $vendorData : null;
-
-            if (! $userId || ! User::query()->whereKey($userId)->exists()) {
-                Log::info('Didit webhook received without a matching application user.', [
-                    'provider_session_id' => $sessionId,
-                    'status' => $status,
-                ]);
-
-                return response()->json(['status' => 'ok', 'message' => 'Didit webhook acknowledged.']);
-            }
-
             $verification = IdentityVerification::create([
-                'user_id' => $userId,
+                'user_id' => 0,
                 'provider' => 'didit',
                 'provider_session_id' => $sessionId,
                 'status' => $status,
