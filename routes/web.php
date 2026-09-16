@@ -40,13 +40,24 @@ Route::get('/dashboard', function () {
             ->groupBy('scholarship_name')
             ->map(function ($records, $scholarshipName) {
                 $latest = $records->sortByDesc('created_at')->first();
-                $rejectedAttempts = $records->where('application_status', 'rejected')->count();
+                $profile = StudentProfile::where('user_id', auth()->id())
+                    ->where('scholarship_name', $scholarshipName)
+                    ->orderByDesc('application_id')
+                    ->orderByDesc('id')
+                    ->first();
+                $documentReviews = $profile?->document_review ?? $profile?->document_reviews ?? [];
+                $hasRejectedDocument = collect($documentReviews)->contains(fn ($review) => ($review['status'] ?? null) === 'rejected');
+                $hasRejectedSection = in_array('rejected', [
+                    $profile?->student_information_status,
+                    $profile?->personal_information_status,
+                    $profile?->scholarship_requirements_status,
+                ], true);
 
                 return [
                     'name' => trim($scholarshipName),
                     'status' => $latest->application_status ?? 'pending',
-                    'attempts' => $records->count(),
-                    'rejected_attempts' => $rejectedAttempts,
+                    'reopen' => $hasRejectedSection || $hasRejectedDocument,
+                    'profile' => $profile,
                 ];
             })
             ->values()
@@ -110,6 +121,10 @@ Route::post('/admin/applications/{id}/approve', [AdminController::class, 'approv
 
 // Reject application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/reject', [AdminController::class, 'reject'])->middleware(['auth', 'admin']);
+Route::post('/admin/applications/{id}/sections/{section}/approve', [AdminController::class, 'approveSection'])->middleware(['auth', 'admin']);
+Route::post('/admin/applications/{id}/sections/{section}/reject', [AdminController::class, 'rejectSection'])->middleware(['auth', 'admin']);
+Route::post('/admin/applications/{id}/documents/{group}/{index}/approve', [AdminController::class, 'approveDocument'])->whereNumber('id')->whereNumber('index')->middleware(['auth', 'admin']);
+Route::post('/admin/applications/{id}/documents/{group}/{index}/reject', [AdminController::class, 'rejectDocument'])->whereNumber('id')->whereNumber('index')->middleware(['auth', 'admin']);
 
 // Update application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/update', [AdminController::class, 'update'])->middleware(['auth', 'admin']);

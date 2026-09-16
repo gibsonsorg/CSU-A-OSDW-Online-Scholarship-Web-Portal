@@ -292,19 +292,31 @@
     </div>
 
             <!-- Profile Modal -->
-       <div id="profileModal" class="modal">
-        <div class="modal-content">
-        <button id="closeProfile" class="modal-close-btn">✕</button>
-        <h2>Applicant Profile</h2>
-        <div id="profileBody">Loading…</div>
-        <div class="modal-actions">
-            <button id="editProfile" class="btn">Edit</button>
-            <button id="approveProfile" class="btn">✓ Approve</button>
-            <button id="rejectProfile" class="btn">✕ Reject</button>
-            <button id="deleteProfile" class="btn">Delete</button>
+       <div id="profileModal" class="apply-modal" role="dialog" aria-hidden="true">
+        <div class="modal-card">
+            <div class="application-modal-header">
+                <button type="button" class="academic-nav-btn" id="profilePreviousTop" aria-label="Back to previous step">← Back</button>
+                <h1 class="form-title">Scholarship Application</h1>
+                <button type="button" class="modal-close" id="closeProfile" aria-label="Close applicant profile">✕</button>
+            </div>
+            <div class="academic-progress-wrapper">
+                <div class="academic-progress-header">Step <span id="profileStepCounter">1</span> of 3</div>
+                <div class="academic-progress-track" aria-live="polite">
+                    <div class="academic-progress-step active" data-profile-progress-step="1"><div class="academic-progress-dot">1</div><div class="academic-progress-label">Student Information</div></div>
+                    <div class="academic-progress-line"></div>
+                    <div class="academic-progress-step" data-profile-progress-step="2"><div class="academic-progress-dot">2</div><div class="academic-progress-label">Personal Information</div></div>
+                    <div class="academic-progress-line"></div>
+                    <div class="academic-progress-step" data-profile-progress-step="3"><div class="academic-progress-dot">3</div><div class="academic-progress-label">Scholarship &amp; Requirements</div></div>
+                </div>
+            </div>
+            <div id="profileBody">Loading...</div>
+            <div class="academic-form-actions profile-pagination">
+                <button type="button" class="academic-nav-btn" id="profilePrevious">← Previous</button>
+                <span id="profilePageCounter">1 / 3</span>
+                <button type="button" class="academic-nav-btn" id="profileNext">Next →</button>
+            </div>
         </div>
     </div>
-</div>
 
 <!-- confirmation modal -->
 <div id="confirmActionModal" class="modal">

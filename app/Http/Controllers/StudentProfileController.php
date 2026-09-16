@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\QueryException;
 
 class StudentProfileController extends Controller
@@ -249,6 +250,25 @@ class StudentProfileController extends Controller
                 $data['scholarship_type'] = $resolvedType;
             }
 
+            $requestProfileId = $request->input('student_profile_id') ?: $request->input('profile_id');
+            $requestApplicationId = $request->input('application_id');
+
+            if ($requestProfileId) {
+                $previousProfile = StudentProfile::whereKey($requestProfileId)
+                    ->where('user_id', $user->id)
+                    ->first();
+            } elseif ($requestApplicationId) {
+                $previousProfile = StudentProfile::where('user_id', $user->id)
+                    ->where('application_id', $requestApplicationId)
+                    ->latest('id')
+                    ->first();
+            } else {
+                $previousProfile = StudentProfile::where('user_id', $user->id)
+                    ->where('scholarship_name', $data['scholarship_name'])
+                    ->latest('id')
+                    ->first();
+            }
+
             // Fill missing name parts from authenticated user name when available
             if (!empty($user->name)) {
                 $nameParts = preg_split('/\s+/', trim($user->name));
@@ -280,6 +300,27 @@ class StudentProfileController extends Controller
 
             if ($request->input('scholarship_name') === 'Athletic Scholarship') {
                 $uploadGroups['certificate_of_adviser'] = $this->collectFilesFromRequest($request, 'certificate_of_adviser');
+            }
+
+            if ($previousProfile) {
+                $reviewColumn = Schema::hasColumn('student_profiles', 'document_review') ? 'document_review' : 'document_reviews';
+                $previousReviews = is_array($previousProfile->{$reviewColumn}) ? $previousProfile->{$reviewColumn} : [];
+                $rejectedGroups = collect($previousReviews)
+                    ->filter(fn ($review) => ($review['status'] ?? null) === 'rejected')
+                    ->keys()
+                    ->map(fn ($key) => explode('.', $key)[0])
+                    ->unique();
+
+                foreach ($rejectedGroups as $group) {
+                    $requestGroup = in_array($group, ['uploads', 'grades'], true)
+                        ? 'certificate_of_grades'
+                        : $group;
+                    if (empty($uploadGroups[$requestGroup])) {
+                        return redirect()->back()
+                            ->with('error', 'Please upload the corrected rejected document before submitting.')
+                            ->withInput();
+                    }
+                }
             }
 
             foreach ($uploadGroups as $groupKey => $files) {
@@ -327,6 +368,122 @@ class StudentProfileController extends Controller
             }
 
             $data['uploads'] = !empty($uploaded) ? $uploaded : null;
+            $oldRejectedFiles = [];
+
+            if ($previousProfile) {
+                $studentStatus = $previousProfile->student_information_status ?? 'pending';
+                $personalStatus = $previousProfile->personal_information_status ?? 'pending';
+                $requirementsStatus = $previousProfile->scholarship_requirements_status ?? 'pending';
+                $reviewColumn = Schema::hasColumn('student_profiles', 'document_review') ? 'document_review' : 'document_reviews';
+                $previousReviews = is_array($previousProfile->{$reviewColumn}) ? $previousProfile->{$reviewColumn} : [];
+                $hasRejectedDocument = collect($previousReviews)
+                    ->contains(fn ($review) => ($review['status'] ?? null) === 'rejected');
+                $requirementsRejected = $requirementsStatus === 'rejected' || $hasRejectedDocument;
+
+                $data['student_information_status'] = $studentStatus === 'approved' ? 'approved' : 'pending';
+                $data['personal_information_status'] = $personalStatus === 'approved' ? 'approved' : 'pending';
+                $data['scholarship_requirements_status'] = $requirementsStatus === 'approved' ? 'approved' : 'pending';
+
+                if ($studentStatus !== 'rejected') {
+                    foreach (['first_name', 'middle_name', 'last_name', 'email', 'student_id_number', 'course', 'year_level', 'program', 'id_number'] as $field) {
+                        $data[$field] = $previousProfile->{$field};
+                    }
+                }
+
+                if ($personalStatus !== 'rejected') {
+                    foreach (['birthdate', 'birthplace', 'sex', 'status', 'religion', 'contact_number', 'home_address'] as $field) {
+                        $data[$field] = $previousProfile->{$field};
+                    }
+                }
+
+                if ($requirementsStatus !== 'rejected') {
+                    $data['scholarship_name'] = $previousProfile->scholarship_name;
+                    $data['scholarship_type'] = $previousProfile->scholarship_type;
+                }
+
+                $previousUploads = is_array($previousProfile->uploads) ? $previousProfile->uploads : [];
+                if (array_is_list($previousUploads)) {
+                    $previousUploads = ['uploads' => $previousUploads];
+                }
+                $newUploads = $requirementsRejected && is_array($data['uploads'])
+                    ? $data['uploads']
+                    : [];
+                $mergedUploads = [];
+                $mergedReviews = [];
+
+                foreach ($previousUploads as $group => $files) {
+                    if (!is_array($files)) {
+                        continue;
+                    }
+
+                    $requestGroup = in_array($group, ['uploads', 'grades'], true)
+                        ? 'certificate_of_grades'
+                        : $group;
+                    $replacementFiles = $newUploads[$requestGroup] ?? $newUploads[$group] ?? [];
+                    $replacementIndex = 0;
+
+                    foreach ($files as $index => $path) {
+                        $review = $previousReviews[$group . '.' . $index] ?? [];
+                        $reviewStatus = $review['status'] ?? 'pending';
+
+                        if ($reviewStatus === 'rejected') {
+                            if (isset($replacementFiles[$replacementIndex])) {
+                                $mergedUploads[$group][] = $replacementFiles[$replacementIndex];
+                                $mergedReviews[$group . '.' . (count($mergedUploads[$group]) - 1)] = [
+                                    'status' => 'pending',
+                                    'reason' => null,
+                                ];
+                                if (is_string($path)) {
+                                    $oldRejectedFiles[] = $path;
+                                }
+                                $replacementIndex++;
+                            }
+                            continue;
+                        }
+
+                        if (!is_string($path)) {
+                            continue;
+                        }
+
+                        $mergedUploads[$group][] = $path;
+                        $mergedReviews[$group . '.' . (count($mergedUploads[$group]) - 1)] = [
+                            'status' => $reviewStatus,
+                            'reason' => $reviewStatus === 'rejected' ? null : ($review['reason'] ?? null),
+                        ];
+                    }
+
+                    while (isset($replacementFiles[$replacementIndex])) {
+                        $mergedUploads[$group][] = $replacementFiles[$replacementIndex];
+                        $mergedReviews[$group . '.' . (count($mergedUploads[$group]) - 1)] = [
+                            'status' => 'pending',
+                            'reason' => null,
+                        ];
+                        $replacementIndex++;
+                    }
+                }
+
+                foreach ($newUploads as $group => $files) {
+                    if (
+                        isset($previousUploads[$group])
+                        || ($group === 'certificate_of_grades' && (isset($previousUploads['grades']) || isset($previousUploads['uploads'])))
+                    ) {
+                        continue;
+                    }
+                    foreach ((array) $files as $path) {
+                        if (!is_string($path)) {
+                            continue;
+                        }
+                        $mergedUploads[$group][] = $path;
+                        $mergedReviews[$group . '.' . (count($mergedUploads[$group]) - 1)] = [
+                            'status' => 'pending',
+                            'reason' => null,
+                        ];
+                    }
+                }
+
+                $data['uploads'] = !empty($mergedUploads) ? $mergedUploads : null;
+                $data[$reviewColumn] = !empty($mergedReviews) ? $mergedReviews : null;
+            }
 
             // Wrap profile + scholarship + application creation in a DB transaction
             // Also check for an existing Application for this user + scholarship_id
@@ -364,20 +521,37 @@ class StudentProfileController extends Controller
                         ->with('error', 'The selected scholarship does not match the application form category.');
                 }
 
-                $scholarshipAttemptSummary = StudentProfile::scholarshipAttemptSummaryForUser($user->id, $data['scholarship_name']);
+                $existingApp = null;
 
-                if ($scholarshipAttemptSummary['rejected_attempts'] >= 2) {
-                    DB::rollBack();
-                    return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
-                        ->with('error', 'You have reached the maximum application attempts for the ' . $data['scholarship_name'] . ' scholarship. This scholarship is no longer available to you.');
+                if (!empty($requestApplicationId)) {
+                    $existingApp = Application::whereKey($requestApplicationId)
+                        ->where('user_id', $user->id)
+                        ->first();
                 }
 
-                $existingApp = Application::where('user_id', $user->id)
-                    ->where('scholarship_id', $scholarship->id)
-                    ->whereIn('status', ['pending', 'approved'])
-                    ->first();
+                if (!$existingApp) {
+                    $existingApp = Application::where('user_id', $user->id)
+                        ->where('scholarship_id', $scholarship->id)
+                        ->where(function ($query) use ($previousProfile) {
+                            $query->whereIn('status', ['pending', 'approved']);
+                            if ($previousProfile?->application_id) {
+                                $query->orWhere('applications.id', $previousProfile->application_id);
+                            }
+                        })
+                        ->first();
+                }
 
-                if ($existingApp) {
+                $reviewColumn = Schema::hasColumn('student_profiles', 'document_review') ? 'document_review' : 'document_reviews';
+                $previousReviews = is_array($previousProfile?->{$reviewColumn}) ? $previousProfile->{$reviewColumn} : [];
+                $hasRejectedDocument = collect($previousReviews)->contains(fn ($review) => ($review['status'] ?? null) === 'rejected');
+                $hasRejectedSection = in_array('rejected', [
+                    $previousProfile?->student_information_status,
+                    $previousProfile?->personal_information_status,
+                    $previousProfile?->scholarship_requirements_status,
+                ], true);
+                $canReapply = $previousProfile && ($hasRejectedSection || $hasRejectedDocument);
+
+                if ($existingApp && !$canReapply) {
                     // Rollback and return the same friendly error message used earlier
                     DB::rollBack();
                     return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
@@ -389,12 +563,14 @@ class StudentProfileController extends Controller
                         ->join('scholarships', 'scholarships.id', '=', 'applications.scholarship_id')
                         ->where('scholarships.type', 'academic')
                         ->whereIn('applications.status', ['pending', 'approved'])
+                        ->when($existingApp && $canReapply, fn ($query) => $query->where('applications.id', '!=', $existingApp->id))
                         ->lockForUpdate()
                         ->count();
                 } else {
                     $activeCategoryApplications = StudentProfile::where('user_id', $user->id)
                         ->where('grant_type', $data['grant_type'])
                         ->whereIn('application_status', ['pending', 'approved'])
+                        ->when($previousProfile && $canReapply, fn ($query) => $query->where('id', '!=', $previousProfile->id))
                         ->lockForUpdate()
                         ->count();
                 }
@@ -405,16 +581,34 @@ class StudentProfileController extends Controller
                         ->with('error', 'You already have two active applications in the ' . $data['grant_type'] . ' category. Only two open applications per category are allowed.');
                 }
 
-                $application = Application::create([
-                    'user_id' => $user->id,
-                    'scholarship_id' => $scholarship->id,
-                    'status' => 'pending',
-                ]);
+                if ($existingApp && $canReapply && $previousProfile) {
+                    $application = $existingApp;
+                    $application->status = 'pending';
+                    $application->save();
+                    $data['application_id'] = $application->id;
+                    $previousProfile->fill($data);
+                    $previousProfile->application_status = 'pending';
+                    $previousProfile->rejection_reason = null;
+                    $previousProfile->save();
+                    $profile = $previousProfile;
+                } else {
+                    $application = Application::create([
+                        'user_id' => $user->id,
+                        'scholarship_id' => $scholarship->id,
+                        'status' => 'pending',
+                    ]);
 
-                $data['application_id'] = $application->id;
-                $profile = StudentProfile::create($data);
+                    $data['application_id'] = $application->id;
+                    $profile = StudentProfile::create($data);
+                }
 
                 DB::commit();
+
+                foreach ($oldRejectedFiles as $oldFile) {
+                    if (Storage::disk('local')->exists($oldFile)) {
+                        Storage::disk('local')->delete($oldFile);
+                    }
+                }
 
                 Log::info('Student profile created successfully', [
                     'profile_id' => $profile->id,

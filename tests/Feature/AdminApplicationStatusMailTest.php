@@ -36,6 +36,9 @@ class AdminApplicationStatusMailTest extends TestCase
             'scholarship_type' => 'academic',
             'scholarship_name' => 'Merit Scholarship',
             'application_status' => 'pending',
+            'student_information_status' => 'approved',
+            'personal_information_status' => 'approved',
+            'scholarship_requirements_status' => 'approved',
         ]);
 
         $admin = User::factory()->create([

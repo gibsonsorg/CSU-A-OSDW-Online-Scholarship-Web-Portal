@@ -68,6 +68,135 @@ function openAcademicApplyModal() {
     if (m) { m.classList.add('open'); m.setAttribute('aria-hidden','false'); document.body.style.overflow = 'hidden'; }
 }
 
+function prepareReapplication(title, modalType) {
+    const profile = (window.reapplicationProfiles || {})[title];
+    if (!profile) return;
+
+    const form = document.getElementById(modalType === 'academic' ? 'academicApplyForm' : 'applyForm');
+    if (!form) return;
+
+    form.querySelectorAll('[data-reapplication-preserved]').forEach(input => input.remove());
+
+    const values = {
+        first_name: profile.first_name,
+        middle_name: profile.middle_name,
+        last_name: profile.last_name,
+        email: profile.email,
+        student_id_number: profile.student_id_number,
+        id_number: profile.id_number || profile.student_id_number,
+        course: profile.course,
+        year_level: profile.year_level,
+        program: profile.program,
+        birthdate: profile.birthdate ? String(profile.birthdate).split('T')[0] : '',
+        birthplace: profile.birthplace,
+        sex: profile.sex,
+        status: profile.status,
+        religion: profile.religion,
+        contact_number: profile.contact_number,
+        home_address: profile.home_address,
+        scholarship_name: profile.scholarship_name,
+        scholarship_type: profile.scholarship_type,
+    };
+
+    Object.entries(values).forEach(([name, value]) => {
+        const input = form.querySelector(`[name="${name}"]`);
+        if (!input || value === null || value === undefined) return;
+        input.value = value;
+    });
+
+    const applicationIdInput = form.querySelector('[name="application_id"]');
+    const studentProfileIdInput = form.querySelector('[name="student_profile_id"]');
+    if (applicationIdInput) applicationIdInput.value = profile.application_id || '';
+    if (studentProfileIdInput) studentProfileIdInput.value = profile.id || '';
+
+    const studentFields = ['first_name', 'middle_name', 'last_name', 'email', 'student_id_number', 'id_number', 'course', 'year_level', 'program'];
+    const personalFields = ['birthdate', 'birthplace', 'sex', 'status', 'religion', 'contact_number', 'home_address'];
+    const sectionStatus = {
+        student: profile.student_information_status,
+        personal: profile.personal_information_status,
+        requirements: profile.scholarship_requirements_status,
+    };
+    const reviews = profile.document_review || profile.document_reviews || {};
+    const rejectedGroups = new Set(Object.entries(reviews)
+        .filter(([, review]) => review?.status === 'rejected')
+        .map(([key]) => key.split('.')[0]));
+    const preserveDisabledFields = (names, editable) => names.forEach(name => {
+        const input = form.querySelector(`[name="${name}"]`);
+        if (!input) return;
+        input.disabled = !editable;
+        if (!editable && input.type !== 'file') {
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = input.name;
+            hidden.value = input.value;
+            hidden.dataset.reapplicationPreserved = 'true';
+            form.appendChild(hidden);
+        }
+    });
+    preserveDisabledFields(studentFields, sectionStatus.student === 'rejected');
+    preserveDisabledFields(personalFields, sectionStatus.personal === 'rejected');
+    ['scholarship_name', 'scholarship_type', 'scholarship_id'].forEach(name => {
+        const input = form.querySelector(`[name="${name}"]`);
+        if (input && name !== 'scholarship_id') input.readOnly = sectionStatus.requirements !== 'rejected';
+    });
+
+    const sectionPanels = form.querySelectorAll('.academic-step-panel');
+    sectionPanels.forEach((panel, index) => {
+        const status = [sectionStatus.student, sectionStatus.personal, sectionStatus.requirements][index];
+        const visible = status === 'rejected';
+        panel.dataset.reapplicationHidden = visible ? 'false' : 'true';
+        panel.hidden = !visible;
+        panel.querySelectorAll('input, select, textarea').forEach(input => {
+            const preserveScholarshipValue = ['scholarship_name', 'scholarship_type'].includes(input.name)
+                && sectionStatus.requirements !== 'rejected';
+            if (input.type !== 'hidden' && !input.dataset.reapplicationPreserved && !preserveScholarshipValue) {
+                input.disabled = !visible;
+            }
+        });
+    });
+    form.querySelectorAll('[data-reapplication-document-group]').forEach(wrapper => {
+        const group = wrapper.dataset.reapplicationDocumentGroup;
+        const aliases = group === 'uploads'
+            ? ['uploads', 'grades', 'certificate_of_grades']
+            : group === 'certificate_of_enrollment'
+                ? ['certificate_of_enrollment', 'enrollment']
+                : [group];
+        const visible = sectionStatus.requirements === 'rejected' && aliases.some(alias => rejectedGroups.has(alias));
+        wrapper.dataset.reapplicationHidden = visible ? 'false' : 'true';
+        wrapper.hidden = !visible;
+        wrapper.querySelectorAll('input[type="file"]').forEach(input => {
+            input.disabled = !visible;
+            input.required = visible;
+        });
+    });
+
+    form.querySelectorAll('input[type="file"]').forEach(input => input.required = false);
+    if (rejectedGroups.has('certificate_of_grades') || rejectedGroups.has('grades') || rejectedGroups.has('uploads')) {
+        const input = form.querySelector('[name="uploads[]"]');
+        if (input) input.required = true;
+    }
+    if (rejectedGroups.has('certificate_of_enrollment') || rejectedGroups.has('enrollment')) {
+        const input = form.querySelector('[name="certificate_of_enrollment"]');
+        if (input) input.required = true;
+    }
+    if (rejectedGroups.has('certificate_of_adviser')) {
+        const input = form.querySelector('[name="certificate_of_adviser"]');
+        if (input) input.required = true;
+    }
+
+    const rejectedSection = [sectionStatus.student, sectionStatus.personal, sectionStatus.requirements]
+        .findIndex(status => status === 'rejected');
+    const firstRejectedSection = rejectedSection >= 0 ? rejectedSection + 1 : 1;
+    form.dataset.reapplicationActive = 'true';
+    form.querySelectorAll('.academic-progress-step').forEach((step, index) => {
+        const visible = [sectionStatus.student, sectionStatus.personal, sectionStatus.requirements][index] === 'rejected';
+        step.dataset.reapplicationHidden = visible ? 'false' : 'true';
+        step.hidden = !visible;
+    });
+    if (modalType === 'academic') updateAcademicStepUI(firstRejectedSection);
+    else updateNonAcademicStepUI(firstRejectedSection);
+}
+
 function closeAcademicApplyModal() {
     const m = document.getElementById('academicApplyModal');
     if (m) { m.classList.remove('open'); m.setAttribute('aria-hidden','true'); document.body.style.overflow = ''; }
@@ -239,17 +368,21 @@ function updateAcademicStepUI(stepNumber = 1) {
     if (!controls) return;
 
     const { form, panels, stepCounter, prevBtn, nextBtn, submitBtn, progressSteps } = controls;
-    const totalSteps = panels.length || 3;
+    const visiblePanels = panels.filter(panel => panel.dataset.reapplicationHidden !== 'true');
+    const visibleProgressSteps = progressSteps.filter(step => step.dataset.reapplicationHidden !== 'true');
+    const totalSteps = visiblePanels.length || 3;
     const currentStep = Math.min(Math.max(Number(stepNumber) || 1, 1), totalSteps);
     form.dataset.currentAcademicStep = String(currentStep);
 
-    panels.forEach((panel, index) => {
+    panels.forEach(panel => panel.classList.remove('active'));
+    visiblePanels.forEach((panel, index) => {
         panel.classList.toggle('active', index + 1 === currentStep);
     });
 
     if (stepCounter) stepCounter.textContent = currentStep;
 
-    progressSteps.forEach((step, index) => {
+    progressSteps.forEach(step => step.classList.remove('active', 'completed'));
+    visibleProgressSteps.forEach((step, index) => {
         const stepIndex = index + 1;
         step.classList.toggle('active', stepIndex === currentStep);
         step.classList.toggle('completed', stepIndex < currentStep);
@@ -292,17 +425,21 @@ function updateNonAcademicStepUI(stepNumber = 1) {
     if (!controls) return;
 
     const { form, panels, stepCounter, prevBtn, nextBtn, submitBtn, progressSteps } = controls;
-    const totalSteps = panels.length || 3;
+    const visiblePanels = panels.filter(panel => panel.dataset.reapplicationHidden !== 'true');
+    const visibleProgressSteps = progressSteps.filter(step => step.dataset.reapplicationHidden !== 'true');
+    const totalSteps = visiblePanels.length || 3;
     const currentStep = Math.min(Math.max(Number(stepNumber) || 1, 1), totalSteps);
     form.dataset.nonAcademicStep = String(currentStep);
 
-    panels.forEach((panel, index) => {
+    panels.forEach(panel => panel.classList.remove('active'));
+    visiblePanels.forEach((panel, index) => {
         panel.classList.toggle('active', index + 1 === currentStep);
     });
 
     if (stepCounter) stepCounter.textContent = currentStep;
 
-    progressSteps.forEach((step, index) => {
+    progressSteps.forEach(step => step.classList.remove('active', 'completed'));
+    visibleProgressSteps.forEach((step, index) => {
         const stepIndex = index + 1;
         step.classList.toggle('active', stepIndex === currentStep);
         step.classList.toggle('completed', stepIndex < currentStep);
@@ -329,7 +466,8 @@ function validateAcademicCurrentStep() {
     if (!form) return true;
 
     const currentStep = Number(form.dataset.currentAcademicStep || 1);
-    const panel = form.querySelector(`.academic-step-panel[data-academic-step="${currentStep}"]`);
+    const panel = Array.from(form.querySelectorAll('.academic-step-panel'))
+        .filter(candidate => candidate.dataset.reapplicationHidden !== 'true')[currentStep - 1];
     if (!panel) return true;
 
     const requiredFields = panel.querySelectorAll('input[required], select[required], textarea[required]');
@@ -392,7 +530,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
         academicForm.addEventListener('submit', function(e) {
             const current = Number(academicForm.dataset.currentAcademicStep || 1);
-            if (current < 3) {
+            const totalSteps = academicForm.querySelectorAll('.academic-step-panel:not([data-reapplication-hidden="true"])').length || 3;
+            if (current < totalSteps) {
                 e.preventDefault();
                 updateAcademicStepUI(3);
                 return;
@@ -426,7 +565,8 @@ document.addEventListener('DOMContentLoaded', function(){
             nextBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 const current = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
-                if (current < 3) {
+                const totalSteps = nonAcademicForm.querySelectorAll('.academic-step-panel:not([data-reapplication-hidden="true"])').length || 3;
+                if (current < totalSteps) {
                     updateNonAcademicStepUI(current + 1);
                 }
             });
@@ -434,7 +574,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
         nonAcademicForm.addEventListener('submit', function(e) {
             const current = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
-            if (current < 3) {
+            const totalSteps = nonAcademicForm.querySelectorAll('.academic-step-panel:not([data-reapplication-hidden="true"])').length || 3;
+            if (current < totalSteps) {
                 e.preventDefault();
                 updateNonAcademicStepUI(3);
                 return;
@@ -537,7 +678,20 @@ document.addEventListener('DOMContentLoaded', function(){
     // Non-academic form close handlers
     function resetAndCloseNonAcademic(){
         const form = document.getElementById('applyForm');
-        if (form) form.reset();
+        if (form) {
+            form.querySelectorAll('[data-reapplication-preserved]').forEach(input => input.remove());
+            form.querySelectorAll('.academic-step-panel, .academic-progress-step, [data-reapplication-document-group]').forEach(element => {
+                element.hidden = false;
+                delete element.dataset.reapplicationHidden;
+            });
+            delete form.dataset.reapplicationActive;
+            form.reset();
+            form.querySelectorAll('input, select, textarea').forEach(input => {
+                input.disabled = false;
+                input.readOnly = false;
+                if (input.type === 'file') input.required = false;
+            });
+        }
         const nameInput = document.getElementById('scholarship_name');
         const typeInput = document.getElementById('scholarship_type');
         const scholarshipIdInput = document.getElementById('scholarship_id');
@@ -563,10 +717,13 @@ document.addEventListener('DOMContentLoaded', function(){
         closeScholarshipDetailsModal();
         const modal = document.getElementById('scholarshipDetailsModal');
         const modalType = modal?.dataset.modalType || 'non';
+        const title = document.getElementById('detailsScholarshipTitle')?.textContent?.trim() || '';
         if (modalType === 'academic') {
             openAcademicApplyModal();
+            prepareReapplication(title, 'academic');
         } else {
             openApplyModal();
+            prepareReapplication(title, 'non');
         }
     });
 
@@ -579,7 +736,18 @@ document.addEventListener('DOMContentLoaded', function(){
     function resetAndCloseAcademic(){
         const form = document.getElementById('academicApplyForm');
         if (form) {
+            form.querySelectorAll('[data-reapplication-preserved]').forEach(input => input.remove());
+            form.querySelectorAll('.academic-step-panel, .academic-progress-step, [data-reapplication-document-group]').forEach(element => {
+                element.hidden = false;
+                delete element.dataset.reapplicationHidden;
+            });
+            delete form.dataset.reapplicationActive;
             form.reset();
+            form.querySelectorAll('input, select, textarea').forEach(input => {
+                input.disabled = false;
+                input.readOnly = false;
+                if (input.type === 'file') input.required = false;
+            });
             form.dataset.currentAcademicStep = '1';
             updateAcademicStepUI(1);
         }

@@ -1,553 +1,163 @@
-(function(){
-const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-let currentAppId = null;
+(function () {
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    let currentAppId = null;
+    let currentStep = 1;
 
-function postJson(url, data, method = 'POST'){
-    console.log(`Sending ${method} request to ${url}`, data);
-    return fetch(url, {
-        method: method,
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrf,
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(data||{})
-    }).then(r => {
-        console.log(`Response status: ${r.status}`);
-        return r.text().then(text => {
-            console.log(`Response text: ${text}`);
-            let json = {};
-            try {
-                json = text ? JSON.parse(text) : {};
-            } catch(e) {
-                console.error('Failed to parse JSON:', e);
-            }
-            if (!r.ok) {
-                throw new Error(json.error || json.message || `Server error ${r.status}`);
-            }
-            return json;
+    const escapeHtml = value => String(value ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+
+    function postJson(url, data = {}) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+            body: JSON.stringify(data)
+        }).then(async response => {
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.message || 'Request failed');
+            return result;
         });
-    });
-}
-
-let currentProfileData = null;
-let isEditMode = false;
-
-const escapeHtml = (value) => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-
-document.querySelectorAll('.view-profile-btn').forEach(btn=>{
-btn.addEventListener('click', function(){
-    const id = this.dataset.id;
-    currentAppId = id;
-    isEditMode = false;
-    const modal = document.getElementById('profileModal');
-    const body = document.getElementById('profileBody');
-    body.innerHTML = 'Loading…';
-    modal.style.display = 'block';
-    fetch('/admin/applications/'+id)
-        .then(r=>{ if(!r.ok) throw r; return r.json(); })
-        .then(json=>{
-            const app = json.data || json;
-            currentProfileData = app;
-            let html = '';
-            
-            // Helper function to create a field
-            const field = (label, value, fieldName) => {
-                const safeValue = escapeHtml(value || '');
-                return `<div style="display:flex; flex-direction:column;" data-field="${fieldName}">
-                    <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">${label}</label>
-                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px; word-break:break-word;">${safeValue || 'N/A'}</span>
-                    <input type="text" class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="${safeValue}">
-                </div>`;
-            };
-            
-            const selectField = (label, value, fieldName, options) => {
-                let optionsHtml = options.map(opt => `<option value="${escapeHtml(opt)}"${value === opt ? ' selected' : ''}>${escapeHtml(opt)}</option>`).join('');
-                return `<div style="display:flex; flex-direction:column;" data-field="${fieldName}">
-                    <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">${label}</label>
-                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px;">${escapeHtml(value) || 'N/A'}</span>
-                    <select class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;">
-                        <option value="">Select...</option>${optionsHtml}
-                    </select>
-                </div>`;
-            };
-            
-            // Helper function to format date
-            const formatDate = (dateString) => {
-                if (!dateString) return 'N/A';
-                const date = new Date(dateString);
-                return date.toISOString().split('T')[0];
-            };
-            
-            html += field('First Name', app.first_name, 'first_name');
-            html += field('Middle Name', app.middle_name, 'middle_name');
-            html += field('Last Name', app.last_name, 'last_name');
-            html += selectField('Sex', app.sex, 'sex', ['Male', 'Female']);
-            html += field('Status', app.status, 'status');
-            html += field('Email', app.email, 'email');
-            html += field('Contact Number', app.contact_number, 'contact_number');
-            html += field('Course', app.course, 'course');
-            html += selectField('Year Level', app.year_level, 'year_level', ['1st Year', '2nd Year', '3rd Year', '4th Year']);
-            html += field('Scholarship Name', app.scholarship_name, 'scholarship_name');
-            html += field('Scholarship Type', app.scholarship_type, 'scholarship_type');
-            html += field('Home Address', app.home_address, 'home_address');
-            
-            // Academic-specific fields
-            if (app.grant_type === 'academic') {
-                html += field('Program', app.program, 'program');
-                html += field('ID Number', app.id_number, 'id_number');
-                html += `<div style="display:flex; flex-direction:column;" data-field="birthdate">
-                    <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">Birthdate</label>
-                    <span class="field-value" style="color:#666; font-size:14px; padding:10px; background:#f5f5f5; border-radius:6px;">${escapeHtml(formatDate(app.birthdate))}</span>
-                    <input type="date" class="field-input" style="display:none; color:#333; font-size:14px; padding:8px; border: 1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="${escapeHtml(app.birthdate ? app.birthdate.split('T')[0] : '')}">
-                </div>`;
-                html += field('Birthplace', app.birthplace, 'birthplace');
-                html += field('Religion', app.religion, 'religion');
-            }
-            
-            const buildUploadSection = (label, files, group) => {
-                if (!files || !files.length) return '';
-
-                const uploadLinks = files.map((file, index) => {
-                    const documentUrl = `/admin/applications/${encodeURIComponent(app.id)}/document/${encodeURIComponent(group)}/${index}`;
-                    return `<a href="${escapeHtml(documentUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block; min-width:86px; text-align:center; padding:6px 10px; border:1px solid #dbeafe; background:#f8fbff; color:#0d6efd; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600;">View File</a>`;
-                }).join('');
-
-                return `<div style="display:flex; flex-direction:column; gap:6px;">
-                    <label style="font-weight:600; color:#333; font-size:13px;">${label}</label>
-                    <div style="display:flex; flex-wrap:wrap; gap:8px;">${uploadLinks}</div>
-                </div>`;
-            };
-
-            let uploadSections = [];
-            if (app.uploads && typeof app.uploads === 'object' && !Array.isArray(app.uploads)) {
-                if (app.grant_type !== 'academic' && app.scholarship_name === 'Athletic Scholarship') {
-                    uploadSections.push(buildUploadSection('Certificate from the Sports Coordinator', app.uploads.certificate_of_grades || app.uploads.grades || [], app.uploads.certificate_of_grades ? 'certificate_of_grades' : 'grades'));
-                    uploadSections.push(buildUploadSection('Certificate of Adviser', app.uploads.certificate_of_adviser || [], 'certificate_of_adviser'));
-                } else {
-                    // Determine label for grades/enrollment files. For certain non-academic scholarships,
-                    // show 'ID (Front and Back)' instead of 'Certificate of Grades'.
-                    let gradesLabel = 'Certificate of Grades';
-                    if (app.grant_type !== 'academic' && app.scholarship_name === 'Tertiary Education Subsidy') {
-                        gradesLabel = 'Submitted Requirements';
-                    } else if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
-                        gradesLabel = 'ID (Front and Back)';
-                    }
-                    uploadSections.push(buildUploadSection(gradesLabel, app.uploads.certificate_of_grades || app.uploads.grades || [], app.uploads.certificate_of_grades ? 'certificate_of_grades' : 'grades'));
-                }
-                if (app.scholarship_name === 'University Based Scholarship') {
-                    uploadSections.push(buildUploadSection('Certificate of Enrollment', app.uploads.certificate_of_enrollment || app.uploads.enrollment || [], app.uploads.certificate_of_enrollment ? 'certificate_of_enrollment' : 'enrollment'));
-                }
-            } else if (app.uploads && Array.isArray(app.uploads) && app.uploads.length) {
-                // For certain non-academic scholarships, label uploads as ID (Front and Back)
-                let nonAcademicIdLabel = 'Uploaded Files';
-                if (app.grant_type !== 'academic' && app.scholarship_name === 'Tertiary Education Subsidy') {
-                    nonAcademicIdLabel = 'Submitted Requirements';
-                } else if (app.grant_type !== 'academic' && (app.scholarship_name === 'Open Heart Scholarship' || app.scholarship_name === 'Talamayan Scholarship')) {
-                    nonAcademicIdLabel = 'ID (Front and Back)';
-                }
-                uploadSections.push(buildUploadSection(app.grant_type === 'academic' ? 'Certificate of Grades' : nonAcademicIdLabel, app.uploads, 'uploads'));
-            }
-
-            if (uploadSections.length) {
-                html += `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; grid-column:1/-1;">${uploadSections.join('')}</div>`;
-            }
-            
-        if(app.application_status){
-            const statusColor = app.application_status === 'approved' ? '#28a745' : app.application_status === 'rejected' ? '#dc3545' : '#ffc107';
-            const statusBg = app.application_status === 'approved' ? '#e8f5e9' : app.application_status === 'rejected' ? '#ffebee' : '#fff8e1';
-            html += `<div style="display:flex; flex-direction:column; grid-column:1/-1;">
-                <label style="font-weight:600; color:#333; font-size:13px; margin-bottom:6px;">Application Status</label>
-                <span style="color:${statusColor}; background:${statusBg}; padding:8px 12px; border-radius:6px; font-weight:600; text-transform:capitalize; text-align:center;">${escapeHtml(app.application_status)}</span>
-            </div>`;
-        }
-        
-        body.innerHTML = html;
-    })
-    .catch(()=>{ body.innerHTML = '<span style="grid-column:1/-1; color:#dc3545;">Unable to load profile.</span>'; });
-});
-});
-
-// Edit profile button
-document.getElementById('editProfile').addEventListener('click', function(){
-    if (!currentAppId || !currentProfileData) return;
-    isEditMode = !isEditMode;
-    const body = document.getElementById('profileBody');
-    const fields = body.querySelectorAll('[data-field]');
-    
-    fields.forEach(field => {
-        const fieldName = field.getAttribute('data-field');
-        const valueSpan = field.querySelector('.field-value');
-        const input = field.querySelector('.field-input');
-        
-        if (isEditMode) {
-            valueSpan.style.display = 'none';
-            input.style.display = 'block';
-        } else {
-            valueSpan.style.display = 'block';
-            input.style.display = 'none';
-        }
-    });
-    
-    // Toggle Save button visibility
-    const actionButtons = document.querySelector('.modal-actions');
-    let saveBtn = document.getElementById('saveProfileBtn');
-    let cancelBtn = document.getElementById('cancelEditBtn');
-    
-    if (isEditMode) {
-        this.style.display = 'none';
-        
-        if (!saveBtn) {
-            saveBtn = document.createElement('button');
-            saveBtn.id = 'saveProfileBtn';
-            saveBtn.className = 'btn';
-            saveBtn.style.background = '#28a745';
-            saveBtn.textContent = 'Save Changes';
-            actionButtons.insertBefore(saveBtn, actionButtons.firstChild);
-        } else {
-            saveBtn.style.display = 'block';
-        }
-        
-        if (!cancelBtn) {
-            cancelBtn = document.createElement('button');
-            cancelBtn.id = 'cancelEditBtn';
-            cancelBtn.className = 'btn';
-            cancelBtn.style.background = '#6c757d';
-            cancelBtn.textContent = 'Cancel';
-            actionButtons.insertBefore(cancelBtn, saveBtn.nextSibling);
-        } else {
-            cancelBtn.style.display = 'block';
-        }
-    } else {
-        this.style.display = 'block';
-        if (saveBtn) saveBtn.style.display = 'none';
-        if (cancelBtn) cancelBtn.style.display = 'none';
     }
-});
 
-// Save profile changes
-document.addEventListener('click', function(e) {
-    if (e.target.id === 'saveProfileBtn') {
-        if (!currentAppId) return;
-        
-        const body = document.getElementById('profileBody');
-        const fields = body.querySelectorAll('[data-field]');
-        const updateData = {};
-        
-        fields.forEach(field => {
-            const fieldName = field.getAttribute('data-field');
-            const input = field.querySelector('.field-input');
-            if (input) {
-                updateData[fieldName] = input.value;
-            }
-        });
-        
-        postJson('/admin/applications/'+currentAppId+'/update', updateData)
-            .then(response => {
-                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Profile updated successfully!', showConfirmButton: false, timer: 2500, timerProgressBar: true });
-                isEditMode = false;
-                // Reload profile
-                var reloadBtn = document.querySelector('.view-profile-btn[data-id="'+currentAppId+'"]');
-                if (reloadBtn) reloadBtn.click();
-            })
-            .catch(err => {
-                Swal.fire({ icon: 'error', title: 'Error', text: 'Error updating profile: ' + err.message });
-            });
+    function field(label, value, name) {
+        return `<div class="academic-review-field"><label>${label}</label><input class="input" data-field="${name}" value="${escapeHtml(value || 'N/A')}" readonly></div>`;
     }
-});
 
-// Cancel edit
-document.addEventListener('click', function(e) {
-    if (e.target.id === 'cancelEditBtn') {
-        isEditMode = false;
-        const body = document.getElementById('profileBody');
-        const fields = body.querySelectorAll('[data-field]');
-        
-        fields.forEach(field => {
-            const valueSpan = field.querySelector('.field-value');
-            const input = field.querySelector('.field-input');
-            valueSpan.style.display = 'block';
-            input.style.display = 'none';
-        });
-        
-        const editBtn = document.getElementById('editProfile');
-        editBtn.style.display = 'block';
-        
-        const saveBtn = document.getElementById('saveProfileBtn');
-        const cancelBtn = document.getElementById('cancelEditBtn');
-        if (saveBtn) saveBtn.style.display = 'none';
-        if (cancelBtn) cancelBtn.style.display = 'none';
+    function reviewArea(section, status, reason) {
+        const safeStatus = status || 'pending';
+        return `<div class="review-section" data-section="${section}">
+            <div><span class="review-status ${safeStatus}">Status: ${escapeHtml(safeStatus)}</span>${reason ? `<span>Reason: ${escapeHtml(reason)}</span>` : ''}</div>
+            <div class="review-actions">
+                <button type="button" class="review-edit" data-action="edit">Edit</button>
+                <button type="button" class="review-approve" data-action="approve">✓ Approve</button>
+                <button type="button" class="review-reject" data-action="reject">✕ Reject</button>
+                <button type="button" class="review-delete" data-action="delete">Delete</button>
+            </div>
+        </div>`;
     }
-});
 
-        const confirmModal = document.getElementById('confirmActionModal');
-        const confirmActionText = document.getElementById('confirmActionText');
-        const confirmYesBtn = document.getElementById('confirmYesBtn');
-        const confirmCancelBtn = document.getElementById('confirmCancelBtn');
-        let confirmResolve = null;
-
-        function showConfirm(message) {
-            var icon = 'question';
-            var confirmColor = '#198754';
-            var up = (message || '').toUpperCase();
-            if (up.includes('APPROVE')) { icon = 'success'; confirmColor = '#28a745'; }
-            else if (up.includes('REJECT')) { icon = 'warning'; confirmColor = '#f97316'; }
-            else if (up.includes('DELETE')) { icon = 'error'; confirmColor = '#dc3545'; }
-            return Swal.fire({
-                title: 'Are you sure?',
-                text: message,
-                icon: icon,
-                showCancelButton: true,
-                confirmButtonText: 'YES',
-                cancelButtonText: 'NO',
-                confirmButtonColor: confirmColor,
-                cancelButtonColor: '#6c757d'
-            }).then(result => result.isConfirmed);
-        }
-        // updates status to approved student sees checkmark
-        confirmYesBtn.addEventListener('click', function () {
-            if (confirmResolve) confirmResolve(true);
-            closeConfirm();
-        });
-
-        confirmCancelBtn.addEventListener('click', function () {
-            if (confirmResolve) confirmResolve(false);
-            closeConfirm();
-        });
-
-        document.getElementById('approveProfile').addEventListener('click', function(){
-            if (!currentAppId) return;
-            showConfirm('Are you sure you want to APPROVE this application?').then(confirmed => {
-                if (!confirmed) return;
-                postJson('/admin/applications/'+currentAppId+'/approve', {}).then(()=> location.reload());
-            });
-        });
-
-        document.getElementById('rejectProfile').addEventListener('click', function(){
-            if (!currentAppId) return;
-            showConfirm('Are you sure you want to REJECT this application?').then(confirmed => {
-                if (!confirmed) return;
-                showRejectionReasonModal();
-            });
-        });
-
-        // Rejection reason modal
-        function showRejectionReasonModal() {
-            // Create modal overlay
-            const overlay = document.createElement('div');
-            overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-            
-            // Create modal content
-            const modal = document.createElement('div');
-            modal.style.cssText = 'background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);';
-            modal.innerHTML = `
-                <button style="float: right; background: none; border: none; font-size: 24px; cursor: pointer; color: #999;" id="closeRejectModal">✕</button>
-                <h2 style="margin: 0 0 10px 0; color: #333; font-size: 24px;">Rejection Reason</h2>
-                <p style="color: #666; margin: 0 0 15px 0;">Please provide a reason for rejecting this application:</p>
-                <textarea id="rejectionReasonInput" placeholder="Enter rejection reason..." style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-family: Arial; font-size: 14px; box-sizing: border-box; resize: vertical;"></textarea>
-                <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;">
-                    <button id="confirmRejectionBtn" style="padding: 10px 30px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Reject Application</button>
+    function documentGroup(label, files, group, reviews) {
+        if (!Array.isArray(files) || !files.length) return '';
+        return files.map((file, index) => {
+            const key = `${group}.${index}`;
+            const review = reviews?.[key] || {};
+            const status = review.status || 'pending';
+            const url = `/admin/applications/${encodeURIComponent(currentAppId)}/document/${encodeURIComponent(group)}/${index}`;
+            return `<div class="document-review full">
+                <label>${escapeHtml(label)}${files.length > 1 ? ` ${index + 1}` : ''}</label>
+                <div class="document-actions">
+                    <a class="document-view" href="${url}" target="_blank" rel="noopener noreferrer">View File</a>
+                    <span class="review-status ${status}">Status: ${escapeHtml(status)}</span>
+                    <button type="button" class="document-approve" data-document-group="${escapeHtml(group)}" data-document-index="${index}">Approve</button>
+                    <button type="button" class="document-reject" data-document-group="${escapeHtml(group)}" data-document-index="${index}">Reject</button>
                 </div>
-            `;
-            
-            overlay.appendChild(modal);
-            document.body.appendChild(overlay);
-            
-            // Focus on textarea
-            setTimeout(() => {
-                document.getElementById('rejectionReasonInput').focus();
-            }, 100);
-            
-            // Close handlers
-            function closeModal() {
-                overlay.remove();
-            }
-            
-            document.getElementById('closeRejectModal').addEventListener('click', closeModal);
-            
-            // Confirm handler
-            document.getElementById('confirmRejectionBtn').addEventListener('click', function(){
-                const reason = document.getElementById('rejectionReasonInput').value.trim();
-                if (!reason) {
-                    Swal.fire({ icon: 'warning', title: 'Please enter a rejection reason' });
-                    return;
-                }
-                closeModal();
-                postJson('/admin/applications/'+currentAppId+'/reject', {reason: reason}).then(()=> location.reload());
-            });
-            
-            // Close on overlay click
-            overlay.addEventListener('click', function(e){
-                if (e.target === overlay) closeModal();
-            });
-        }
+                ${review.reason ? `<div>Reason: ${escapeHtml(review.reason)}</div>` : ''}
+            </div>`;
+        }).join('');
+    }
 
-        document.getElementById('deleteProfile').addEventListener('click', function(){
-            if (!currentAppId) {
-                Swal.fire({ icon: 'error', title: 'Error', text: 'No application selected' });
+    function renderProfile(app) {
+        const body = document.getElementById('profileBody');
+        let uploads = app.uploads || {};
+        if (Array.isArray(uploads)) uploads = { uploads };
+        const step1 = [
+            field('First name', app.first_name, 'first_name'), field('Middle name', app.middle_name, 'middle_name'),
+            field('Last name', app.last_name, 'last_name'), field('Email', app.email, 'email'),
+            field('Student ID Number', app.student_id_number || app.id_number, 'student_id_number'), field('Course', app.course, 'course'),
+            field('Year Level', app.year_level, 'year_level'), field('Program', app.program, 'program')
+        ].join('') + reviewArea('student-information', app.student_information_status, app.student_information_reason);
+        const step2 = [
+            field('Birthday', app.birthdate ? String(app.birthdate).split('T')[0] : '', 'birthdate'), field('Birthplace', app.birthplace, 'birthplace'),
+            field('Sex', app.sex, 'sex'), field('Status', app.status, 'status'), field('Religion', app.religion, 'religion'),
+            field('Contact Number', app.contact_number, 'contact_number'), field('Home Address', app.home_address, 'home_address')
+        ].join('') + reviewArea('personal-information', app.personal_information_status, app.personal_information_reason);
+        const documents = [
+            documentGroup('Certificate of Grades', uploads.certificate_of_grades || uploads.grades, uploads.certificate_of_grades ? 'certificate_of_grades' : 'grades', app.document_review || app.document_reviews),
+            documentGroup('Certificate of Enrollment', uploads.certificate_of_enrollment || uploads.enrollment, uploads.certificate_of_enrollment ? 'certificate_of_enrollment' : 'enrollment', app.document_review || app.document_reviews),
+            documentGroup('Uploaded Files', uploads.uploads, 'uploads', app.document_review || app.document_reviews),
+            documentGroup('Certificate of Adviser', uploads.certificate_of_adviser, 'certificate_of_adviser', app.document_review || app.document_reviews)
+        ].join('');
+        const step3 = field('Name of Scholarship / Sponsor', app.scholarship_name, 'scholarship_name') +
+            field('Types of Scholarship', app.scholarship_type, 'scholarship_type') +
+            `<div class="full"><label>Uploaded documents</label>${documents || '<div class="input">No files uploaded.</div>'}</div>`;
+        body.innerHTML = `<div class="academic-review-step" data-profile-step="1">${step1}</div><div class="academic-review-step" data-profile-step="2">${step2}</div><div class="academic-review-step" data-profile-step="3">${step3}</div>`;
+        updateStepUI();
+    }
+
+    function updateStepUI() {
+        document.querySelectorAll('#profileModal [data-profile-step]').forEach(panel => panel.classList.toggle('active', Number(panel.dataset.profileStep) === currentStep));
+        document.querySelectorAll('#profileModal [data-profile-progress-step]').forEach(step => {
+            const value = Number(step.dataset.profileProgressStep);
+            step.classList.toggle('active', value === currentStep);
+            step.classList.toggle('completed', value < currentStep);
+        });
+        document.getElementById('profileStepCounter').textContent = currentStep;
+        document.getElementById('profilePageCounter').textContent = `${currentStep} / 3`;
+        document.getElementById('profilePrevious').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+        document.getElementById('profilePreviousTop').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+        document.getElementById('profileNext').style.visibility = currentStep === 3 ? 'hidden' : 'visible';
+    }
+
+    async function loadProfile(id) {
+        const response = await fetch(`/admin/applications/${encodeURIComponent(id)}`);
+        if (!response.ok) throw new Error('Unable to load profile');
+        renderProfile(await response.json());
+    }
+
+    async function rejectWithReason(title, url) {
+        const result = await Swal.fire({ title, input: 'textarea', inputLabel: 'Reason', inputPlaceholder: 'Enter rejection reason...', showCancelButton: true, confirmButtonText: 'Reject', confirmButtonColor: '#b91c1c', inputValidator: value => !value.trim() ? 'A reason is required.' : undefined });
+        if (!result.isConfirmed) return;
+        await postJson(url, { reason: result.value.trim() });
+        await loadProfile(currentAppId);
+    }
+
+    document.querySelectorAll('.view-profile-btn').forEach(button => button.addEventListener('click', async () => {
+        currentAppId = button.dataset.id;
+        currentStep = 1;
+        document.getElementById('profileModal').classList.add('open');
+        try { await loadProfile(currentAppId); } catch (error) { document.getElementById('profileBody').textContent = error.message; }
+    }));
+
+    document.getElementById('profilePrevious')?.addEventListener('click', () => { if (currentStep > 1) { currentStep--; updateStepUI(); } });
+    document.getElementById('profilePreviousTop')?.addEventListener('click', () => { if (currentStep > 1) { currentStep--; updateStepUI(); } });
+    document.getElementById('profileNext')?.addEventListener('click', () => { if (currentStep < 3) { currentStep++; updateStepUI(); } });
+    document.getElementById('closeProfile')?.addEventListener('click', () => document.getElementById('profileModal').classList.remove('open'));
+
+    document.getElementById('profileBody')?.addEventListener('click', async event => {
+        const documentButton = event.target.closest('[data-document-group]');
+        const reviewSection = event.target.closest('.review-section');
+        try {
+            if (documentButton) {
+                const group = documentButton.dataset.documentGroup;
+                const index = documentButton.dataset.documentIndex;
+                const url = `/admin/applications/${currentAppId}/documents/${encodeURIComponent(group)}/${index}`;
+                if (documentButton.classList.contains('document-reject')) await rejectWithReason('Reject Document', `${url}/reject`);
+                else { await postJson(`${url}/approve`); await loadProfile(currentAppId); }
                 return;
             }
-            showConfirm('Are you sure you want to DELETE this application?').then(confirmed => {
-                if (!confirmed) return;
-                console.log('Deleting application ID:', currentAppId);
-                postJson('/admin/applications/'+currentAppId+'/delete', {}, 'POST')
-                    .then(json => {
-                        console.log('Delete response:', json);
-                        if (json.status === 'ok') {
-                            console.log('Delete successful, closing modal and removing row');
-                            // Close the modal
-                            document.getElementById('profileModal').style.display = 'none';
-                            
-                            // Find and remove the row by data-id
-                            const buttons = document.querySelectorAll(`button[data-id="${currentAppId}"]`);
-                            console.log('Found buttons:', buttons.length);
-                            if (buttons.length > 0) {
-                                const row = buttons[0].closest('tr');
-                                if (row) {
-                                    console.log('Found row, removing...');
-                                    row.style.opacity = '0.5';
-                                    setTimeout(() => {
-                                        row.remove();
-                                        console.log('Row removed');
-                                    }, 300);
-                                } else {
-                                    console.warn('Could not find row for button');
-                                }
-                            } else {
-                                console.warn('No button found with data-id=' + currentAppId);
-                            }
-                            
-                            // Show success message
-                            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Application deleted successfully!', showConfirmButton: false, timer: 2500, timerProgressBar: true });
-                            currentAppId = null;
-                        } else {
-                            throw new Error(json.error || 'Delete failed');
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Delete error:', err);
-                        Swal.fire({ icon: 'error', title: 'Error', text: 'Unable to delete application: ' + err.message });
-                    });
-            });
-        });
-
-        document.getElementById('closeProfile').addEventListener('click', function(){
-            document.getElementById('profileModal').style.display = 'none';
-            currentAppId = null;
-        });
-
-    // --- Dynamic admin users loader: fetch users and replace table in-place ---
-    function renderUsersTable(users){
-        const container = document.getElementById('admin-table-container');
-        if (!container) return;
-        let html = `<table><thead><tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Student ID</th>
-            <th>Email</th>
-            <th>ID Document</th>
-            <th>Registered</th>
-            <th>Actions</th>
-        </tr></thead><tbody>`;
-        if (!users || users.length === 0) {
-            html += `<tr><td colspan="6" class="text-center text-gray">No users found.</td></tr>`;
-        } else {
-            users.forEach(u => {
-                const idLink = `<a href="#" data-user-id="${u.id}" class="user-link">${u.id}</a>`;
-                const name = (u.name || '') + (u.last_name ? (' ' + u.last_name) : '');
-                const studentId = u.student_id || '';
-                const email = u.email || '';
-                const idDoc = u.id_document ? (`<a href="/admin/users/${encodeURIComponent(u.id)}/id-document" target="_blank" rel="noopener noreferrer">View</a>`) : 'No ID uploaded';
-                const reg = u.created_at ? (new Date(u.created_at)).toISOString().split('T')[0] : '';
-                const deleteBtn = `<button class="btn small delete-user-btn" data-id="${u.id}" style="background:#dc3545;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer;">Delete</button>`;
-                html += `<tr data-user-id="${u.id}"><td>${idLink}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(studentId)}</td><td>${escapeHtml(email)}</td><td>${idDoc}</td><td>${reg}</td><td>${deleteBtn}</td></tr>`;
-            });
-        }
-        html += `</tbody></table>`;
-        container.innerHTML = html;
-    }
-
-    function loadUsers(url){
-        fetch(url, { headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }})
-            .then(r => {
-                if (!r.ok) throw new Error('Network response was not ok');
-                return r.json();
-            })
-            .then(json => {
-                const users = json.users || [];
-                renderUsersTable(users);
-            })
-            .catch(err => {
-                console.error('Failed to load users:', err);
-                const container = document.getElementById('admin-table-container');
-                if (container) container.innerHTML = '<div class="text-center text-gray">Unable to load users.</div>';
-            });
-    }
-
-    const usersLink = document.getElementById('adminUsersLink');
-    if (usersLink){
-        usersLink.addEventListener('click', function(e){
-            e.preventDefault();
-            const url = this.dataset.url || '/admin/users';
-            loadUsers(url);
-            // update nav active state
-            document.querySelectorAll('.sidebar-nav .nav-item').forEach(n=> n.classList.remove('active'));
-            this.classList.add('active');
-        });
-    }
-
-    // Delegate delete user button clicks
-    document.addEventListener('click', function(e){
-        const el = e.target.closest && e.target.closest('.delete-user-btn');
-        if (!el) return;
-        e.preventDefault();
-        const userId = el.getAttribute('data-id');
-        if (!userId) return;
-        showConfirm('Are you sure you want to DELETE this user?').then(confirmed => {
-            if (!confirmed) return;
-            postJson('/admin/users/'+userId+'/delete', {}, 'POST')
-                .then(json => {
-                    if (json.status === 'ok') {
-                        const row = el.closest('tr');
-                        if (row) row.remove();
-                        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'User deleted', showConfirmButton: false, timer: 2000, timerProgressBar: true });
-                    } else {
-                        throw new Error(json.message || 'Delete failed');
-                    }
-                })
-                .catch(err => {
-                    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to delete user: ' + err.message });
-                });
-
-                // Logout button: submit via fetch and redirect to welcome page
-                const logoutBtn = document.getElementById('adminLogoutBtn');
-                if (logoutBtn) {
-                    logoutBtn.addEventListener('click', function(e){
-                        // allow normal form submit for non-JS fallback
-                        e.preventDefault();
-                        const url = this.dataset.logoutUrl || '/logout';
-                        fetch(url, {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': csrf,
-                                'Accept': 'application/json'
-                            }
-                        }).then(r => {
-                            // On success or redirect, go to welcome
-                            window.location.href = '/';
-                        }).catch(err => {
-                            console.error('Logout failed', err);
-                            // fallback to form submit
-                            const f = document.getElementById('logoutForm');
-                            if (f) f.submit();
-                        });
-                    });
-                }
-        });
+            if (!reviewSection) return;
+            const action = event.target.dataset.action;
+            const section = reviewSection.dataset.section;
+            if (action === 'approve') { await postJson(`/admin/applications/${currentAppId}/sections/${section}/approve`); await loadProfile(currentAppId); }
+            if (action === 'reject') await rejectWithReason(`Reject ${section.replaceAll('-', ' ')}`, `/admin/applications/${currentAppId}/sections/${section}/reject`);
+            if (action === 'delete') {
+                const result = await Swal.fire({ title: 'Delete application?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#b91c1c', confirmButtonText: 'Delete' });
+                if (result.isConfirmed) { await postJson(`/admin/applications/${currentAppId}/delete`); location.reload(); }
+            }
+            if (action === 'edit') {
+                const panel = reviewSection.closest('.academic-review-step');
+                panel.querySelectorAll('[data-field]').forEach(input => { input.readOnly = false; input.style.background = '#fff'; });
+                event.target.textContent = 'Save'; event.target.dataset.action = 'save';
+            } else if (action === 'save') {
+                const data = {}; reviewSection.closest('.academic-review-step').querySelectorAll('[data-field]').forEach(input => { data[input.dataset.field] = input.value === 'N/A' ? '' : input.value; });
+                await postJson(`/admin/applications/${currentAppId}/update`, data); await loadProfile(currentAppId);
+            }
+        } catch (error) { Swal.fire({ icon: 'error', title: 'Action failed', text: error.message }); }
     });
-    })();
+
+    document.querySelectorAll('.delete-user-btn').forEach(button => button.addEventListener('click', async () => {
+        const result = await Swal.fire({ title: 'Delete user?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#b91c1c', confirmButtonText: 'Delete' });
+        if (!result.isConfirmed) return;
+        try { await postJson(`/admin/users/${button.dataset.id}/delete`); button.closest('tr')?.remove(); } catch (error) { Swal.fire({ icon: 'error', title: 'Action failed', text: error.message }); }
+    }));
+})();

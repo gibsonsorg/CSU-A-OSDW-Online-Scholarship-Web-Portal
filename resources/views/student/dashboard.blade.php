@@ -902,6 +902,8 @@ More info: https://unifaast.gov.ph/tes.html"
 
             <form id="applyForm" method="POST" action="{{ route('student-profiles.store') }}" enctype="multipart/form-data">
                 @csrf
+                <input type="hidden" name="application_id" value="">
+                <input type="hidden" name="student_profile_id" value="">
 
                 <div class="apply-row academic-step-panel active" data-non-academic-step="1">
                     <div>
@@ -1034,7 +1036,7 @@ More info: https://unifaast.gov.ph/tes.html"
                         </style>
 
                         <div class="athletic-only-fields" style="display:none; gap:16px; flex-wrap:wrap; align-items:flex-start; margin-top:10px;">
-                            <div style="flex:1 1 320px; min-width:260px; max-width:420px;">
+                            <div data-reapplication-document-group="uploads" style="flex:1 1 320px; min-width:260px; max-width:420px;">
                                 <label style="display:block; margin-bottom:8px;">Certificate from the Sports Coordinator</label>
                                 <input type="file" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
                             </div>
@@ -1052,7 +1054,9 @@ More info: https://unifaast.gov.ph/tes.html"
                             Certificate of Enrollment
                         </div>
 
-                        <input type="file" name="uploads[]" multiple id="nonAcademicUploadsInput" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
+                        <div data-reapplication-document-group="uploads">
+                            <input type="file" name="uploads[]" multiple id="nonAcademicUploadsInput" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
+                        </div>
                     </div>
                 </div>
 
@@ -1105,6 +1109,8 @@ More info: https://unifaast.gov.ph/tes.html"
 
             <form id="academicApplyForm" method="POST" action="{{ route('student-profiles.store') }}" enctype="multipart/form-data">
                 @csrf
+                <input type="hidden" name="application_id" value="">
+                <input type="hidden" name="student_profile_id" value="">
 
                 <div class="apply-row academic-step-panel active" data-academic-step="1">
                     <div>
@@ -1220,7 +1226,7 @@ More info: https://unifaast.gov.ph/tes.html"
                                 <input type="file" id="academicFileInput" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
                                 <div id="academicFileNames" style="margin-top:8px; font-size:13px; color:#666;"></div>
                             </div>
-                            <div id="academicEnrollmentSection" style="flex:1 1 320px; min-width:260px; max-width:420px; display:none;">
+                            <div id="academicEnrollmentSection" data-reapplication-document-group="certificate_of_enrollment" style="flex:1 1 320px; min-width:260px; max-width:420px; display:none;">
                                 <label style="display:block; margin-bottom:8px;">Certificate of Enrollment</label>
                                 <input type="file" id="academicEnrollmentFileInput" name="certificate_of_enrollment" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
                                 <div id="academicEnrollmentFileNames" style="margin-top:8px; font-size:13px; color:#666;"></div>
@@ -1495,11 +1501,17 @@ More info: https://unifaast.gov.ph/tes.html"
             document.getElementById('applyForm').submit();
         }
 
+        function submitAcademicForm() {
+            allowSubmit = true;
+            document.getElementById('academicApplyForm').submit();
+        }
+
     // Close popup when clicking outside
 
     (function () {
       const section = @json($section ?? 'acad');
       const appliedScholarships = @json($appliedScholarships ?? []);
+    window.reapplicationProfiles = Object.fromEntries(appliedScholarships.filter(item => item.reopen && item.profile).map(item => [item.name, item.profile]));
       const activeAcademicApplications = @json($activeAcademicApplications ?? 0);
       const activeNonAcademicApplications = @json($activeNonAcademicApplications ?? 0);
       const maxApplications = 2;
@@ -1516,9 +1528,9 @@ More info: https://unifaast.gov.ph/tes.html"
         }
 
                 const application = appliedScholarships.find(item => item.name === scholarshipTitle);
-                const rejectedAttempts = Number(application?.rejected_attempts ?? 0);
-                const isUnavailableByAttempts = rejectedAttempts >= 2;
-                const isApplied = Boolean(application && application.status !== 'rejected');
+                const canReopen = Boolean(application?.reopen);
+                const isUnavailableByAttempts = false;
+                const isApplied = Boolean(application && application.status !== 'rejected' && !canReopen);
                 const cardFoot = card.querySelector('.card-foot');
 
                 if (isUnavailableByAttempts) {
@@ -1539,7 +1551,7 @@ More info: https://unifaast.gov.ph/tes.html"
                     return;
                 }
 
-                if (application && application.status === 'rejected' && currentActiveApplications < maxApplications) {
+                if (application && (application.status === 'rejected' || canReopen)) {
                     card.classList.add('card-rejected');
                     if (cardFoot) {
                         const message = document.createElement('div');
@@ -1564,7 +1576,7 @@ More info: https://unifaast.gov.ph/tes.html"
                         message.className = 'applied-text';
                         const isApproved = application.status === 'approved';
                         message.innerHTML = isApproved
-                            ? '<div class="applied-label status-approved">APPROVED</div><div>Your application for this scholarship has been approved.</div>'
+                            ? '<div class="applied-label status-approved">APPROVED</div><div>Your application for this scholarship is approved</div>'
                             : '<div class="applied-label">PENDING</div><div class="Applied-text">Your application for this scholarship is being processed.</div>';
                         cardFoot.prepend(message);
                     }

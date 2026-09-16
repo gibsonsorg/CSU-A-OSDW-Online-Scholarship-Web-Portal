@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\ApplicationStatusMail;
+use App\Mail\ApplicationSectionStatusMail;
 use App\Mail\ApprovalMail;
 use App\Mail\RejectionMail;
 use App\Models\Application;
@@ -13,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class AdminController extends Controller
 {
@@ -205,11 +207,13 @@ class AdminController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
         }
 
-        $application->application_status = 'approved';
-        $application->rejection_reason = null;
-        $application->save();
-
-        $this->syncApplicationRecord($application, 'approved');
+        $this->syncOverallStatus($application);
+        if ($application->application_status !== 'approved') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'All application sections must be approved first.',
+            ], 422);
+        }
 
         try {
             $user = $application->user()->first();
@@ -293,6 +297,181 @@ class AdminController extends Controller
             return response()->json(['status' => 'ok', 'message' => 'Application rejected']);
         }
         return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
+    }
+
+    public function approveSection($id, string $section)
+    {
+        $fields = $this->sectionFields($section);
+        $application = StudentProfile::findOrFail($id);
+
+        $application->forceFill([
+            $fields['status'] => 'approved',
+            $fields['reason'] => null,
+        ])->save();
+        $this->syncOverallStatus($application);
+
+        return response()->json(['status' => 'ok', 'message' => $fields['label'] . ' approved']);
+    }
+
+    public function rejectSection(Request $request, $id, string $section)
+    {
+        $fields = $this->sectionFields($section);
+        $reason = trim((string) $request->input('reason', ''));
+        if ($reason === '') {
+            return response()->json(['status' => 'error', 'message' => 'A rejection reason is required.'], 422);
+        }
+
+        $application = StudentProfile::with('user')->findOrFail($id);
+        $application->forceFill([
+            $fields['status'] => 'rejected',
+            $fields['reason'] => $reason,
+        ])->save();
+        $this->syncOverallStatus($application);
+
+        if ($application->user?->email) {
+            Mail::to($application->user->email)->queue(new ApplicationSectionStatusMail(
+                $application->user->name ?: trim($application->first_name . ' ' . $application->last_name),
+                $fields['label'],
+                $reason,
+            ));
+        }
+
+        return response()->json(['status' => 'ok', 'message' => $fields['label'] . ' rejected']);
+    }
+
+    public function approveDocument($id, string $group, int $index)
+    {
+        return $this->reviewDocument($id, $group, $index, 'approved');
+    }
+
+    public function rejectDocument(Request $request, $id, string $group, int $index)
+    {
+        $reason = trim((string) $request->input('reason', ''));
+        if ($reason === '') {
+            return response()->json(['status' => 'error', 'message' => 'A rejection reason is required.'], 422);
+        }
+
+        return $this->reviewDocument($id, $group, $index, 'rejected', $reason);
+    }
+
+    private function sectionFields(string $section): array
+    {
+        return match ($section) {
+            'student-information' => [
+                'status' => 'student_information_status',
+                'reason' => 'student_information_reason',
+                'label' => 'Student Information',
+            ],
+            'personal-information' => [
+                'status' => 'personal_information_status',
+                'reason' => 'personal_information_reason',
+                'label' => 'Personal Information',
+            ],
+            'scholarship-requirements' => [
+                'status' => 'scholarship_requirements_status',
+                'reason' => 'scholarship_requirements_reason',
+                'label' => 'Scholarship & Requirements',
+            ],
+            default => abort(404),
+        };
+    }
+
+    private function reviewDocument($id, string $group, int $index, string $status, ?string $reason = null)
+    {
+        $application = StudentProfile::with('user')->findOrFail($id);
+        $uploads = $application->uploads;
+        $files = is_array($uploads) && isset($uploads[$group])
+            ? $uploads[$group]
+            : (is_array($uploads) && $group === 'uploads' && array_is_list($uploads) ? $uploads : null);
+
+        if (!is_array($files) || !isset($files[$index]) || !is_string($files[$index])) {
+            abort(404);
+        }
+
+        $reviewColumn = $this->documentReviewColumn();
+        $reviews = $application->{$reviewColumn} ?? [];
+        $reviewKey = $group . '.' . $index;
+        $reviews[$reviewKey] = [
+            'status' => $status,
+            'reason' => $reason,
+        ];
+        $application->{$reviewColumn} = $reviews;
+        $application->save();
+
+        if ($status === 'approved' && $this->allDocumentsApproved($application->uploads, $reviews)) {
+            $application->forceFill([
+                'scholarship_requirements_status' => 'approved',
+                'scholarship_requirements_reason' => null,
+            ])->save();
+        } elseif ($status === 'rejected') {
+            $application->forceFill([
+                'scholarship_requirements_status' => 'rejected',
+                'scholarship_requirements_reason' => $reason,
+            ])->save();
+        }
+
+        $this->syncOverallStatus($application);
+
+        if ($status === 'rejected' && $application->user?->email) {
+            Mail::to($application->user->email)->queue(new ApplicationSectionStatusMail(
+                $application->user->name ?: trim($application->first_name . ' ' . $application->last_name),
+                'Scholarship & Requirements',
+                $reason ?? '',
+                ucwords(str_replace(['_', '-'], ' ', $group)),
+            ));
+        }
+
+        return response()->json(['status' => 'ok', 'message' => 'Document ' . $status]);
+    }
+
+    private function documentReviewColumn(): string
+    {
+        return Schema::hasColumn('student_profiles', 'document_review')
+            ? 'document_review'
+            : 'document_reviews';
+    }
+
+    private function allDocumentsApproved($uploads, array $reviews): bool
+    {
+        $documentCount = 0;
+        foreach ((array) $uploads as $files) {
+            foreach ((array) $files as $file) {
+                if (is_string($file)) {
+                    $documentCount++;
+                }
+            }
+        }
+
+        if ($documentCount === 0) {
+            return false;
+        }
+
+        return collect($reviews)
+            ->filter(fn ($review) => ($review['status'] ?? null) === 'approved')
+            ->count() === $documentCount;
+    }
+
+    private function syncOverallStatus(StudentProfile $application): void
+    {
+        $statuses = [
+            $application->student_information_status,
+            $application->personal_information_status,
+            $application->scholarship_requirements_status,
+        ];
+
+        $overallStatus = in_array('rejected', $statuses, true)
+            ? 'rejected'
+            : (count(array_filter($statuses, fn ($status) => $status === 'approved')) === 3 ? 'approved' : 'pending');
+
+        if ($application->application_status !== $overallStatus) {
+            $application->application_status = $overallStatus;
+            if ($overallStatus !== 'rejected') {
+                $application->rejection_reason = null;
+            }
+            $application->save();
+        }
+
+        $this->syncApplicationRecord($application, $overallStatus);
     }
 
     /**
