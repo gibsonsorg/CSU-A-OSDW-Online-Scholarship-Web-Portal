@@ -28,7 +28,7 @@
         return `<div class="review-section" data-section="${section}">
             <div><span class="review-status ${safeStatus}">Status: ${escapeHtml(safeStatus)}</span>${reason ? `<span>Reason: ${escapeHtml(reason)}</span>` : ''}</div>
             <div class="review-actions">
-                <button type="button" class="review-edit" data-action="edit">Edit</button>
+                
                 <button type="button" class="review-approve" data-action="approve">✓ Approve</button>
                 <button type="button" class="review-reject" data-action="reject">✕ Reject</button>
                 <button type="button" class="review-delete" data-action="delete">Delete</button>
@@ -58,19 +58,27 @@
 
     function renderProfile(app) {
         const body = document.getElementById('profileBody');
+        const isNonAcademic = app.grant_type === 'non-academic';
         let uploads = app.uploads || {};
         if (Array.isArray(uploads)) uploads = { uploads };
-        const step1 = [
+        const step1Fields = [
             field('First name', app.first_name, 'first_name'), field('Middle name', app.middle_name, 'middle_name'),
             field('Last name', app.last_name, 'last_name'), field('Email', app.email, 'email'),
             field('Student ID Number', app.student_id_number || app.id_number, 'student_id_number'), field('Course', app.course, 'course'),
-            field('Year Level', app.year_level, 'year_level'), field('Program', app.program, 'program')
-        ].join('') + reviewArea('student-information', app.student_information_status, app.student_information_reason);
-        const step2 = [
-            field('Birthday', app.birthdate ? String(app.birthdate).split('T')[0] : '', 'birthdate'), field('Birthplace', app.birthplace, 'birthplace'),
-            field('Sex', app.sex, 'sex'), field('Status', app.status, 'status'), field('Religion', app.religion, 'religion'),
+            field('Year Level', app.year_level, 'year_level')
+        ];
+        if (!isNonAcademic) step1Fields.push(field('Program', app.program, 'program'));
+        const step1 = step1Fields.join('') + reviewArea('student-information', app.student_information_status, app.student_information_reason);
+        const step2Fields = isNonAcademic ? [
+            field('Sex', app.sex, 'sex'), field('Status', app.status, 'status'),
             field('Contact Number', app.contact_number, 'contact_number'), field('Home Address', app.home_address, 'home_address')
-        ].join('') + reviewArea('personal-information', app.personal_information_status, app.personal_information_reason);
+        ] : [
+                field('Birthday', app.birthdate ? String(app.birthdate).split('T')[0] : '', 'birthdate'),
+                field('Birthplace', app.birthplace, 'birthplace'), field('Sex', app.sex, 'sex'),
+                field('Status', app.status, 'status'), field('Religion', app.religion, 'religion'),
+                field('Contact Number', app.contact_number, 'contact_number'), field('Home Address', app.home_address, 'home_address')
+            ];
+        const step2 = step2Fields.join('') + reviewArea('personal-information', app.personal_information_status, app.personal_information_reason);
         const documents = [
             documentGroup('Certificate of Grades', uploads.certificate_of_grades || uploads.grades, uploads.certificate_of_grades ? 'certificate_of_grades' : 'grades', app.document_review || app.document_reviews),
             documentGroup('Certificate of Enrollment', uploads.certificate_of_enrollment || uploads.enrollment, uploads.certificate_of_enrollment ? 'certificate_of_enrollment' : 'enrollment', app.document_review || app.document_reviews),
@@ -93,9 +101,11 @@
         });
         document.getElementById('profileStepCounter').textContent = currentStep;
         document.getElementById('profilePageCounter').textContent = `${currentStep} / 3`;
-        document.getElementById('profilePrevious').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+        document.getElementById('profilePrevious').disabled = currentStep === 1;
+        document.getElementById('profileNext').disabled = currentStep === 3;
+        document.getElementById('profilePrevious').style.visibility = 'visible';
         document.getElementById('profilePreviousTop').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
-        document.getElementById('profileNext').style.visibility = currentStep === 3 ? 'hidden' : 'visible';
+        document.getElementById('profileNext').style.visibility = 'visible';
     }
 
     async function loadProfile(id) {

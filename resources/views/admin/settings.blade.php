@@ -450,13 +450,8 @@
             </a>
         </nav>
 
-        <div class="sidebar-user">
-            <div class="u-avatar">SA</div>
-            <div>
-                <div class="u-name">System Administrator</div>
-                <div class="u-role">Admin · Aparri</div>
-            </div>
-        </div>
+     
+        </div> 
     </div>
 
     <div class="main">

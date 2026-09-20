@@ -159,6 +159,10 @@ class StudentProfileController extends Controller
     {
         $name = trim((string) $scholarship->name);
 
+        if (trim((string) $scholarship->type_label) !== '') {
+            return [$name, trim((string) $scholarship->type_label)];
+        }
+
         $academicMap = [
             'Cagayan Valley Assoc. of Hawaii' => 'International Educational Grant',
             'University Based Scholarship' => 'Academic Excellence – In-House',
@@ -196,6 +200,66 @@ class StudentProfileController extends Controller
             $name,
             $nonAcademicMap[$name] ?? 'University Based Scholarship In-House',
         ];
+    }
+
+    private function resolveLegacyScholarshipType(string $name): ?string
+    {
+        return [
+            'Athletic Scholarship' => 'Sports Excellence Program In-House',
+            "Employees' Grant" => "Employees' Grant In-House",
+            'Socio-Cultural Scholarship' => 'Arts & Culture Program In-House',
+            'Campus Student Publication' => 'University Based Scholarship In-House',
+            'Differently Abled Persons' => 'University Based Scholarship In-House',
+            'Student Council Federation Grant' => 'University Based Scholarship In-House',
+            'CSU Aparri Alumni Association' => 'Alumni Grant Program In-House',
+            'Tertiary Education Subsidy' => 'UniFAST – TES Program Government Based',
+            'Agkaykaysa' => 'Regional Solidarity Grant Government Based',
+            'Open Heart Scholarship' => 'Private Foundation Grant Private Based',
+            'Talamayan Scholarship' => 'Community Support Grant Private Based',
+        ][$name] ?? null;
+    }
+
+    private function countUsableDocuments($uploads, array $reviews = []): int
+    {
+        $count = 0;
+
+        foreach ((array) $uploads as $group => $files) {
+            foreach ((array) $files as $index => $file) {
+                if (is_string($file) && (($reviews[$group . '.' . $index]['status'] ?? null) !== 'rejected')) {
+                    $count++;
+                }
+            }
+        }
+
+        return $count;
+    }
+
+    private function requiredDocumentRules(?Scholarship $scholarship, bool $isAcademic, string $scholarshipName): array
+    {
+        $configuredDocuments = $scholarship?->required_documents ?? [];
+        if (is_array($configuredDocuments) && count(array_filter($configuredDocuments)) > 0) {
+            return ['groups' => [], 'count' => count(array_filter($configuredDocuments)), 'labels' => array_values(array_filter($configuredDocuments))];
+        }
+
+        if ($isAcademic) {
+            return [
+                'groups' => $scholarshipName === 'University Based Scholarship'
+                    ? ['certificate_of_grades', 'certificate_of_enrollment']
+                    : ['certificate_of_grades'],
+                'count' => 0,
+                'labels' => [],
+            ];
+        }
+
+        $groups = match ($scholarshipName) {
+            'Athletic Scholarship' => ['certificate_of_grades', 'certificate_of_adviser'],
+            'Differently Abled Persons', 'Open Heart Scholarship', 'Talamayan Scholarship' => ['uploads'],
+            'Campus Student Publication' => ['uploads'],
+            'CSU Aparri Alumni Association' => ['uploads'],
+            default => [],
+        };
+
+        return ['groups' => $groups, 'count' => 0, 'labels' => []];
     }
 
     public function store(Request $request)
@@ -248,6 +312,13 @@ class StudentProfileController extends Controller
                 [$resolvedName, $resolvedType] = $this->resolveScholarshipMetadata($selectedScholarship);
                 $data['scholarship_name'] = $resolvedName;
                 $data['scholarship_type'] = $resolvedType;
+            } elseif (!$isAcademic) {
+                $legacyType = $this->resolveLegacyScholarshipType(trim((string) $data['scholarship_name']));
+                if ($legacyType === null) {
+                    return redirect()->back()->with('error', 'The selected scholarship could not be found. Please choose a valid scholarship.')->withInput();
+                }
+                $data['scholarship_name'] = trim((string) $data['scholarship_name']);
+                $data['scholarship_type'] = $legacyType;
             }
 
             $requestProfileId = $request->input('student_profile_id') ?: $request->input('profile_id');
@@ -485,6 +556,46 @@ class StudentProfileController extends Controller
                 $data[$reviewColumn] = !empty($mergedReviews) ? $mergedReviews : null;
             }
 
+            $reviewColumn = Schema::hasColumn('student_profiles', 'document_review') ? 'document_review' : 'document_reviews';
+            $requiredDocuments = $this->requiredDocumentRules($selectedScholarship, $isAcademic, $data['scholarship_name']);
+            $documentReviews = is_array($data[$reviewColumn] ?? null) ? $data[$reviewColumn] : [];
+            $missingGroups = collect($requiredDocuments['groups'])
+                ->filter(function ($group) use ($data, $documentReviews) {
+                    $storageGroup = $group === 'uploads' ? 'certificate_of_grades' : $group;
+                    return $this->countUsableDocuments([
+                        $storageGroup => $data['uploads'][$storageGroup] ?? [],
+                    ], $documentReviews) === 0;
+                })
+                ->values()
+                ->all();
+            $usableDocumentCount = $this->countUsableDocuments($data['uploads'], $documentReviews);
+            $missingConfiguredDocuments = $requiredDocuments['count'] > $usableDocumentCount;
+
+            if (!empty($missingGroups) || $missingConfiguredDocuments) {
+                foreach ($uploaded as $files) {
+                    foreach ((array) $files as $path) {
+                        if (is_string($path) && Storage::disk('local')->exists($path)) {
+                            Storage::disk('local')->delete($path);
+                        }
+                    }
+                }
+
+                $missingLabels = array_map(fn ($group) => match ($group) {
+                    'certificate_of_grades' => 'Certificate of Grades',
+                    'certificate_of_enrollment' => 'Certificate of Enrollment',
+                    'certificate_of_adviser' => 'Certificate of Adviser',
+                    'uploads' => 'Required scholarship upload',
+                    default => $group,
+                }, $missingGroups);
+                $message = !empty($missingLabels)
+                    ? 'Please upload the required documents: ' . implode(', ', $missingLabels) . '.'
+                    : "Please upload all required documents before submitting. {$usableDocumentCount}/{$requiredDocuments['count']} provided.";
+
+                return redirect()->back()
+                    ->with('error', $message)
+                    ->withInput();
+            }
+
             // Wrap profile + scholarship + application creation in a DB transaction
             // Also check for an existing Application for this user + scholarship_id
             try {
@@ -494,26 +605,29 @@ class StudentProfileController extends Controller
                     ? Scholarship::find($selectedScholarshipId)
                     : Scholarship::where('name', trim((string) $data['scholarship_name']))->first();
 
-                if (!$scholarship && !empty($data['scholarship_name'])) {
-                    $scholarship = Scholarship::firstOrCreate(
-                        ['name' => $data['scholarship_name']],
-                        ['type' => $data['grant_type']]
-                    );
-                }
+                $isLegacyScholarship = !$scholarship && !$isAcademic;
 
-                if (!$scholarship) {
+                if (!$scholarship && !$isLegacyScholarship) {
                     DB::rollBack();
                     return redirect()->back()->with('error', 'The selected scholarship could not be found. Please choose a valid scholarship.')->withInput();
                 }
 
-                [$resolvedName, $resolvedType] = $this->resolveScholarshipMetadata($scholarship);
-                $data['scholarship_name'] = $resolvedName;
-                $data['scholarship_type'] = $resolvedType;
+                if ($scholarship && $scholarship->status !== 'active') {
+                    DB::rollBack();
+                    return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
+                        ->with('error', 'This scholarship is currently unavailable and is not accepting new applications.');
+                }
+
+                if ($scholarship) {
+                    [$resolvedName, $resolvedType] = $this->resolveScholarshipMetadata($scholarship);
+                    $data['scholarship_name'] = $resolvedName;
+                    $data['scholarship_type'] = $resolvedType;
+                }
 
                 // Serialize application checks per user so concurrent submissions cannot bypass limits.
                 User::whereKey($user->id)->lockForUpdate()->first();
 
-                $isAcademicScholarship = $scholarship->type === 'academic';
+                $isAcademicScholarship = $scholarship?->type === 'academic';
 
                 if ($isAcademicScholarship !== $isAcademic) {
                     DB::rollBack();
@@ -529,7 +643,7 @@ class StudentProfileController extends Controller
                         ->first();
                 }
 
-                if (!$existingApp) {
+                if (!$existingApp && $scholarship) {
                     $existingApp = Application::where('user_id', $user->id)
                         ->where('scholarship_id', $scholarship->id)
                         ->where(function ($query) use ($previousProfile) {
@@ -538,6 +652,13 @@ class StudentProfileController extends Controller
                                 $query->orWhere('applications.id', $previousProfile->application_id);
                             }
                         })
+                        ->first();
+                }
+
+                if (!$existingApp && $isLegacyScholarship && $previousProfile?->application_id) {
+                    $existingApp = Application::whereKey($previousProfile->application_id)
+                        ->where('user_id', $user->id)
+                        ->whereNull('scholarship_id')
                         ->first();
                 }
 
@@ -594,7 +715,7 @@ class StudentProfileController extends Controller
                 } else {
                     $application = Application::create([
                         'user_id' => $user->id,
-                        'scholarship_id' => $scholarship->id,
+                        'scholarship_id' => $scholarship?->id,
                         'status' => 'pending',
                     ]);
 
@@ -613,7 +734,7 @@ class StudentProfileController extends Controller
                 Log::info('Student profile created successfully', [
                     'profile_id' => $profile->id,
                     'user_id' => $profile->user_id,
-                    'scholarship_id' => $scholarship->id,
+                    'scholarship_id' => $scholarship?->id,
                     'email' => $profile->email,
                     'fileCount' => count($uploaded)
                 ]);

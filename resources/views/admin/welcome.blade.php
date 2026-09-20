@@ -4,115 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-
     <title>Admin Dashboard — CSU GMS</title>
-
-<link rel="stylesheet" href="{{ asset('css/admin.css') }}">  
-        <style>
-        .topbar-right .btn {
-            margin-right: 4px;
-        }
-
-        #admin-table-container .old-grants-pagination svg {
-            width: 1rem;
-            height: 1rem;
-        }
+    <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+    <style>
+        .topbar-right .btn { margin-right: 4px; }
+        #admin-table-container .old-grants-pagination svg { width: 1rem; height: 1rem; }
     </style>
-    </head>
+</head>
 <body>
-    <div class="sidebar" id="adminSidebar">
-    <a href="/admin" class="sidebar-logo">
-        <div class="logo-img">
-            <img src="{{ asset('images/csua-nobg.png') }}" alt="CSU Logo">
-        </div>
-        <div class="logo-text">
-            <h2>CSU Grants</h2>
-            <p>Management System</p>
-        </div>
-    </a>
-
-    
-    <nav class="sidebar-nav">
-
-        <div class="nav-label">Main</div>
-
-        <a href="/admin"
-           class="nav-item ">
-            <span class="nav-icon"></span> Dashboard
-        </a>
-
-        <div class="nav-label">Grants</div>
-
-        <a href="/admin/academic"
-           class="nav-item ">
-            <span class="nav-icon"></span> Academic Grants
-            <span class="nav-badge">0</span>
-        </a>
-
-        <a href="/admin/non-academic"
-           class="nav-item ">
-            <span class="nav-icon"></span> Non-Academic
-            <span class="nav-badge">0</span>
-        </a>
-
-        <div style="margin-top: 12px; padding-left: 12px; font-size: 13px; color: #666; font-weight: 500;">Old Grants</div>
-
-        <a href="/admin/old-academic"
-           class="nav-item ">
-            <span class="nav-icon"></span> Old Academic Grants
-        </a>
-
-        <a href="/admin/old-non-academic"
-           class="nav-item ">
-            <span class="nav-icon"></span> Old Non-Academic Grants
-        </a>
-
-        
-      
-
-        
-                    <div class="nav-label">Administration</div>
-
-            <a href="/admin"
-               class="nav-item ">
-                <span class="nav-icon"></span> Summary of Reports
-                <span class="nav-badge">0</span>
-            </a>
-
-
-            <a href="/admin/users"
-               class="nav-item ">
-                <span class="nav-icon"></span> Users
-            </a>
-
-            <a href="/admin/settings"
-               class="nav-item ">
-                <span class="nav-icon"></span>Settings
-            </a>
-
-            <form id="logoutForm" method="POST" action="{{ route('logout') }}" style="margin:0;">
-                @csrf
-                <button id="adminLogoutBtn" type="submit" class="nav-item" data-logout-url="{{ route('logout') }}" style="background:none;border:none;padding:12px 16px;text-align:left;width:100%;cursor:pointer;"> 
-                    <span class="nav-icon"></span>Logout
-                </button>
-            </form>
-
-        
-       
-
-       
-    </nav>
-    <div class="sidebar-user">
-        <div class="u-avatar">
-            SA
-        </div>
-        <div>
-            <div class="u-name">System Administrator</div>
-            <div class="u-role">Admin · Aparri</div>
-        </div>
-   
-    </div>
-</div>
+    @include('admin.partials.sidebar')
     <div class="main" id="adminMain">
         <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
             <span class="hamburger-icon"></span>
@@ -310,10 +210,10 @@
                 </div>
             </div>
             <div id="profileBody">Loading...</div>
-            <div class="academic-form-actions profile-pagination">
-                <button type="button" class="academic-nav-btn" id="profilePrevious">← Previous</button>
-                <span id="profilePageCounter">1 / 3</span>
-                <button type="button" class="academic-nav-btn" id="profileNext">Next →</button>
+            <div class="academic-form-actions profile-pagination" aria-label="Applicant profile pages">
+                <button type="button" class="academic-nav-btn" id="profilePrevious" aria-label="Previous applicant profile page">← Previous</button>
+                <span id="profilePageCounter" aria-live="polite">1 / 3</span>
+                <button type="button" class="academic-nav-btn" id="profileNext" aria-label="Next applicant profile page">Next →</button>
             </div>
         </div>
     </div>

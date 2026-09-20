@@ -6,6 +6,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OldGrantController;
 use App\Http\Controllers\BackupSettingsController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\ScholarshipController;
 use App\Models\StudentProfile;
 use App\Models\Application;
 use App\Models\Scholarship;
@@ -24,6 +25,7 @@ Route::get('/', function () {
 // Student dashboard view - requires auth and email verification
 // From: app/Http/Controllers/StudentProfileController (display route)
 Route::get('/dashboard', function () {
+    $section = request()->query('section', 'acad');
     $appliedScholarships = [];
     $activeAcademicApplications = 0;
     $activeNonAcademicApplications = 0;
@@ -76,8 +78,13 @@ Route::get('/dashboard', function () {
     }
 
     $scholarshipIdMap = Scholarship::pluck('id', 'name')->toArray();
+    $dynamicScholarships = Scholarship::whereIn('status', ['active', 'inactive'])
+        ->whereNotNull('short_information')
+        ->where('type', $section === 'non' ? 'non-academic' : 'academic')
+        ->orderBy('name')
+        ->get();
 
-    return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications', 'scholarshipIdMap'));
+    return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications', 'scholarshipIdMap', 'dynamicScholarships'));
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::get('/application-status', [StudentProfileController::class, 'applicationStatus'])
@@ -93,6 +100,16 @@ Route::get('/admin/academic', [AdminController::class, 'academicDashboard'])->mi
 
 // Admin dashboard filtered by non-academic grants
 Route::get('/admin/non-academic', [AdminController::class, 'nonAcademicDashboard'])->middleware(['auth', 'verified', 'admin'])->name('admin.non_academic');
+
+// Admin scholarship creation
+Route::middleware(['auth', 'verified', 'admin'])->group(function () {
+    Route::get('/admin/scholarships/create', [ScholarshipController::class, 'create'])->name('admin.scholarships.create');
+    Route::post('/admin/scholarships', [ScholarshipController::class, 'store'])->name('admin.scholarships.store');
+    Route::get('/admin/scholarships/{scholarship}/edit', [ScholarshipController::class, 'edit'])->name('admin.scholarships.edit');
+    Route::put('/admin/scholarships/{scholarship}', [ScholarshipController::class, 'update'])->name('admin.scholarships.update');
+    Route::patch('/admin/scholarships/{scholarship}/status', [ScholarshipController::class, 'updateStatus'])->name('admin.scholarships.status');
+    Route::delete('/admin/scholarships/{scholarship}', [ScholarshipController::class, 'destroy'])->name('admin.scholarships.destroy');
+});
 
 // Old Grants routes
 Route::get('/admin/old-academic', [OldGrantController::class, 'academicGrants'])->middleware(['auth', 'verified', 'admin'])->name('admin.old_academic');

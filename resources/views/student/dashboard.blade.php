@@ -133,7 +133,29 @@
     </div>
     <!-- Academic Page 1 -->
     <div class="card-grid page-set active" id="acad-p1">
-        <div class="s-card" data-name="cagayan valley association hawaii internationally funded" data-description=" The Cagayan Valley Association of Hawaii (CVAH) Internationally Funded Scholarship is an academic grant program established through a partnership with Cagayan State University (CSU). It provides financial assistance to deserving students in Cagayan Valley, Philippines.
+        @foreach($dynamicScholarships ?? [] as $scholarship)
+            <div class="s-card {{ $scholarship->status === 'inactive' ? 'card-unavailable' : '' }}" data-name="{{ strtolower($scholarship->name . ' ' . ($scholarship->type_label ?? '') . ' ' . ($scholarship->funding_type ?? '') . ' ' . ($scholarship->scholarship_classification ?? '')) }}" data-description="{{ $scholarship->description }}@if($scholarship->requirements) Eligibility Requirements @foreach($scholarship->requirements as $requirement) *{{ $requirement }} @endforeach @endif" data-image="{{ $scholarship->logo_path ? Storage::url($scholarship->logo_path) : '' }}" data-scholarship-id="{{ $scholarship->id }}" data-scholarship-type="{{ $scholarship->type_label }}" data-required-documents='@json($scholarship->required_documents ?? [])'>
+                <div class="card-head">
+                    <div class="card-icon"><img src="{{ $scholarship->logo_path ? Storage::url($scholarship->logo_path) : asset('images/csu.logo.png') }}" alt="{{ $scholarship->name }} logo"></div>
+                    <div class="card-names">
+                        <h3>{{ $scholarship->name }}</h3>
+                        <p class="prog">{{ $scholarship->type_label ?: 'Scholarship' }}</p>
+                        <span class="type-tag tag-intl">{{ $scholarship->funding_type ?: 'Not specified' }}</span>
+                    </div>
+                </div>
+                <div class="card-meta-row"><span class="meta-chip"><span class="dot"></span>{{ $scholarship->scholarship_classification ?: 'Not specified' }}</span></div>
+                <p class="card-desc">{{ $scholarship->short_information }}</p>
+                <div class="card-foot">
+                    @if($scholarship->status === 'inactive')
+                        <div class="unavailable-text">UNAVAILABLE</div>
+                        <a href="#" class="btn-apply" aria-disabled="true" tabindex="-1">UNAVAILABLE</a>
+                    @else
+                        <a href="#" class="btn-apply">VIEW &amp; APPLY</a>
+                    @endif
+                </div>
+            </div>
+        @endforeach
+        <div class="s-card" data-name="cagayan valley association hawaii internationally funded" data-scholarship-id="{{ $scholarshipIdMap['Cagayan Valley Assoc. of Hawaii'] ?? '' }}" data-scholarship-type="International Educational Grant" data-grant-type="academic" data-description=" The Cagayan Valley Association of Hawaii (CVAH) Internationally Funded Scholarship is an academic grant program established through a partnership with Cagayan State University (CSU). It provides financial assistance to deserving students in Cagayan Valley, Philippines.
 
 Launched in 2017 through an agreement between CVAH President Engr. Roger A. Urbi and CSU, the program initially supported students at CSU-Carig Campus and later expanded to other campuses such as CSU Tuguegarao. Funded by the Filipino diaspora community in Hawaii, USA, it aims to help undergraduate students meet their educational expenses.
   
@@ -167,7 +189,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="university based scholarship academic inhouse" data-description="The University Based Scholarship recognizes students with outstanding academic performance throughout the school year and provides financial assistance to help them continue their studies.">
+        <div class="s-card" data-name="university based scholarship academic inhouse" data-scholarship-id="{{ $scholarshipIdMap['University Based Scholarship'] ?? '' }}" data-scholarship-type="Academic Excellence – In-House" data-grant-type="academic" data-description="The University Based Scholarship recognizes students with outstanding academic performance throughout the school year and provides financial assistance to help them continue their studies.">
             <div class="card-head">
                 <div class="card-icon">  <img src="{{ asset('images/csu.logo.png') }}" alt="CsuLogo"></div>
                 <div class="card-names">
@@ -186,7 +208,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="acef giahep government locally funded" data-description="The  ACEF-GIAHEP (Agricultural Competitiveness Enhancement Fund Grants-in-Aid for Higher Education Program) is a joint financial assistance program by the Commission on Higher Education and the Department of Agriculture designed to support undergraduate students pursuing degrees in agriculture, forestry, fisheries, and veterinary medicine
+        <div class="s-card" data-name="acef giahep government locally funded" data-scholarship-id="{{ $scholarshipIdMap['ACEF – GIAHEP'] ?? '' }}" data-scholarship-type="Agricultural Credit & Education Fund" data-grant-type="academic" data-description="The  ACEF-GIAHEP (Agricultural Competitiveness Enhancement Fund Grants-in-Aid for Higher Education Program) is a joint financial assistance program by the Commission on Higher Education and the Department of Agriculture designed to support undergraduate students pursuing degrees in agriculture, forestry, fisheries, and veterinary medicine
         More info visits:https://acef.da.gov.ph/
     
         Qualifications
@@ -423,6 +445,28 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
     </div>
     <!-- Non-Academic Page 1 -->
     <div class="card-grid page-set active" id="non-p1">
+        @foreach($dynamicScholarships ?? [] as $scholarship)
+            <div class="s-card {{ $scholarship->status === 'inactive' ? 'card-unavailable' : '' }}" data-name="{{ strtolower($scholarship->name . ' ' . ($scholarship->type_label ?? '') . ' ' . ($scholarship->funding_type ?? '') . ' ' . ($scholarship->scholarship_classification ?? '')) }}" data-description="{{ $scholarship->description }}@if($scholarship->requirements) Eligibility Requirements @foreach($scholarship->requirements as $requirement) *{{ $requirement }} @endforeach @endif" data-image="{{ $scholarship->logo_path ? Storage::url($scholarship->logo_path) : '' }}" data-scholarship-id="{{ $scholarship->id }}" data-scholarship-type="{{ $scholarship->type_label }}" data-required-documents='@json($scholarship->required_documents ?? [])'>
+                <div class="card-head">
+                    <div class="card-icon"><img src="{{ $scholarship->logo_path ? Storage::url($scholarship->logo_path) : asset('images/csu.logo.png') }}" alt="{{ $scholarship->name }} logo"></div>
+                    <div class="card-names">
+                        <h3>{{ $scholarship->name }}</h3>
+                        <p class="prog">{{ $scholarship->type_label ?: 'Scholarship' }}</p>
+                        <span class="type-tag tag-intl">{{ $scholarship->funding_type ?: 'Not specified' }}</span>
+                    </div>
+                </div>
+                <div class="card-meta-row"><span class="meta-chip"><span class="dot"></span>{{ $scholarship->scholarship_classification ?: 'Not specified' }}</span></div>
+                <p class="card-desc">{{ $scholarship->short_information }}</p>
+                <div class="card-foot">
+                    @if($scholarship->status === 'inactive')
+                        <div class="unavailable-text">UNAVAILABLE</div>
+                        <a href="#" class="btn-apply" aria-disabled="true" tabindex="-1">UNAVAILABLE</a>
+                    @else
+                        <a href="#" class="btn-apply">VIEW &amp; APPLY</a>
+                    @endif
+                </div>
+            </div>
+        @endforeach
         <div class="s-card" data-name="athletic scholarship sports inhouse" data-description="The Athletic Scholarship recognizes student athletes who represent CSU Aparri in regional and national competitions and provides support for their studies and training.">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/athletic scholarship.logo.png') }}" alt="LGU lasam logo"></div>
@@ -827,6 +871,11 @@ More info: https://unifaast.gov.ph/tes.html"
                         <h4><b>Eligibility Requirements</b></h4>
                         <ul id="detailsScholarshipRequirements" class="detail-requirements"></ul>
                     </div>
+
+                    <div class="detail-section">
+                        <h4><b>Required Documents</b></h4>
+                        <ul id="detailsScholarshipDocuments" class="detail-requirements"></ul>
+                    </div>
                 </div>
             </div>
 
@@ -919,33 +968,12 @@ More info: https://unifaast.gov.ph/tes.html"
                         <input class="input" type="text" name="last_name" value="{{ $lastNameDefault }}" required>
                     </div>
                     <div>
-                        <label>Sex</label>
-                        <select name="sex" class="input" required>
-                            <option value="">Select</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Status</label>
-                        <select name="status" class="input" required>
-                            <option value="">Select</option>
-                            <option>Single</option>
-                            <option>Married</option>
-
-                        </select>
-                    </div>
-                    <div>
                         <label>Email address</label>
                         <input class="input email-readonly" type="email" name="email" value="{{ $emailDefault }}" readonly aria-readonly="true" title="Verified account email" required>
                     </div>
                     <div>
                         <label>Student ID Number</label>
                         <input class="input" type="text" name="student_id_number" value="{{ $studentIdDefault }}">
-                    </div>
-                    <div>
-                        <label>Contact number</label>
-                        <input class="input" type="text" name="contact_number">
                     </div>
                     <div>
                         <label>Course</label>
@@ -973,6 +1001,26 @@ More info: https://unifaast.gov.ph/tes.html"
                 </div>
 
                 <div class="apply-row academic-step-panel" data-non-academic-step="2">
+                    <div>
+                        <label>Sex</label>
+                        <select name="sex" class="input" required>
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Status</label>
+                        <select name="status" class="input" required>
+                            <option value="">Select</option>
+                            <option>Single</option>
+                            <option>Married</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Contact number</label>
+                        <input class="input" type="text" name="contact_number">
+                    </div>
                     <div class="full">
                         <label>Home address</label>
                         <textarea name="home_address" class="input" rows="2"></textarea>
@@ -982,12 +1030,12 @@ More info: https://unifaast.gov.ph/tes.html"
                 <div class="apply-row academic-step-panel" data-non-academic-step="3">
                     <div>
                         <label>Name of scholarship</label>
-                        <input id="scholarship_name" name="scholarship_name" class="input" type="text" value="" required>
+                        <input id="scholarship_name" name="scholarship_name" class="input" type="text" value="" required readonly>
                         <input type="hidden" id="scholarship_id" name="scholarship_id" value="">
                     </div>
                     <div>
                         <label>Types of scholarship</label>
-                        <input id="scholarship_type" name="scholarship_type" class="input" type="text" value="" required>
+                        <input id="scholarship_type" name="scholarship_type" class="input" type="text" value="" required readonly>
                     </div>
                     <div class="full">
                         <label>Upload files</label>
@@ -1204,12 +1252,12 @@ More info: https://unifaast.gov.ph/tes.html"
                 <div class="apply-row academic-step-panel" data-academic-step="3">
                     <div class="full">
                         <label>Name of Scholarship / Sponsor</label>
-                        <input id="academic_scholarship_name" name="scholarship_name" class="input" type="text" value="" required>
+                        <input id="academic_scholarship_name" name="scholarship_name" class="input" type="text" value="" required readonly>
                         <input type="hidden" id="academic_scholarship_id" name="scholarship_id" value="">
                     </div>
                     <div class="full">
                         <label>Types of Scholarship</label>
-                        <input id="academic_scholarship_type" name="scholarship_type" class="input" type="text" value="" required>
+                        <input id="academic_scholarship_type" name="scholarship_type" class="input" type="text" value="" required readonly>
                     </div>
                     <div class="full">
                         <label>Upload files</label>
@@ -1312,6 +1360,11 @@ More info: https://unifaast.gov.ph/tes.html"
 
     // Validate files on form submission
     document.getElementById('applyForm').addEventListener('submit', function(e) {
+            if (!validateRequiredDocumentsForForm(this)) {
+                e.preventDefault();
+                return false;
+            }
+
       // Allow submission if flag is set
       if (allowSubmit) {
         allowSubmit = false;
@@ -1392,6 +1445,11 @@ More info: https://unifaast.gov.ph/tes.html"
     });
      //error message
     document.getElementById('academicApplyForm').addEventListener('submit', function(e) {
+            if (!validateRequiredDocumentsForForm(this)) {
+                e.preventDefault();
+                return false;
+            }
+
       if (allowSubmit) {
         allowSubmit = false;
         return true;

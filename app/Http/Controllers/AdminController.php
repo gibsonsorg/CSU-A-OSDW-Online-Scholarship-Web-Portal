@@ -147,9 +147,9 @@ class AdminController extends Controller
             })
             ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
             ->select('student_profiles.*')
-            ->orderByDesc('applications.created_at')
-            ->orderByDesc('applications.id')
-            ->orderByDesc('student_profiles.id');
+            ->orderBy('applications.created_at')
+            ->orderBy('applications.id')
+            ->orderBy('student_profiles.id');
 
         return $query->paginate(10)->withQueryString();
     }
@@ -612,12 +612,6 @@ class AdminController extends Controller
     private function syncApplicationRecord(StudentProfile $profile, string $status): void
     {
         if (!$profile->user_id || !$profile->scholarship_name) {
-            return;
-        }
-
-        $scholarship = Scholarship::where('name', $profile->scholarship_name)->first();
-
-        if (!$scholarship) {
             return;
         }
 

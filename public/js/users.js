@@ -137,7 +137,7 @@ function prepareReapplication(title, modalType) {
     preserveDisabledFields(personalFields, sectionStatus.personal === 'rejected');
     ['scholarship_name', 'scholarship_type', 'scholarship_id'].forEach(name => {
         const input = form.querySelector(`[name="${name}"]`);
-        if (input && name !== 'scholarship_id') input.readOnly = sectionStatus.requirements !== 'rejected';
+        if (input && name !== 'scholarship_id') input.readOnly = true;
     });
 
     const sectionPanels = form.querySelectorAll('.academic-step-panel');
@@ -172,7 +172,9 @@ function prepareReapplication(title, modalType) {
 
     form.querySelectorAll('input[type="file"]').forEach(input => input.required = false);
     if (rejectedGroups.has('certificate_of_grades') || rejectedGroups.has('grades') || rejectedGroups.has('uploads')) {
-        const input = form.querySelector('[name="uploads[]"]');
+        const input = form.querySelector(modalType === 'academic'
+            ? '#academicFileInput'
+            : '#nonAcademicUploadsInput');
         if (input) input.required = true;
     }
     if (rejectedGroups.has('certificate_of_enrollment') || rejectedGroups.has('enrollment')) {
@@ -254,6 +256,7 @@ function openScholarshipDetailsModal(title, description, modalType = 'non', card
     const imageEl = document.getElementById('detailsScholarshipImage');
     const descEl = document.getElementById('detailsScholarshipDescription');
     const requirementsEl = document.getElementById('detailsScholarshipRequirements');
+    const documentsEl = document.getElementById('detailsScholarshipDocuments');
 
     if (modal && titleEl && descEl) {
         const details = parseScholarshipDetails(description);
@@ -279,6 +282,17 @@ function openScholarshipDetailsModal(title, description, modalType = 'non', card
                 li.textContent = 'No specific requirements are listed for this scholarship yet.';
                 requirementsEl.appendChild(li);
             }
+        }
+
+        if (documentsEl) {
+            let documents = [];
+            try { documents = JSON.parse(card?.dataset.requiredDocuments || '[]'); } catch (error) { documents = []; }
+            documentsEl.innerHTML = '';
+            (documents.length ? documents : ['No specific documents are listed for this scholarship yet.']).forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                documentsEl.appendChild(li);
+            });
         }
 
         if (subtitleEl) {
@@ -340,6 +354,43 @@ function closeAcademicErrorPopup() {
 
 function closeAcademicSuccessPopup() {
     document.getElementById('academicSuccessPopup').style.display = 'none';
+}
+
+function validateRequiredDocumentsForForm(form) {
+    if (!form || form.dataset.reapplicationActive) return true;
+
+    let groups = [];
+    let configuredDocuments = [];
+    try { groups = JSON.parse(form.dataset.requiredDocumentGroups || '[]'); } catch (error) { groups = []; }
+    try { configuredDocuments = JSON.parse(form.dataset.requiredDocuments || '[]'); } catch (error) { configuredDocuments = []; }
+
+    const filesFor = (selector) => Array.from(form.querySelectorAll(selector))
+        .reduce((files, input) => files.concat(Array.from(input.files || [])), []);
+    const groupInputs = {
+        certificate_of_grades: '[name="uploads[]"]',
+        certificate_of_enrollment: '[name="certificate_of_enrollment"]',
+        certificate_of_adviser: '[name="certificate_of_adviser"]',
+        certificate_of_sports_coordinator: '[name="certificate_of_sports_coordinator"]',
+    };
+    const labels = {
+        certificate_of_grades: 'Certificate of Grades',
+        certificate_of_enrollment: 'Certificate of Enrollment',
+        certificate_of_adviser: 'Certificate of Adviser',
+        certificate_of_sports_coordinator: 'Certificate from Sports Coordinator',
+        uploads: 'Required scholarship upload',
+    };
+    const missing = groups.filter(group => filesFor(groupInputs[group] || `[name="${group}"]`).length === 0);
+    const allFiles = filesFor('input[type="file"]');
+
+    if (missing.length > 0 || (groups.length === 0 && configuredDocuments.length > allFiles.length)) {
+        const message = missing.length > 0
+            ? `Please upload the required documents: ${missing.map(group => labels[group] || group).join(', ')}.`
+            : `Please upload all required documents before submitting. ${allFiles.length}/${configuredDocuments.length} provided.`;
+        Swal.fire({ icon: 'error', title: 'Required documents missing', text: message, confirmButtonColor: '#dc2626' });
+        return false;
+    }
+
+    return true;
 }
 
 function submitAcademicForm() {
@@ -483,21 +534,62 @@ function validateAcademicCurrentStep() {
     return true;
 }
 
+function validateNonAcademicCurrentStep() {
+    const form = document.getElementById('applyForm');
+    if (!form) return true;
+
+    const currentStep = Number(form.dataset.nonAcademicStep || 1);
+    const panel = Array.from(form.querySelectorAll('.academic-step-panel'))
+        .filter(candidate => candidate.dataset.reapplicationHidden !== 'true')[currentStep - 1];
+    if (!panel) return true;
+
+    const requiredFields = panel.querySelectorAll('input[required], select[required], textarea[required]');
+
+    for (const field of requiredFields) {
+        if (!field.checkValidity()) {
+            field.reportValidity();
+            field.focus();
+            return false;
+        }
+    }
+
+    return true;
+}
+
 document.addEventListener('DOMContentLoaded', function(){
     const scholarshipIdMap = window.scholarshipIdMap || {};
-    const setSelectedScholarship = (title, map, hiddenIdField, nameField, typeField) => {
-        if (!title || !map[title]) {
+    const setSelectedScholarship = (title, map, hiddenIdField, nameField, typeField, card) => {
+        const selected = title && (map[title] || {
+            name: title,
+            type: card?.dataset.scholarshipType || card?.querySelector('.card-names .prog')?.textContent?.trim() || '',
+        });
+
+        if (!selected) {
             if (hiddenIdField) hiddenIdField.value = '';
             return;
         }
 
-        const selectedName = map[title].name;
-        const selectedType = map[title].type;
+        const selectedName = selected.name;
+        const selectedType = selected.type;
         if (nameField) nameField.value = selectedName;
         if (typeField) typeField.value = selectedType;
         if (hiddenIdField) {
-            hiddenIdField.value = scholarshipIdMap[selectedName] || '';
+            hiddenIdField.value = card?.dataset.scholarshipId || scholarshipIdMap[selectedName] || '';
         }
+
+        const form = hiddenIdField?.form;
+        if (form) form.dataset.requiredDocuments = card?.dataset.requiredDocuments || '[]';
+        if (form) form.dataset.requiredDocumentGroups = JSON.stringify(
+            (map === academicScholarshipMap && selectedName === 'University Based Scholarship')
+                ? ['certificate_of_grades', 'certificate_of_enrollment']
+                : (map === academicScholarshipMap
+                    ? ['certificate_of_grades']
+                    : (selectedName === 'Athletic Scholarship'
+                                ? ['certificate_of_sports_coordinator', 'certificate_of_adviser']
+                                : (['Differently Abled Persons', 'Open Heart Scholarship', 'Talamayan Scholarship', 'Campus Student Publication', 'CSU Aparri Alumni Association'].includes(selectedName)
+                                    ? ['uploads']
+                                    : [])))
+        );
     };
 
     const academicForm = document.getElementById('academicApplyForm');
@@ -566,7 +658,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 e.preventDefault();
                 const current = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
                 const totalSteps = nonAcademicForm.querySelectorAll('.academic-step-panel:not([data-reapplication-hidden="true"])').length || 3;
-                if (current < totalSteps) {
+                if (current < totalSteps && validateNonAcademicCurrentStep()) {
                     updateNonAcademicStepUI(current + 1);
                 }
             });
@@ -627,7 +719,7 @@ document.addEventListener('DOMContentLoaded', function(){
             if (scholarshipIdInput) scholarshipIdInput.value = '';
 
             if (title) {
-                setSelectedScholarship(title, academicScholarshipMap, scholarshipIdInput, nameInput, typeInput);
+                setSelectedScholarship(title, academicScholarshipMap, scholarshipIdInput, nameInput, typeInput, card);
             }
 
             const enrollmentSection = document.getElementById('academicEnrollmentSection');
@@ -655,7 +747,7 @@ document.addEventListener('DOMContentLoaded', function(){
             if (scholarshipIdInput) scholarshipIdInput.value = '';
 
             if (title) {
-                setSelectedScholarship(title, nonAcademicScholarshipMap, scholarshipIdInput, nameInput, typeInput);
+                setSelectedScholarship(title, nonAcademicScholarshipMap, scholarshipIdInput, nameInput, typeInput, card);
             }
 
             // Show ID label for Open Heart and Talamayan only
@@ -801,11 +893,35 @@ document.addEventListener('DOMContentLoaded', function(){
                 return true;
             }
 
-            const fileInput = academicSubmitForm.querySelector('input[name="uploads[]"]');
-            const files = fileInput.files;
+            const files = Array.from(academicSubmitForm.querySelectorAll('input[type="file"]'))
+                .reduce((allFiles, input) => allFiles.concat(Array.from(input.files || [])), []);
+
+            if (!validateRequiredDocumentsForForm(academicSubmitForm)) {
+                e.preventDefault();
+                return false;
+            }
+
+            let requiredDocuments = [];
+            try { requiredDocuments = JSON.parse(academicSubmitForm.dataset.requiredDocuments || '[]'); } catch (error) { requiredDocuments = []; }
+            if (!academicSubmitForm.dataset.reapplicationActive && requiredDocuments.length > files.length) {
+                e.preventDefault();
+                Swal.fire({ icon: 'error', title: 'Required documents missing', text: `Please upload all required documents before submitting. ${files.length}/${requiredDocuments.length} provided.`, confirmButtonColor: '#dc2626' });
+                return false;
+            }
 
             if (files.length === 0) {
                 allowSubmitAcademic = true;
+                return true;
+            }
+
+            const hasAcademicValidationPopups = [
+                'academicErrorMessage',
+                'academicErrorPopup',
+                'academicSuccessMessage',
+                'academicSuccessPopup'
+            ].every(id => document.getElementById(id));
+
+            if (!hasAcademicValidationPopups) {
                 return true;
             }
 
@@ -877,13 +993,19 @@ document.addEventListener('DOMContentLoaded', function(){
     }
 });
 
-confirmYesBtn.addEventListener('click',function()
-{
- if (confirmResolve) confirmResolve(true);
-  closeConfirm();
-});
+const confirmYesBtn = document.getElementById('confirmYesBtn');
+const confirmCancelBtn = document.getElementById('confirmCancelBtn');
 
-confirmCancelBtn.addEventListener('click',function()
-{
-if (confirmResolve) comfirmResolve(false);
-});
+if (confirmYesBtn) {
+    confirmYesBtn.addEventListener('click', function () {
+        if (typeof confirmResolve === 'function') confirmResolve(true);
+        if (typeof closeConfirm === 'function') closeConfirm();
+    });
+}
+
+if (confirmCancelBtn) {
+    confirmCancelBtn.addEventListener('click', function () {
+        if (typeof confirmResolve === 'function') confirmResolve(false);
+        if (typeof closeConfirm === 'function') closeConfirm();
+    });
+}
