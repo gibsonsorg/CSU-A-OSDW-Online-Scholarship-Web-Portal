@@ -11,6 +11,23 @@ class AcademicScholarshipCatalogSeeder extends Seeder
     {
         $scholarships = [
             [
+                'name' => 'Cagayan Valley Assoc. of Hawaii',
+                'type' => 'academic',
+                'type_label' => 'International Educational Grant',
+                'funding_type' => 'Internationally Funded',
+                'scholarship_classification' => 'Academic',
+                'description' => 'The Cagayan Valley Association of Hawaii (CVAH) Internationally Funded Scholarship is an academic grant program established through a partnership with Cagayan State University (CSU). It provides financial assistance to deserving students in Cagayan Valley, Philippines.\n\nLaunched in 2017 through an agreement between CVAH President Engr. Roger A. Urbi and CSU, the program initially supported students at CSU-Carig Campus and later expanded to other campuses such as CSU Tuguegarao. Funded by the Filipino diaspora community in Hawaii, USA, it aims to help undergraduate students meet their educational expenses.',
+                'requirements' => [
+                    'Must be an officially enrolled undergraduate student at an eligible Cagayan State University campus.',
+                    'Must demonstrate clear financial need.',
+                    'Must maintain the required General Weighted Average (GWA) set by the institutional guidelines for student welfare grants.',
+                    'Must not have any record of severe disciplinary action or academic misconduct within the university.',
+                ],
+                'required_documents' => [],
+                'logo_path' => null,
+                'status' => 'active',
+            ],
+            [
                 'name' => 'DOST SEI Project Strand',
                 'type' => 'academic',
                 'type_label' => 'Graduate School Scholarship',
