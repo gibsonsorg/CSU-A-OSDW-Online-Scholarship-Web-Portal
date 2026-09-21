@@ -82,6 +82,7 @@
         const documents = [
             documentGroup('Certificate of Grades', uploads.certificate_of_grades || uploads.grades, uploads.certificate_of_grades ? 'certificate_of_grades' : 'grades', app.document_review || app.document_reviews),
             documentGroup('Certificate of Enrollment', uploads.certificate_of_enrollment || uploads.enrollment, uploads.certificate_of_enrollment ? 'certificate_of_enrollment' : 'enrollment', app.document_review || app.document_reviews),
+            documentGroup('Certificate from Sports Coordinator', uploads.certificate_of_sports_coordinator || uploads.uploads, 'certificate_of_sports_coordinator', app.document_review || app.document_reviews),
             documentGroup('Uploaded Files', uploads.uploads, 'uploads', app.document_review || app.document_reviews),
             documentGroup('Certificate of Adviser', uploads.certificate_of_adviser, 'certificate_of_adviser', app.document_review || app.document_reviews)
         ].join('');

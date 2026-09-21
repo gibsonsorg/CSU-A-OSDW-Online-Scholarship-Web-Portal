@@ -206,6 +206,7 @@ class StudentProfileController extends Controller
     {
         return [
             'Athletic Scholarship' => 'Sports Excellence Program In-House',
+            'Tulong Dunong Program' => 'Kuya Win Scholarship Program',
             "Employees' Grant" => "Employees' Grant In-House",
             'Socio-Cultural Scholarship' => 'Arts & Culture Program In-House',
             'Campus Student Publication' => 'University Based Scholarship In-House',
@@ -219,13 +220,63 @@ class StudentProfileController extends Controller
         ][$name] ?? null;
     }
 
+    private function findSelectedScholarship(?string $scholarshipId, ?string $scholarshipName): ?Scholarship
+    {
+        if (!empty($scholarshipId)) {
+            return Scholarship::find($scholarshipId);
+        }
+
+        $name = trim((string) ($scholarshipName ?? ''));
+        if ($name === '') {
+            return null;
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', $name);
+        $candidates = [$normalized];
+
+        if (stripos($normalized, 'Tulong Dunong') !== false) {
+            $candidates[] = 'Tulong Dunong Program';
+        }
+
+        foreach ($candidates as $candidate) {
+            $scholarship = Scholarship::whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower(trim((string) $candidate))])->first();
+            if ($scholarship) {
+                return $scholarship;
+            }
+        }
+
+        return Scholarship::where(function ($query) use ($normalized) {
+            $query->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($normalized)])
+                ->orWhereRaw('LOWER(TRIM(name)) LIKE ?', [mb_strtolower($normalized) . '%'])
+                ->orWhereRaw('LOWER(TRIM(name)) LIKE ?', ['%' . mb_strtolower($normalized)]);
+        })->first();
+    }
+
     private function countUsableDocuments($uploads, array $reviews = []): int
     {
         $count = 0;
 
         foreach ((array) $uploads as $group => $files) {
+            $legacyAliases = [$group];
+            if (in_array($group, ['uploads', 'grades'], true)) {
+                $legacyAliases[] = 'certificate_of_grades';
+            }
+            if ($group === 'certificate_of_grades') {
+                $legacyAliases[] = 'uploads';
+                $legacyAliases[] = 'grades';
+            }
+            $legacyAliases = array_values(array_unique($legacyAliases));
+
             foreach ((array) $files as $index => $file) {
-                if (is_string($file) && (($reviews[$group . '.' . $index]['status'] ?? null) !== 'rejected')) {
+                $reviewStatus = null;
+                foreach ($legacyAliases as $alias) {
+                    if (isset($reviews[$alias . '.' . $index]['status'])) {
+                        $reviewStatus = $reviews[$alias . '.' . $index]['status'];
+                        break;
+                    }
+                }
+
+                if (is_string($file) && $reviewStatus !== 'rejected') {
                     $count++;
                 }
             }
@@ -252,7 +303,8 @@ class StudentProfileController extends Controller
         }
 
         $groups = match ($scholarshipName) {
-            'Athletic Scholarship' => ['certificate_of_grades', 'certificate_of_adviser'],
+            'Athletic Scholarship' => ['certificate_of_sports_coordinator', 'certificate_of_adviser'],
+            'Socio-Cultural Scholarship' => ['uploads'],
             'Differently Abled Persons', 'Open Heart Scholarship', 'Talamayan Scholarship' => ['uploads'],
             'Campus Student Publication' => ['uploads'],
             'CSU Aparri Alumni Association' => ['uploads'],
@@ -277,8 +329,8 @@ class StudentProfileController extends Controller
                 'status' => 'required|in:Single,Married,In a Relationship,Divorced',
                 'email' => $isAcademic ? 'nullable|email|max:255' : 'required|email|max:255',
                 'student_id_number' => 'nullable|string|max:255',
-                'home_address' => 'nullable|string',
-                'contact_number' => 'nullable|string|max:50',
+                'home_address' => $isAcademic ? 'nullable|string' : 'required|string',
+                'contact_number' => $isAcademic ? 'nullable|string|max:50' : 'required|string|max:50',
                 'course' => 'required|string',
                 'year_level' => 'required|in:1st Year,2nd Year,3rd Year,4th Year',
                 'scholarship_id' => 'nullable|integer|min:1',
@@ -304,9 +356,7 @@ class StudentProfileController extends Controller
             $data['student_id_number'] = $request->input('student_id_number') ?? $request->input('id_number') ?? $user->student_id ?? null;
 
             $selectedScholarshipId = $request->input('scholarship_id');
-            $selectedScholarship = !empty($selectedScholarshipId)
-                ? Scholarship::find($selectedScholarshipId)
-                : Scholarship::where('name', trim((string) $data['scholarship_name']))->first();
+            $selectedScholarship = $this->findSelectedScholarship($selectedScholarshipId, $data['scholarship_name'] ?? null);
 
             if ($selectedScholarship) {
                 [$resolvedName, $resolvedType] = $this->resolveScholarshipMetadata($selectedScholarship);
@@ -369,8 +419,12 @@ class StudentProfileController extends Controller
                 'certificate_of_enrollment' => $this->collectFilesFromRequest($request, 'certificate_of_enrollment'),
             ];
 
-            if ($request->input('scholarship_name') === 'Athletic Scholarship') {
-                $uploadGroups['certificate_of_adviser'] = $this->collectFilesFromRequest($request, 'certificate_of_adviser');
+            if ($request->input('scholarship_name') === 'Athletic Scholarship' || $selectedScholarship?->name === 'Athletic Scholarship') {
+                $allFiles = $request->allFiles();
+                $uploadGroups = [
+                    'certificate_of_sports_coordinator' => $this->collectFilesFromRequest($request, 'uploads') ?: ($allFiles['uploads'] ?? []),
+                    'certificate_of_adviser' => $this->collectFilesFromRequest($request, 'certificate_of_adviser') ?: ($allFiles['certificate_of_adviser'] ?? []),
+                ];
             }
 
             if ($previousProfile) {
@@ -383,10 +437,13 @@ class StudentProfileController extends Controller
                     ->unique();
 
                 foreach ($rejectedGroups as $group) {
-                    $requestGroup = in_array($group, ['uploads', 'grades'], true)
-                        ? 'certificate_of_grades'
-                        : $group;
-                    if (empty($uploadGroups[$requestGroup])) {
+                    $candidateGroups = in_array($group, ['uploads', 'grades'], true)
+                        ? ['certificate_of_grades', 'uploads', 'grades']
+                        : [$group];
+
+                    $hasReplacement = collect($candidateGroups)->contains(fn ($candidateGroup) => !empty($uploadGroups[$candidateGroup]));
+
+                    if (!$hasReplacement) {
                         return redirect()->back()
                             ->with('error', 'Please upload the corrected rejected document before submitting.')
                             ->withInput();
@@ -557,21 +614,44 @@ class StudentProfileController extends Controller
             }
 
             $reviewColumn = Schema::hasColumn('student_profiles', 'document_review') ? 'document_review' : 'document_reviews';
+            $previousReviews = is_array($previousProfile?->{$reviewColumn}) ? $previousProfile->{$reviewColumn} : [];
+            $hasRejectedDocument = collect($previousReviews)->contains(fn ($review) => ($review['status'] ?? null) === 'rejected');
+            $hasRejectedSection = in_array('rejected', [
+                $previousProfile?->student_information_status,
+                $previousProfile?->personal_information_status,
+                $previousProfile?->scholarship_requirements_status,
+            ], true);
+            $applicationWasRejected = ($previousProfile?->application_status ?? null) === 'rejected';
+            $canReapplyBeforeSubmission = $previousProfile && ($applicationWasRejected || $hasRejectedSection || $hasRejectedDocument);
+
             $requiredDocuments = $this->requiredDocumentRules($selectedScholarship, $isAcademic, $data['scholarship_name']);
             $documentReviews = is_array($data[$reviewColumn] ?? null) ? $data[$reviewColumn] : [];
             $missingGroups = collect($requiredDocuments['groups'])
                 ->filter(function ($group) use ($data, $documentReviews) {
-                    $storageGroup = $group === 'uploads' ? 'certificate_of_grades' : $group;
+                    $storageGroups = match ($group) {
+                        'uploads' => ['uploads', 'certificate_of_grades'],
+                        'certificate_of_grades' => ['certificate_of_grades', 'uploads', 'grades'],
+                        default => [$group],
+                    };
+
+                    $groupFiles = [];
+                    foreach ($storageGroups as $storageGroup) {
+                        if (!empty($data['uploads'][$storageGroup])) {
+                            $groupFiles = array_merge($groupFiles, (array) $data['uploads'][$storageGroup]);
+                        }
+                    }
+
                     return $this->countUsableDocuments([
-                        $storageGroup => $data['uploads'][$storageGroup] ?? [],
+                        $group => $groupFiles,
                     ], $documentReviews) === 0;
                 })
                 ->values()
                 ->all();
             $usableDocumentCount = $this->countUsableDocuments($data['uploads'], $documentReviews);
             $missingConfiguredDocuments = $requiredDocuments['count'] > $usableDocumentCount;
+            $shouldAllowReopenWithoutFreshDocuments = $canReapplyBeforeSubmission && empty($uploaded);
 
-            if (!empty($missingGroups) || $missingConfiguredDocuments) {
+            if ((!empty($missingGroups) || $missingConfiguredDocuments) && !$shouldAllowReopenWithoutFreshDocuments) {
                 foreach ($uploaded as $files) {
                     foreach ((array) $files as $path) {
                         if (is_string($path) && Storage::disk('local')->exists($path)) {
@@ -583,12 +663,13 @@ class StudentProfileController extends Controller
                 $missingLabels = array_map(fn ($group) => match ($group) {
                     'certificate_of_grades' => 'Certificate of Grades',
                     'certificate_of_enrollment' => 'Certificate of Enrollment',
+                    'certificate_of_sports_coordinator' => 'Certificate from Sports Coordinator',
                     'certificate_of_adviser' => 'Certificate of Adviser',
                     'uploads' => 'Required scholarship upload',
                     default => $group,
                 }, $missingGroups);
                 $message = !empty($missingLabels)
-                    ? 'Please upload the required documents: ' . implode(', ', $missingLabels) . '.'
+                    ? 'Required documents missing. Please upload the required documents: ' . implode(', ', $missingLabels) . '.'
                     : "Please upload all required documents before submitting. {$usableDocumentCount}/{$requiredDocuments['count']} provided.";
 
                 return redirect()->back()
@@ -601,9 +682,7 @@ class StudentProfileController extends Controller
             try {
                 DB::beginTransaction();
 
-                $scholarship = !empty($selectedScholarshipId)
-                    ? Scholarship::find($selectedScholarshipId)
-                    : Scholarship::where('name', trim((string) $data['scholarship_name']))->first();
+                $scholarship = $this->findSelectedScholarship($selectedScholarshipId, $data['scholarship_name'] ?? null);
 
                 $isLegacyScholarship = !$scholarship && !$isAcademic;
 
@@ -670,7 +749,8 @@ class StudentProfileController extends Controller
                     $previousProfile?->personal_information_status,
                     $previousProfile?->scholarship_requirements_status,
                 ], true);
-                $canReapply = $previousProfile && ($hasRejectedSection || $hasRejectedDocument);
+                $applicationWasRejected = ($previousProfile?->application_status ?? null) === 'rejected';
+                $canReapply = $previousProfile && ($applicationWasRejected || $hasRejectedSection || $hasRejectedDocument);
 
                 if ($existingApp && !$canReapply) {
                     // Rollback and return the same friendly error message used earlier

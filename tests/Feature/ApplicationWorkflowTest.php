@@ -17,6 +17,34 @@ class ApplicationWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_athletic_scholarship_requires_sports_coordinator_and_adviser_documents(): void
+    {
+        $student = User::factory()->approved()->create([
+            'student_id' => '23-11942',
+        ]);
+        $scholarship = Scholarship::create(['name' => 'Athletic Scholarship', 'type' => 'non-academic']);
+
+        $response = $this->actingAs($student)->from(route('dashboard', ['section' => 'non']))->post('/student-profiles', [
+            'first_name' => 'Athlete',
+            'last_name' => 'Student',
+            'sex' => 'Male',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => $student->student_id,
+            'home_address' => 'Aparri',
+            'contact_number' => '09123456789',
+            'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
+            'year_level' => '2nd Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => 'Athletic Scholarship',
+            'scholarship_type' => 'Sports Excellence Program In-House',
+        ]);
+
+        $response->assertSessionHas('error');
+        $this->assertStringContainsString('Certificate from Sports Coordinator', session('error'));
+        $this->assertStringContainsString('Certificate of Adviser', session('error'));
+    }
+
     public function test_rejected_application_can_be_reopened_in_place(): void
     {
         Mail::fake();
@@ -77,9 +105,13 @@ class ApplicationWorkflowTest extends TestCase
         $student = User::factory()->approved()->create([
             'student_id' => '23-10001',
         ]);
-        $scholarship = Scholarship::create(['name' => 'Athletic Scholarship', 'type' => 'non-academic']);
+        $scholarship = Scholarship::create([
+            'name' => 'Athletic Scholarship',
+            'type' => 'non-academic',
+            'status' => 'active',
+        ]);
 
-        $response = $this->actingAs($student)->post('/student-profiles', [
+        $response = $this->actingAs($student)->from(route('dashboard', ['section' => 'non']))->post('/student-profiles', [
             'first_name' => 'Test',
             'last_name' => 'Student',
             'sex' => 'Male',
@@ -93,6 +125,8 @@ class ApplicationWorkflowTest extends TestCase
             'scholarship_id' => $scholarship->id,
             'scholarship_name' => 'Tampered Scholarship Name',
             'scholarship_type' => 'Tampered scholarship type',
+            'uploads' => [UploadedFile::fake()->create('sports.pdf', 512, 'application/pdf')],
+            'certificate_of_adviser' => UploadedFile::fake()->create('adviser.pdf', 512, 'application/pdf'),
         ]);
 
         $response->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false));
@@ -105,6 +139,120 @@ class ApplicationWorkflowTest extends TestCase
             'user_id' => $student->id,
             'scholarship_id' => $scholarship->id,
             'status' => 'pending',
+        ]);
+    }
+
+    public function test_socio_cultural_submission_requires_uploaded_document(): void
+    {
+        $student = User::factory()->approved()->create([
+            'student_id' => '23-20002',
+        ]);
+        $scholarship = Scholarship::create([
+            'name' => 'Socio-Cultural Scholarship',
+            'type' => 'non-academic',
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($student)->from(route('dashboard', ['section' => 'non']))->post('/student-profiles', [
+            'first_name' => 'Socio',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => $student->student_id,
+            'home_address' => 'Aparri',
+            'contact_number' => '09123456789',
+            'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
+            'year_level' => '2nd Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => 'Socio-Cultural Scholarship',
+            'scholarship_type' => 'Arts & Culture Program In-House',
+        ]);
+
+        $response->assertSessionHas('error');
+        $this->assertStringContainsString('Required documents', session('error'));
+        $this->assertDatabaseMissing('applications', [
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+        ]);
+    }
+
+    public function test_socio_cultural_submission_succeeds_when_required_document_is_uploaded(): void
+    {
+        $student = User::factory()->approved()->create([
+            'student_id' => '23-20003',
+        ]);
+        $scholarship = Scholarship::create([
+            'name' => 'Socio-Cultural Scholarship',
+            'type' => 'non-academic',
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($student)->from(route('dashboard', ['section' => 'non']))->post('/student-profiles', [
+            'first_name' => 'Socio',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => $student->student_id,
+            'home_address' => 'Aparri',
+            'contact_number' => '09123456789',
+            'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
+            'year_level' => '2nd Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => 'Socio-Cultural Scholarship',
+            'scholarship_type' => 'Arts & Culture Program In-House',
+            'uploads' => [UploadedFile::fake()->create('socio.pdf', 512, 'application/pdf')],
+        ]);
+
+        $response->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false));
+        $this->assertDatabaseHas('applications', [
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_tulong_dunong_program_uses_existing_database_record(): void
+    {
+        $student = User::factory()->approved()->create([
+            'student_id' => '23-20001',
+        ]);
+        $scholarship = Scholarship::create([
+            'name' => 'Tulong Dunong Program',
+            'type' => 'academic',
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($student)->from(route('dashboard', ['section' => 'acad']))->post('/student-profiles', [
+            'first_name' => 'Tulong',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
+            'year_level' => '2nd Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => 'Tulong Dunong Program',
+            'scholarship_type' => 'Kuya Win Scholarship Program',
+            'program' => 'Information Technology',
+            'id_number' => '23-20001',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
+            'religion' => 'Catholic',
+            'uploads' => [UploadedFile::fake()->create('grades.pdf', 512, 'application/pdf')],
+        ]);
+
+        $response->assertRedirect(route('dashboard', ['section' => 'acad'], absolute: false));
+        $this->assertDatabaseHas('applications', [
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+            'status' => 'pending',
+        ]);
+        $this->assertDatabaseHas('student_profiles', [
+            'user_id' => $student->id,
+            'scholarship_name' => 'Tulong Dunong Program',
+            'scholarship_type' => 'Kuya Win Scholarship Program',
         ]);
     }
 
@@ -846,6 +994,52 @@ class ApplicationWorkflowTest extends TestCase
         ]);
 
         $this->assertSame(1, Application::where('user_id', $student->id)->where('scholarship_id', $scholarship->id)->count());
+    }
+
+    public function test_static_academic_card_uses_existing_scholarship_id(): void
+    {
+        $student = User::factory()->approved()->create([
+            'student_id' => '23-21001',
+        ]);
+        $scholarship = Scholarship::create([
+            'name' => 'DOST SEI Project Strand',
+            'type' => 'academic',
+            'status' => 'active',
+        ]);
+        $scholarshipCount = Scholarship::count();
+
+        $dashboard = $this->actingAs($student)->get(route('dashboard', ['section' => 'acad']));
+        $dashboard->assertOk()->assertSee('data-scholarship-id="' . $scholarship->id . '"', false);
+
+        $response = $this->actingAs($student)->post('/student-profiles', [
+            'first_name' => 'Academic',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => $student->student_id,
+            'home_address' => 'Aparri',
+            'contact_number' => '09123456789',
+            'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
+            'year_level' => '2nd Year',
+            'program' => 'Information Technology',
+            'id_number' => $student->student_id,
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
+            'religion' => 'None',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Graduate School Scholarship',
+            'uploads' => [UploadedFile::fake()->create('grades.pdf', 512, 'application/pdf')],
+        ]);
+
+        $response->assertRedirect(route('dashboard', ['section' => 'acad'], absolute: false));
+        $this->assertDatabaseHas('applications', [
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+            'status' => 'pending',
+        ]);
+        $this->assertSame($scholarshipCount, Scholarship::count());
     }
 
     public function test_admin_academic_table_orders_by_application_creation_time(): void

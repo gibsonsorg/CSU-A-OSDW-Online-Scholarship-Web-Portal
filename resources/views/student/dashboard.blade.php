@@ -239,7 +239,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="dost sei project strand graduate school government" data-description="TThe DOST scholarship is a government-funded educational financial aid program in the Philippines managed by the Science Education Institute - DOST to support students pursuing science, technology, engineering, and mathematics (STEM) careers.
+        <div class="s-card" data-name="dost sei project strand graduate school government" data-scholarship-id="{{ $scholarshipIdMap['DOST SEI Project Strand'] ?? '' }}" data-description="TThe DOST scholarship is a government-funded educational financial aid program in the Philippines managed by the Science Education Institute - DOST to support students pursuing science, technology, engineering, and mathematics (STEM) careers.
         more info visit https://science-scholarships.ph
         
     
@@ -272,7 +272,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="tulong dunong kuya win scholarship government" data-description="The Kuya Win Scholarship Program (often linked with legislative or targeted student assistance initiatives spearheaded by Senator Win Gatchalian and aligned with government efforts like the UniFAST / CHED Tulong Dunong Program) is an academic support and financial assistance initiative. It provides monetary aid to help deserving, low-income Filipino college students pay for tuition, school fees, and daily living expenses.
+        <div class="s-card" data-name="tulong dunong kuya win scholarship government" data-scholarship-id="{{ $scholarshipIdMap['Tulong Dunong Program'] ?? '' }}" data-description="The Kuya Win Scholarship Program (often linked with legislative or targeted student assistance initiatives spearheaded by Senator Win Gatchalian and aligned with government efforts like the UniFAST / CHED Tulong Dunong Program) is an academic support and financial assistance initiative. It provides monetary aid to help deserving, low-income Filipino college students pay for tuition, school fees, and daily living expenses.
          More info visits:https://legacy.ched.gov.ph/
         Eligibility Requirements
         *Citizenship: Must be a Filipino citizen
@@ -303,7 +303,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="lgu aparri local government unit scholarship" data-description="The LGU Aparri scholarship is a local government assistance program for qualified students from Aparri who are pursuing higher education and need financial support.">
+        <div class="s-card" data-name="lgu aparri local government unit scholarship" data-scholarship-id="{{ $scholarshipIdMap['LGU Aparri'] ?? '' }}" data-description="The LGU Aparri scholarship is a local government assistance program for qualified students from Aparri who are pursuing higher education and need financial support.">
             <div class="card-head">
                 <div class="card-icon">
                     <img src="{{ asset('images/lgu.logo.jpg') }}" alt="LGU Logo">
@@ -327,7 +327,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
 
     <!-- Academic Page 2 -->
     <div class="card-grid page-set" id="acad-p2">
-        <div class="s-card" data-name="natalged lasam educational assistance government" data-description="The Natalged a Lasam Educational Assistance (NALEA) program is a municipal financial aid initiative in Lasam, Cagayan, providing cash stipends, semester allowances, and graduate recognition to support deserving tertiary and high school students
+        <div class="s-card" data-name="natalged lasam educational assistance government" data-scholarship-id="{{ $scholarshipIdMap['Natalged A Lasam'] ?? '' }}" data-description="The Natalged a Lasam Educational Assistance (NALEA) program is a municipal financial aid initiative in Lasam, Cagayan, providing cash stipends, semester allowances, and graduate recognition to support deserving tertiary and high school students
         More info  visits https://lasamonline.com
 
         
@@ -357,7 +357,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="andres tamayo scholarship private foundation" data-description=" Is a registered private, non-governmental organization in the Philippines that provides the Handog Edukasyon Scholarship Program to support financially challenged youth. The grant covers educational costs for qualified college and vocational students to alleviate poverty through long-term educational access.
+        <div class="s-card" data-name="andres tamayo scholarship private foundation" data-scholarship-id="{{ $scholarshipIdMap['Andres Tamayo Scholarship'] ?? '' }}" data-description=" Is a registered private, non-governmental organization in the Philippines that provides the Handog Edukasyon Scholarship Program to support financially challenged youth. The grant covers educational costs for qualified college and vocational students to alleviate poverty through long-term educational access.
         More info visits:https://andresptamayosrfoundation.com/our-programs  
          Qualifications
          *Maintain Grade Requirement: Keep a General Weighted Average (GWA) of at least 85% every term
@@ -385,7 +385,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="gokongwei brothers foundation scholarship private" data-description="(GBF) is the strategic philanthropic arm of the Gokongwei Group, established in 1992 by brothers John, Henry, Johnson, and James. It advances STEM education across the Philippines through scholarships, teacher professional development, and technical-vocational training.
+        <div class="s-card" data-name="gokongwei brothers foundation scholarship private" data-scholarship-id="{{ $scholarshipIdMap['Gokongwei Brothers Foundation'] ?? '' }}" data-description="(GBF) is the strategic philanthropic arm of the Gokongwei Group, established in 1992 by brothers John, Henry, Johnson, and James. It advances STEM education across the Philippines through scholarships, teacher professional development, and technical-vocational training.
         More info: https://www.gokongweibrothersfoundation.org/
         Qualifications
         *Course Enrollment: Must be enrolled or planning to enroll in a GBF priority stem course
@@ -1019,11 +1019,11 @@ More info: https://unifaast.gov.ph/tes.html"
                     </div>
                     <div>
                         <label>Contact number</label>
-                        <input class="input" type="text" name="contact_number">
+                        <input class="input" type="text" name="contact_number" required>
                     </div>
                     <div class="full">
                         <label>Home address</label>
-                        <textarea name="home_address" class="input" rows="2"></textarea>
+                        <textarea name="home_address" class="input" rows="2" required></textarea>
                     </div>
                 </div>
 
@@ -1088,7 +1088,7 @@ More info: https://unifaast.gov.ph/tes.html"
                                 <label style="display:block; margin-bottom:8px;">Certificate from the Sports Coordinator</label>
                                 <input type="file" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
                             </div>
-                            <div style="flex:1 1 320px; min-width:260px; max-width:420px;">
+                            <div data-reapplication-document-group="certificate_of_adviser" style="flex:1 1 320px; min-width:260px; max-width:420px;">
                                 <label style="display:block; margin-bottom:8px;">Certificate of Adviser</label>
                                 <input type="file" name="certificate_of_adviser" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
                             </div>
@@ -1102,7 +1102,7 @@ More info: https://unifaast.gov.ph/tes.html"
                             Certificate of Enrollment
                         </div>
 
-                        <div data-reapplication-document-group="uploads">
+                        <div data-reapplication-document-group="uploads" id="nonAcademicGenericUploadGroup">
                             <input type="file" name="uploads[]" multiple id="nonAcademicUploadsInput" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
                         </div>
                     </div>
@@ -1358,147 +1358,6 @@ More info: https://unifaast.gov.ph/tes.html"
       return { errors, successFiles };
     }
 
-    // Validate files on form submission
-    document.getElementById('applyForm').addEventListener('submit', function(e) {
-            if (!validateRequiredDocumentsForForm(this)) {
-                e.preventDefault();
-                return false;
-            }
-
-      // Allow submission if flag is set
-      if (allowSubmit) {
-        allowSubmit = false;
-        return true;
-      }
-
-      const fileInputs = getAllFileInputs(this);
-      const files = fileInputs.reduce((list, input) => list.concat(Array.from(input.files)), []);
-
-      if (files.length === 0) {
-        // No files selected - allow form submission
-        allowSubmit = true;
-        return true;
-      }
-
-      e.preventDefault();
-
-      const { errors, successFiles } = validateFiles(files);
-
-      // Validate each file
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fileName = file.name;
-        const fileSize = file.size;
-        const fileExt = fileName.split('.').pop();
-        const category = getFileCategory(fileExt);
-
-        // Check file type
-        if (!category) {
-          errors.push(`"${fileName}" - Unsupported format. Allowed: PDF, DOCX, JPG, PNG`);
-          continue;
-        }
-
-        // Check file size
-        const maxSize = fileValidationRules[category].maxSize;
-        const displaySize = fileValidationRules[category].displaySize;
-        const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
-
-        if (fileSize > maxSize) {
-          errors.push(`"${fileName}" - Size: ${fileSizeMB}MB exceeds limit of ${displaySize}`);
-        } else {
-          successFiles.push(`"${fileName}" - ${fileSizeMB}MB (${category})`);
-        }
-      }
-
-      // If there are errors, show error popup
-      if (errors.length > 0) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'File Upload Error',
-                    text: errors.join('\n'),
-                    confirmButtonColor: '#dc2626'
-                });
-        return false;
-      }
-
-      // If all files are valid, show success popup
-      if (successFiles.length > 0) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Files Validated Successfully',
-                    text: 'All files validated successfully and are ready to upload.\n' + successFiles.join('\n'),
-                    showCancelButton: true,
-                    confirmButtonText: 'Submit Application',
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#16a34a',
-                    cancelButtonColor: '#6b7280'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        allowSubmit = true;
-                        submitForm();
-                    }
-                });
-        return false;
-      }
-
-      return true;
-    });
-     //error message
-    document.getElementById('academicApplyForm').addEventListener('submit', function(e) {
-            if (!validateRequiredDocumentsForForm(this)) {
-                e.preventDefault();
-                return false;
-            }
-
-      if (allowSubmit) {
-        allowSubmit = false;
-        return true;
-      }
-
-      const fileInputs = getAllFileInputs(this);
-      const files = fileInputs.reduce((list, input) => list.concat(Array.from(input.files)), []);
-
-      if (files.length === 0) {
-        allowSubmit = true;
-        return true;
-      }
-
-      e.preventDefault();
-
-      const { errors, successFiles } = validateFiles(files);
-
-      if (errors.length > 0) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'File Upload Error',
-                    text: errors.join('\n'),
-                    confirmButtonColor: '#dc2626'
-                });
-        return false;
-      }
-
-      if (successFiles.length > 0) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Files Validated Successfully',
-                    text: 'All files validated successfully and are ready to upload.\n' + successFiles.join('\n'),
-                    showCancelButton: true,
-                    confirmButtonText: 'Submit Application',
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#16a34a',
-                    cancelButtonColor: '#6b7280'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        allowSubmit = true;
-                        submitAcademicForm();
-                    }
-                });
-        return false;
-      }
-
-      return true;
-    });
-
     // Show file count when files are selected
     document.querySelector('input[name="uploads[]"]').addEventListener('change', function(e) {
       const fileCount = this.files.length;
@@ -1552,18 +1411,6 @@ More info: https://unifaast.gov.ph/tes.html"
   </style>
 
   <script>
-    let allowSubmit = false;
-
-        function submitForm() {
-            allowSubmit = true;
-            document.getElementById('applyForm').submit();
-        }
-
-        function submitAcademicForm() {
-            allowSubmit = true;
-            document.getElementById('academicApplyForm').submit();
-        }
-
     // Close popup when clicking outside
 
     (function () {

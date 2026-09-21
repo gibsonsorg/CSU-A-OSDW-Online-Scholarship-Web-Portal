@@ -157,7 +157,7 @@ function prepareReapplication(title, modalType) {
     form.querySelectorAll('[data-reapplication-document-group]').forEach(wrapper => {
         const group = wrapper.dataset.reapplicationDocumentGroup;
         const aliases = group === 'uploads'
-            ? ['uploads', 'grades', 'certificate_of_grades']
+            ? ['uploads', 'grades', 'certificate_of_grades', 'certificate_of_sports_coordinator']
             : group === 'certificate_of_enrollment'
                 ? ['certificate_of_enrollment', 'enrollment']
                 : [group];
@@ -175,6 +175,10 @@ function prepareReapplication(title, modalType) {
         const input = form.querySelector(modalType === 'academic'
             ? '#academicFileInput'
             : '#nonAcademicUploadsInput');
+        if (input) input.required = true;
+    }
+    if (rejectedGroups.has('certificate_of_sports_coordinator')) {
+        const input = form.querySelector('.athletic-only-fields [name="uploads[]"]');
         if (input) input.required = true;
     }
     if (rejectedGroups.has('certificate_of_enrollment') || rejectedGroups.has('enrollment')) {
@@ -364,13 +368,20 @@ function validateRequiredDocumentsForForm(form) {
     try { groups = JSON.parse(form.dataset.requiredDocumentGroups || '[]'); } catch (error) { groups = []; }
     try { configuredDocuments = JSON.parse(form.dataset.requiredDocuments || '[]'); } catch (error) { configuredDocuments = []; }
 
-    const filesFor = (selector) => Array.from(form.querySelectorAll(selector))
-        .reduce((files, input) => files.concat(Array.from(input.files || [])), []);
+    const filesForSelector = (selector) => {
+        if (!selector) return [];
+        return Array.from(form.querySelectorAll(selector))
+            .reduce((files, input) => files.concat(Array.from(input.files || [])), []);
+    };
+
+    const athleticSportsCoordinatorSelector = '.athletic-only-fields [name="uploads[]"]';
+    const genericUploadsSelector = '#nonAcademicUploadsInput';
     const groupInputs = {
-        certificate_of_grades: '[name="uploads[]"]',
+        certificate_of_grades: '#academicFileInput',
         certificate_of_enrollment: '[name="certificate_of_enrollment"]',
         certificate_of_adviser: '[name="certificate_of_adviser"]',
-        certificate_of_sports_coordinator: '[name="certificate_of_sports_coordinator"]',
+        certificate_of_sports_coordinator: athleticSportsCoordinatorSelector,
+        uploads: genericUploadsSelector,
     };
     const labels = {
         certificate_of_grades: 'Certificate of Grades',
@@ -379,8 +390,13 @@ function validateRequiredDocumentsForForm(form) {
         certificate_of_sports_coordinator: 'Certificate from Sports Coordinator',
         uploads: 'Required scholarship upload',
     };
-    const missing = groups.filter(group => filesFor(groupInputs[group] || `[name="${group}"]`).length === 0);
-    const allFiles = filesFor('input[type="file"]');
+
+    const missing = groups.filter(group => {
+        const selector = groupInputs[group] || `[name="${group}"]`;
+        return filesForSelector(selector).length === 0;
+    });
+    const allFiles = Array.from(form.querySelectorAll('input[type="file"]'))
+        .reduce((files, input) => files.concat(Array.from(input.files || [])), []);
 
     if (missing.length > 0 || (groups.length === 0 && configuredDocuments.length > allFiles.length)) {
         const message = missing.length > 0
@@ -394,8 +410,8 @@ function validateRequiredDocumentsForForm(form) {
 }
 
 function submitAcademicForm() {
-    allowSubmitAcademic = true;
-    document.getElementById('academicApplyForm').submit();
+    const form = document.getElementById('academicApplyForm');
+    if (form) form.requestSubmit();
 }
 
 function getAcademicStepControls() {
@@ -543,7 +559,7 @@ function validateNonAcademicCurrentStep() {
         .filter(candidate => candidate.dataset.reapplicationHidden !== 'true')[currentStep - 1];
     if (!panel) return true;
 
-    const requiredFields = panel.querySelectorAll('input[required], select[required], textarea[required]');
+    const requiredFields = panel.querySelectorAll('input:not([disabled])[required], select:not([disabled])[required], textarea:not([disabled])[required]');
 
     for (const field of requiredFields) {
         if (!field.checkValidity()) {
@@ -551,6 +567,69 @@ function validateNonAcademicCurrentStep() {
             field.focus();
             return false;
         }
+    }
+
+    return true;
+}
+
+function validateFilesForSubmission(form, fileValidationRules) {
+    const files = Array.from(form.querySelectorAll('input[type="file"]'))
+        .reduce((allFiles, input) => allFiles.concat(Array.from(input.files || [])), []);
+
+    if (files.length === 0) return true;
+
+    const errors = [];
+    const successFiles = [];
+
+    files.forEach(file => {
+        const extension = file.name.split('.').pop().toLowerCase();
+        const category = fileValidationRules.document.extensions.includes(extension)
+            ? 'document'
+            : fileValidationRules.image.extensions.includes(extension)
+                ? 'image'
+                : null;
+
+        if (!category) {
+            errors.push(`"${file.name}" - Unsupported format. Allowed: PDF, DOCX, JPG, PNG`);
+            return;
+        }
+
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        if (file.size > fileValidationRules[category].maxSize) {
+            errors.push(`"${file.name}" - Size: ${fileSizeMB}MB exceeds limit of ${fileValidationRules[category].displaySize}`);
+            return;
+        }
+
+        successFiles.push(`"${file.name}" - ${fileSizeMB}MB (${category})`);
+    });
+
+    if (errors.length > 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'File Upload Error',
+            text: errors.join('\n'),
+            confirmButtonColor: '#dc2626'
+        });
+        return false;
+    }
+
+    if (successFiles.length > 0) {
+        Swal.fire({
+            icon: 'success',
+            title: 'Files Validated Successfully',
+            text: 'All files validated successfully and are ready to upload.\n' + successFiles.join('\n'),
+            showCancelButton: true,
+            confirmButtonText: 'Submit Application',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#16a34a',
+            cancelButtonColor: '#6b7280'
+        }).then(result => {
+            if (result.isConfirmed) {
+                form.dataset.confirmedSubmit = 'true';
+                form.requestSubmit();
+            }
+        });
+        return false;
     }
 
     return true;
@@ -586,10 +665,19 @@ document.addEventListener('DOMContentLoaded', function(){
                     ? ['certificate_of_grades']
                     : (selectedName === 'Athletic Scholarship'
                                 ? ['certificate_of_sports_coordinator', 'certificate_of_adviser']
-                                : (['Differently Abled Persons', 'Open Heart Scholarship', 'Talamayan Scholarship', 'Campus Student Publication', 'CSU Aparri Alumni Association'].includes(selectedName)
+                                : (['Socio-Cultural Scholarship', 'Differently Abled Persons', 'Open Heart Scholarship', 'Talamayan Scholarship', 'Campus Student Publication', 'CSU Aparri Alumni Association'].includes(selectedName)
                                     ? ['uploads']
                                     : [])))
         );
+
+        const athleticFieldGroup = document.querySelector('.athletic-only-fields');
+        const genericUploadGroup = document.getElementById('nonAcademicGenericUploadGroup');
+        if (athleticFieldGroup) {
+            athleticFieldGroup.style.display = selectedName === 'Athletic Scholarship' ? 'flex' : 'none';
+        }
+        if (genericUploadGroup) {
+            genericUploadGroup.style.display = selectedName === 'Athletic Scholarship' ? 'none' : 'block';
+        }
     };
 
     const academicForm = document.getElementById('academicApplyForm');
@@ -621,15 +709,30 @@ document.addEventListener('DOMContentLoaded', function(){
         }
 
         academicForm.addEventListener('submit', function(e) {
+            if (academicForm.dataset.confirmedSubmit === 'true') {
+                delete academicForm.dataset.confirmedSubmit;
+                return;
+            }
+
             const current = Number(academicForm.dataset.currentAcademicStep || 1);
             const totalSteps = academicForm.querySelectorAll('.academic-step-panel:not([data-reapplication-hidden="true"])').length || 3;
             if (current < totalSteps) {
                 e.preventDefault();
-                updateAcademicStepUI(3);
+                updateAcademicStepUI(totalSteps);
                 return;
             }
 
             if (!validateAcademicCurrentStep()) {
+                e.preventDefault();
+                return;
+            }
+
+            if (!validateRequiredDocumentsForForm(academicForm)) {
+                e.preventDefault();
+                return;
+            }
+
+            if (!validateFilesForSubmission(academicForm, fileValidationRules)) {
                 e.preventDefault();
             }
         });
@@ -665,12 +768,31 @@ document.addEventListener('DOMContentLoaded', function(){
         }
 
         nonAcademicForm.addEventListener('submit', function(e) {
+            if (nonAcademicForm.dataset.confirmedSubmit === 'true') {
+                delete nonAcademicForm.dataset.confirmedSubmit;
+                return;
+            }
+
             const current = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
             const totalSteps = nonAcademicForm.querySelectorAll('.academic-step-panel:not([data-reapplication-hidden="true"])').length || 3;
             if (current < totalSteps) {
                 e.preventDefault();
-                updateNonAcademicStepUI(3);
+                updateNonAcademicStepUI(totalSteps);
                 return;
+            }
+
+            if (!validateNonAcademicCurrentStep()) {
+                e.preventDefault();
+                return;
+            }
+
+            if (!validateRequiredDocumentsForForm(nonAcademicForm)) {
+                e.preventDefault();
+                return;
+            }
+
+            if (!validateFilesForSubmission(nonAcademicForm, fileValidationRules)) {
+                e.preventDefault();
             }
         });
     }
@@ -859,7 +981,6 @@ document.addEventListener('DOMContentLoaded', function(){
     if (academicModal) academicModal.addEventListener('click', function(e){ if (e.target === academicModal) resetAndCloseAcademic(); });
 
     // File validation for academic form
-    let allowSubmitAcademic = false;
     const fileValidationRules = {
         document: {
             extensions: ['pdf', 'docx', 'doc'],
@@ -874,7 +995,7 @@ document.addEventListener('DOMContentLoaded', function(){
     };
 
     function getFileCategory(extension) {
-        ext = extension.toLowerCase();
+        const ext = extension.toLowerCase();
         if (fileValidationRules.document.extensions.includes(ext)) {
             return 'document';
         }
@@ -882,94 +1003,6 @@ document.addEventListener('DOMContentLoaded', function(){
             return 'image';
         }
         return null;
-    }
-
-    // Academic form file validation
-    const academicSubmitForm = document.getElementById('academicApplyForm');
-    if (academicSubmitForm) {
-        academicSubmitForm.addEventListener('submit', function(e) {
-            if (allowSubmitAcademic) {
-                allowSubmitAcademic = false;
-                return true;
-            }
-
-            const files = Array.from(academicSubmitForm.querySelectorAll('input[type="file"]'))
-                .reduce((allFiles, input) => allFiles.concat(Array.from(input.files || [])), []);
-
-            if (!validateRequiredDocumentsForForm(academicSubmitForm)) {
-                e.preventDefault();
-                return false;
-            }
-
-            let requiredDocuments = [];
-            try { requiredDocuments = JSON.parse(academicSubmitForm.dataset.requiredDocuments || '[]'); } catch (error) { requiredDocuments = []; }
-            if (!academicSubmitForm.dataset.reapplicationActive && requiredDocuments.length > files.length) {
-                e.preventDefault();
-                Swal.fire({ icon: 'error', title: 'Required documents missing', text: `Please upload all required documents before submitting. ${files.length}/${requiredDocuments.length} provided.`, confirmButtonColor: '#dc2626' });
-                return false;
-            }
-
-            if (files.length === 0) {
-                allowSubmitAcademic = true;
-                return true;
-            }
-
-            const hasAcademicValidationPopups = [
-                'academicErrorMessage',
-                'academicErrorPopup',
-                'academicSuccessMessage',
-                'academicSuccessPopup'
-            ].every(id => document.getElementById(id));
-
-            if (!hasAcademicValidationPopups) {
-                return true;
-            }
-
-            e.preventDefault();
-
-            let errors = [];
-            let successFiles = [];
-
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const fileName = file.name;
-                const fileSize = file.size;
-                const fileExt = fileName.split('.').pop();
-                const category = getFileCategory(fileExt);
-
-                if (!category) {
-                    errors.push(`"${fileName}" - Unsupported format. Allowed: PDF, DOCX, JPG, PNG`);
-                    continue;
-                }
-
-                const maxSize = fileValidationRules[category].maxSize;
-                const displaySize = fileValidationRules[category].displaySize;
-                const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
-
-                if (fileSize > maxSize) {
-                    errors.push(`"${fileName}" - Size: ${fileSizeMB}MB exceeds limit of ${displaySize}`);
-                } else {
-                    successFiles.push(`"${fileName}" - ${fileSizeMB}MB (${category})`);
-                }
-            }
-
-            if (errors.length > 0) {
-                const errorList = errors.map(err => `<p>${err}</p>`).join('');
-                document.getElementById('academicErrorMessage').innerHTML = errorList;
-                document.getElementById('academicErrorPopup').style.display = 'flex';
-                return false;
-            }
-
-            if (successFiles.length > 0) {
-                const successList = successFiles.map(file => `<p>${file}</p>`).join('');
-                document.getElementById('academicSuccessMessage').innerHTML = 
-                    `<p>All files validated successfully and are ready to upload:</p>\n` + successList;
-                document.getElementById('academicSuccessPopup').style.display = 'flex';
-                return false;
-            }
-
-            return true;
-        });
     }
 
     // Close popup handlers for academic error popup
