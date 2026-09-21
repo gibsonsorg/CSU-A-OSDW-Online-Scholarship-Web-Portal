@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 use App\Mail\EmailVerificationCodeMail;
 
@@ -23,6 +24,7 @@ class RegistrationTest extends TestCase
 
     public function test_new_users_can_register(): void
     {
+        Config::set('registration.email_verification_enabled', true);
         Mail::fake();
 
         $response = $this->post('/register', [
@@ -40,8 +42,68 @@ class RegistrationTest extends TestCase
         Mail::assertQueued(EmailVerificationCodeMail::class);
     }
 
+    public function test_registration_can_temporarily_skip_email_verification(): void
+    {
+        Config::set('registration.email_verification_enabled', false);
+        Mail::fake();
+
+        $response = $this->post('/register', [
+            'email' => 'temporary.user@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
+
+        $response->assertRedirect(route('login'));
+        $this->assertDatabaseHas('users', [
+            'email' => 'temporary.user@example.com',
+            'account_status' => 'approved',
+        ]);
+        $user = User::where('email', 'temporary.user@example.com')->firstOrFail();
+        $this->assertNotNull($user->email_verified_at);
+        $this->assertNull($user->email_verification_code_hash);
+        $this->assertNull($user->email_verification_expires_at);
+        Mail::assertNothingQueued();
+
+        $loginResponse = $this->post('/login', [
+            'login_identifier' => 'temporary.user@example.com',
+            'password' => 'password',
+        ]);
+
+        $loginResponse->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_registration_validation_is_preserved(): void
+    {
+        $response = $this->post('/register', [
+            'email' => 'not-an-email',
+            'password' => 'password',
+            'password_confirmation' => 'different-password',
+        ]);
+
+        $response->assertSessionHasErrors(['email', 'password']);
+        $this->assertDatabaseMissing('users', ['email' => 'not-an-email']);
+    }
+
+    public function test_approved_duplicate_registration_is_rejected(): void
+    {
+        User::factory()->approved()->create([
+            'email' => 'approved.user@example.com',
+            'email_verified_at' => now(),
+        ]);
+
+        $response = $this->post('/register', [
+            'email' => 'approved.user@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error', 'approved');
+    }
+
     public function test_verification_code_activates_the_account(): void
     {
+        Config::set('registration.email_verification_enabled', true);
         Mail::fake();
 
         $this->post('/register', [

@@ -44,14 +44,15 @@ class RegisteredUserController extends Controller
             return redirect()->back()->with('error', 'approved');
         }
 
-        $verificationCode = (string) random_int(100000, 999999);
+        $emailVerificationEnabled = config('registration.email_verification_enabled', true);
+        $verificationCode = $emailVerificationEnabled ? (string) random_int(100000, 999999) : null;
         $attributes = [
             'password' => Hash::make($request->password),
-            'email_verified_at' => null,
-            'account_status' => 'pending',
+            'email_verified_at' => $emailVerificationEnabled ? null : now(),
+            'account_status' => $emailVerificationEnabled ? 'pending' : 'approved',
             'rejection_reason' => null,
-            'email_verification_code_hash' => Hash::make($verificationCode),
-            'email_verification_expires_at' => now()->addMinutes(10),
+            'email_verification_code_hash' => $emailVerificationEnabled ? Hash::make($verificationCode) : null,
+            'email_verification_expires_at' => $emailVerificationEnabled ? now()->addMinutes(10) : null,
             'email_verification_attempts' => 0,
         ];
 
@@ -66,6 +67,13 @@ class RegisteredUserController extends Controller
                 'role' => 1,
                 'registered_attempt' => 1,
             ]));
+        }
+
+        if (!$emailVerificationEnabled) {
+            return redirect()->route('login')->with(
+                'verification_success',
+                'Email verified Successfully you can now login'
+            );
         }
 
         Mail::to($user->email)->queue(new EmailVerificationCodeMail($verificationCode));
