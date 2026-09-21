@@ -1063,6 +1063,342 @@ select {
         display: none;
     }
 
+    #academicApplyModal .modal-card {
+        width: 100%;
+        max-width: 100%;
+        height: 60vh;
+        max-height: 90vh;
+        padding: 15px 14px;
+        overflow-y: auto;
+    }
+
+    #academicApplyModal .application-modal-header {
+        display: flex;
+        justify-content: space-between;
+        min-height: 32px;
+        margin-bottom: 4px;
+        gap: 4px;
+    }
+
+    #academicApplyModal .application-modal-header .form-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 0.86rem;
+        line-height: 1.1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #academicApplyModal .application-modal-header .modal-close {
+        flex: 0 0 1.8rem;
+        width: 1.8rem;
+        height: 1.8rem;
+        font-size: 0.9rem;
+    }
+
+    #academicApplyModal .academic-progress-wrapper {
+        position: relative;
+        margin-top: 6px;
+        margin-bottom: 8px;
+        padding-top: 4px;
+        padding-bottom: 22px;
+    }
+
+    #academicApplyModal .academic-progress-header {
+        position: absolute;
+        top: 11px;
+        left: 0;
+        z-index: 1;
+        width: 50%;
+        padding-right: 3px;
+        font-size: 0.6rem;
+        line-height: 1.2;
+        text-align: right;
+        margin-bottom: 0;
+        letter-spacing: 0.04em;
+    }
+
+    #academicApplyModal .academic-progress-track {
+        position: relative;
+        gap: 0;
+        flex-wrap: nowrap;
+        width: 100%;
+        height: 3px;
+        padding-top: 0;
+        background: #e5e7eb;
+        border-radius: 999px;
+    }
+
+    #academicApplyModal .academic-progress-step {
+        position: static;
+        flex: 0 0 0;
+        flex-basis: 0;
+        width: 0;
+        max-width: 0;
+        gap: 0;
+    }
+
+    #academicApplyModal .academic-progress-line {
+        display: block;
+        flex: 1 1 50%;
+        min-width: 0;
+        height: 3px;
+        background: #d1d5db;
+        border-radius: 999px;
+    }
+
+    #academicApplyModal .academic-progress-step.active + .academic-progress-line,
+    #academicApplyModal .academic-progress-step.completed + .academic-progress-line {
+        background: #6b0f1a;
+    }
+
+    #academicApplyModal .academic-progress-label {
+        position: absolute;
+        display: none;
+        top: 8px;
+        left: 50%;
+        width: 50%;
+        padding-left: 3px;
+        font-size: 0.62rem;
+        line-height: 1.2;
+        font-weight: 600;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #6b0f1a;
+    }
+
+    #academicApplyModal .academic-progress-step.active .academic-progress-label {
+        display: block;
+    }
+
+    #academicApplyModal .academic-progress-dot {
+        display: none;
+    }
+
+    #academicApplyModal .apply-row {
+        gap: 7px 8px;
+    }
+
+    #academicApplyModal #academicApplyForm {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    #academicApplyModal .apply-row > div {
+        min-width: 0;
+    }
+
+    #academicApplyModal .apply-row label {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 0.64rem;
+        line-height: 1.1;
+    }
+
+    #academicApplyModal .apply-row .input {
+        min-height: 32px;
+        padding: 6px 7px;
+        font-size: 0.72rem;
+    }
+
+    #academicApplyModal .academic-form-actions {
+        margin-top: auto;
+        padding-top: 16px;
+        padding-bottom: 2px;
+        gap: 8px;
+    }
+
+    #academicApplyModal .academic-nav-btn {
+        width: auto;
+        min-width: 140px;
+        padding: 0.62rem 1.15rem;
+        font-size: 0.76rem;
+    }
+
+    #academicApplyModal .application-modal-header .academic-nav-back {
+        min-width: 0;
+        width: auto;
+        padding-left: 0;
+        padding-right: 0;
+        font-size: 0.68rem;
+        white-space: nowrap;
+    }
+
+    #applyModal .modal-card {
+        width: 100%;
+        max-width: 100%;
+        height: 60vh;
+        max-height: 90vh;
+        padding: 15px 14px;
+        overflow-y: auto;
+    }
+
+    #applyModal .application-modal-header {
+        display: flex;
+        justify-content: space-between;
+        min-height: 32px;
+        margin-bottom: 4px;
+        gap: 4px;
+    }
+
+    #applyModal .application-modal-header .form-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 0.86rem;
+        line-height: 1.1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #applyModal .application-modal-header .modal-close {
+        flex: 0 0 1.8rem;
+        width: 1.8rem;
+        height: 1.8rem;
+        font-size: 0.9rem;
+    }
+
+    #applyModal .academic-progress-wrapper {
+        position: relative;
+        margin-top: 6px;
+        margin-bottom: 8px;
+        padding-top: 4px;
+        padding-bottom: 22px;
+    }
+
+    #applyModal .academic-progress-header {
+        position: absolute;
+        top: 11px;
+        left: 0;
+        z-index: 1;
+        width: 50%;
+        padding-right: 3px;
+        font-size: 0.6rem;
+        line-height: 1.2;
+        text-align: right;
+        margin-bottom: 0;
+        letter-spacing: 0.04em;
+    }
+
+    #applyModal .academic-progress-track {
+        position: relative;
+        gap: 0;
+        flex-wrap: nowrap;
+        width: 100%;
+        height: 3px;
+        padding-top: 0;
+        background: #e5e7eb;
+        border-radius: 999px;
+    }
+
+    #applyModal .academic-progress-step {
+        position: static;
+        flex: 0 0 0;
+        flex-basis: 0;
+        width: 0;
+        max-width: 0;
+        gap: 0;
+    }
+
+    #applyModal .academic-progress-line {
+        display: block;
+        flex: 1 1 50%;
+        min-width: 0;
+        height: 3px;
+        background: #d1d5db;
+        border-radius: 999px;
+    }
+
+    #applyModal .academic-progress-step.active + .academic-progress-line,
+    #applyModal .academic-progress-step.completed + .academic-progress-line {
+        background: #6b0f1a;
+    }
+
+    #applyModal .academic-progress-label {
+        position: absolute;
+        display: none;
+        top: 8px;
+        left: 50%;
+        width: 50%;
+        padding-left: 3px;
+        font-size: 0.62rem;
+        line-height: 1.2;
+        font-weight: 600;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #6b0f1a;
+    }
+
+    #applyModal .academic-progress-step.active .academic-progress-label {
+        display: block;
+    }
+
+    #applyModal .academic-progress-dot {
+        display: none;
+    }
+
+    #applyModal .apply-row {
+        gap: 7px 8px;
+    }
+
+    #applyModal #applyForm {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    #applyModal .apply-row > div {
+        min-width: 0;
+    }
+
+    #applyModal .apply-row label {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 0.64rem;
+        line-height: 1.1;
+    }
+
+    #applyModal .apply-row .input {
+        min-height: 32px;
+        padding: 6px 7px;
+        font-size: 0.72rem;
+    }
+
+    #applyModal .academic-form-actions {
+        margin-top: auto;
+        padding-top: 16px;
+        padding-bottom: 2px;
+        gap: 8px;
+    }
+
+    #applyModal .academic-nav-btn {
+        width: auto;
+        min-width: 140px;
+        padding: 0.62rem 1.15rem;
+        font-size: 0.76rem;
+    }
+
+    #applyModal .academic-nav-next {
+        align-self: center;
+    }
+
+    #applyModal .application-modal-header .academic-nav-back {
+        min-width: 0;
+        width: auto;
+        padding-left: 0;
+        padding-right: 0;
+        font-size: 0.68rem;
+        white-space: nowrap;
+    }
+
     .academic-form-actions {
         flex-direction: column;
     }

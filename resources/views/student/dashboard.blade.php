@@ -1136,7 +1136,7 @@ More info: https://unifaast.gov.ph/tes.html"
 
             <!-- Progress Indicator (moved to top) -->
             <div class="academic-progress-wrapper">
-                <div class="academic-progress-header">Step <span id="academicStepCounter">1</span> of 3</div>
+                <div class="academic-progress-header">Step <span id="academicStepCounter">1</span> of 3:</div>
                 <div class="academic-progress-track" aria-live="polite">
                     <div class="academic-progress-step active" data-progress-step="1">
                         <div class="academic-progress-dot">1</div>
