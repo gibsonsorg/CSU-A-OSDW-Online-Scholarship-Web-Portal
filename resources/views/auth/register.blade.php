@@ -12,7 +12,7 @@
     <div class="container">
         <div class="left-panel">
             <div class="logo">
-             <img src="{{ asset('images/osdw logo.jpg') }}" alt="OSDW Logo">
+             <img src="{{ asset('images/maroon osdw.png') }}" alt="OSDW Logo">
             </div>
             <h2 style="color:white;">Your gateway to Scholarship and beneficiaries web portal</h2>
         </div>  

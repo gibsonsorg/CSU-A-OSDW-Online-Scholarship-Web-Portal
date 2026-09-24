@@ -108,6 +108,32 @@
         {
               color: #a81f1f;
         }
+
+        .details-actions {
+            display: flex;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .details-actions .btn-primary {
+            min-width: 120px;
+            padding: 0.9rem 2.25rem;
+            border: none;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #87323d 0%, #5d0f1d 100%);
+            color: #fff;
+            font-size: 1.06rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            box-shadow: 0 10px 22px rgba(124, 18, 31, 0.22);
+            transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+        }
+
+        .details-actions .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 26px rgba(124, 18, 31, 0.28);
+            filter: brightness(1.02);
+        }
     </style>
 </head>
 
@@ -155,7 +181,7 @@
                 </div>
             </div>
         @endforeach
-        <div class="s-card" data-name="cagayan valley association hawaii internationally funded" data-scholarship-id="{{ $scholarshipIdMap['Cagayan Valley Assoc. of Hawaii'] ?? '' }}" data-scholarship-type="International Educational Grant" data-grant-type="academic" data-description=" The Cagayan Valley Association of Hawaii (CVAH) Internationally Funded Scholarship is an academic grant program established through a partnership with Cagayan State University (CSU). It provides financial assistance to deserving students in Cagayan Valley, Philippines.
+        <div class="s-card" data-name="cagayan valley association hawaii internationally funded" data-scholarship-id="{{ $academicScholarshipIdMap['Cagayan Valley Assoc. of Hawaii'] ?? '' }}" data-scholarship-type="International Educational Grant" data-grant-type="academic" data-description=" The Cagayan Valley Association of Hawaii (CVAH) Internationally Funded Scholarship is an academic grant program established through a partnership with Cagayan State University (CSU). It provides financial assistance to deserving students in Cagayan Valley, Philippines.
 
 Launched in 2017 through an agreement between CVAH President Engr. Roger A. Urbi and CSU, the program initially supported students at CSU-Carig Campus and later expanded to other campuses such as CSU Tuguegarao. Funded by the Filipino diaspora community in Hawaii, USA, it aims to help undergraduate students meet their educational expenses.
   
@@ -189,7 +215,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="university based scholarship academic inhouse" data-scholarship-id="{{ $scholarshipIdMap['University Based Scholarship'] ?? '' }}" data-scholarship-type="Academic Excellence – In-House" data-grant-type="academic" data-description="The University Based Scholarship recognizes students with outstanding academic performance throughout the school year and provides financial assistance to help them continue their studies.">
+        <div class="s-card" data-name="university based scholarship academic inhouse" data-scholarship-id="{{ $academicScholarshipIdMap['University Based Scholarship'] ?? '' }}" data-scholarship-type="Academic Excellence – In-House" data-grant-type="academic" data-description="The University Based Scholarship recognizes students with outstanding academic performance throughout the school year and provides financial assistance to help them continue their studies.">
             <div class="card-head">
                 <div class="card-icon">  <img src="{{ asset('images/csu.logo.png') }}" alt="CsuLogo"></div>
                 <div class="card-names">
@@ -208,7 +234,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="acef giahep government locally funded" data-scholarship-id="{{ $scholarshipIdMap['ACEF – GIAHEP'] ?? '' }}" data-scholarship-type="Agricultural Credit & Education Fund" data-grant-type="academic" data-description="The  ACEF-GIAHEP (Agricultural Competitiveness Enhancement Fund Grants-in-Aid for Higher Education Program) is a joint financial assistance program by the Commission on Higher Education and the Department of Agriculture designed to support undergraduate students pursuing degrees in agriculture, forestry, fisheries, and veterinary medicine
+        <div class="s-card" data-name="acef giahep government locally funded" data-scholarship-id="{{ $academicScholarshipIdMap['ACEF – GIAHEP'] ?? '' }}" data-scholarship-type="Agricultural Credit & Education Fund" data-grant-type="academic" data-description="The  ACEF-GIAHEP (Agricultural Competitiveness Enhancement Fund Grants-in-Aid for Higher Education Program) is a joint financial assistance program by the Commission on Higher Education and the Department of Agriculture designed to support undergraduate students pursuing degrees in agriculture, forestry, fisheries, and veterinary medicine
         More info visits:https://acef.da.gov.ph/
     
         Qualifications
@@ -239,7 +265,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="dost sei project strand graduate school government" data-scholarship-id="{{ $scholarshipIdMap['DOST SEI Project Strand'] ?? '' }}" data-description="TThe DOST scholarship is a government-funded educational financial aid program in the Philippines managed by the Science Education Institute - DOST to support students pursuing science, technology, engineering, and mathematics (STEM) careers.
+        <div class="s-card" data-name="dost sei project strand graduate school government" data-scholarship-id="{{ $academicScholarshipIdMap['DOST SEI Project Strand'] ?? '' }}" data-description="TThe DOST scholarship is a government-funded educational financial aid program in the Philippines managed by the Science Education Institute - DOST to support students pursuing science, technology, engineering, and mathematics (STEM) careers.
         more info visit https://science-scholarships.ph
         
     
@@ -272,7 +298,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="tulong dunong kuya win scholarship government" data-scholarship-id="{{ $scholarshipIdMap['Tulong Dunong Program'] ?? '' }}" data-description="The Kuya Win Scholarship Program (often linked with legislative or targeted student assistance initiatives spearheaded by Senator Win Gatchalian and aligned with government efforts like the UniFAST / CHED Tulong Dunong Program) is an academic support and financial assistance initiative. It provides monetary aid to help deserving, low-income Filipino college students pay for tuition, school fees, and daily living expenses.
+        <div class="s-card" data-name="tulong dunong kuya win scholarship government" data-scholarship-id="{{ $academicScholarshipIdMap['Tulong Dunong Program'] ?? '' }}" data-description="The Kuya Win Scholarship Program (often linked with legislative or targeted student assistance initiatives spearheaded by Senator Win Gatchalian and aligned with government efforts like the UniFAST / CHED Tulong Dunong Program) is an academic support and financial assistance initiative. It provides monetary aid to help deserving, low-income Filipino college students pay for tuition, school fees, and daily living expenses.
          More info visits:https://legacy.ched.gov.ph/
         Eligibility Requirements
         *Citizenship: Must be a Filipino citizen
@@ -303,7 +329,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="lgu aparri local government unit scholarship" data-scholarship-id="{{ $scholarshipIdMap['LGU Aparri'] ?? '' }}" data-description="The LGU Aparri scholarship is a local government assistance program for qualified students from Aparri who are pursuing higher education and need financial support.">
+        <div class="s-card" data-name="lgu aparri local government unit scholarship" data-scholarship-id="{{ $academicScholarshipIdMap['LGU Aparri'] ?? '' }}" data-description="The LGU Aparri scholarship is a local government assistance program for qualified students from Aparri who are pursuing higher education and need financial support.">
             <div class="card-head">
                 <div class="card-icon">
                     <img src="{{ asset('images/lgu.logo.jpg') }}" alt="LGU Logo">
@@ -327,7 +353,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
 
     <!-- Academic Page 2 -->
     <div class="card-grid page-set" id="acad-p2">
-        <div class="s-card" data-name="natalged lasam educational assistance government" data-scholarship-id="{{ $scholarshipIdMap['Natalged A Lasam'] ?? '' }}" data-description="The Natalged a Lasam Educational Assistance (NALEA) program is a municipal financial aid initiative in Lasam, Cagayan, providing cash stipends, semester allowances, and graduate recognition to support deserving tertiary and high school students
+        <div class="s-card" data-name="natalged lasam educational assistance government" data-scholarship-id="{{ $academicScholarshipIdMap['Natalged A Lasam'] ?? '' }}" data-description="The Natalged a Lasam Educational Assistance (NALEA) program is a municipal financial aid initiative in Lasam, Cagayan, providing cash stipends, semester allowances, and graduate recognition to support deserving tertiary and high school students
         More info  visits https://lasamonline.com
 
         
@@ -357,7 +383,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="andres tamayo scholarship private foundation" data-scholarship-id="{{ $scholarshipIdMap['Andres Tamayo Scholarship'] ?? '' }}" data-description=" Is a registered private, non-governmental organization in the Philippines that provides the Handog Edukasyon Scholarship Program to support financially challenged youth. The grant covers educational costs for qualified college and vocational students to alleviate poverty through long-term educational access.
+        <div class="s-card" data-name="andres tamayo scholarship private foundation" data-scholarship-id="{{ $academicScholarshipIdMap['Andres Tamayo Scholarship'] ?? '' }}" data-description=" Is a registered private, non-governmental organization in the Philippines that provides the Handog Edukasyon Scholarship Program to support financially challenged youth. The grant covers educational costs for qualified college and vocational students to alleviate poverty through long-term educational access.
         More info visits:https://andresptamayosrfoundation.com/our-programs  
          Qualifications
          *Maintain Grade Requirement: Keep a General Weighted Average (GWA) of at least 85% every term
@@ -385,7 +411,7 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="gokongwei brothers foundation scholarship private" data-scholarship-id="{{ $scholarshipIdMap['Gokongwei Brothers Foundation'] ?? '' }}" data-description="(GBF) is the strategic philanthropic arm of the Gokongwei Group, established in 1992 by brothers John, Henry, Johnson, and James. It advances STEM education across the Philippines through scholarships, teacher professional development, and technical-vocational training.
+        <div class="s-card" data-name="gokongwei brothers foundation scholarship private" data-scholarship-id="{{ $academicScholarshipIdMap['Gokongwei Brothers Foundation'] ?? '' }}" data-description="(GBF) is the strategic philanthropic arm of the Gokongwei Group, established in 1992 by brothers John, Henry, Johnson, and James. It advances STEM education across the Philippines through scholarships, teacher professional development, and technical-vocational training.
         More info: https://www.gokongweibrothersfoundation.org/
         Qualifications
         *Course Enrollment: Must be enrolled or planning to enroll in a GBF priority stem course
@@ -1038,6 +1064,8 @@ More info: https://unifaast.gov.ph/tes.html"
                         <input id="scholarship_type" name="scholarship_type" class="input" type="text" value="" required readonly>
                     </div>
                     <div class="full">
+                        <!-- CHANGE: Non-academic scholarship-specific upload requirements note. -->
+                        <div id="nonAcademicRequirementsNote" style="display:none; margin-bottom:10px; padding:12px; border-radius:8px; background:#f9f9f9; border:1px solid #e5e5e5; color:#666; font-size:0.85rem; line-height:1.5;"></div>
                         <label>Upload files</label>
                         <div style="background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:8px; border:1px solid #e5e5e5; font-size:0.85rem;">
                             <p style="margin:0 0 8px 0; font-weight:600; color:#333;">Supported file types & sizes:</p>
@@ -1292,9 +1320,11 @@ More info: https://unifaast.gov.ph/tes.html"
     </div>
 
   <script>
-      window.scholarshipIdMap = @json($scholarshipIdMap ?? []);
+    window.academicScholarshipIdMap = @json($academicScholarshipIdMap ?? []);
+    window.nonAcademicScholarshipIdMap = @json($nonAcademicScholarshipIdMap ?? []);
+    window.currentUserId = @json(Auth::id());
   </script>
-  <script src="{{ asset('js/users.js') }}"></script>
+  <script src="{{ asset('js/users.js') }}?v={{ time() }}"></script>
 
   <!-- File Validation Script -->
   <script>
@@ -1432,7 +1462,15 @@ More info: https://unifaast.gov.ph/tes.html"
           return;
         }
 
-                const application = appliedScholarships.find(item => item.name === scholarshipTitle);
+                // CHANGE: Match applications by scholarship ID first, then category and name.
+                const cardGrantType = card.dataset.grantType || (
+                    card.closest('.page-set')?.id.startsWith('non-') ? 'non-academic' : 'academic'
+                );
+                const cardScholarshipId = card.dataset.scholarshipId || '';
+                const application = appliedScholarships.find(item =>
+                    (cardScholarshipId && String(item.scholarship_id) === cardScholarshipId)
+                    || (!cardScholarshipId && item.name === scholarshipTitle && item.grant_type === cardGrantType)
+                );
                 const canReopen = Boolean(application?.reopen);
                 const isUnavailableByAttempts = false;
                 const isApplied = Boolean(application && application.status !== 'rejected' && !canReopen);
@@ -1456,7 +1494,7 @@ More info: https://unifaast.gov.ph/tes.html"
                     return;
                 }
 
-                if (application && (application.status === 'rejected' || canReopen)) {
+                if (application && canReopen) {
                     card.classList.add('card-rejected');
                     if (cardFoot) {
                         const message = document.createElement('div');
@@ -1466,7 +1504,25 @@ More info: https://unifaast.gov.ph/tes.html"
                     }
                     const applyButton = card.querySelector('.btn-apply');
                     if (applyButton) {
-                        applyButton.textContent = 'APPLY NOW';
+                        applyButton.textContent = 'APPLY' + ' NOW';
+                        applyButton.removeAttribute('aria-disabled');
+                        applyButton.setAttribute('href', '#');
+                        applyButton.classList.remove('btn-applied');
+                    }
+                    return;
+                }
+
+                if (application && application.status === 'rejected') {
+                    card.classList.add('card-rejected');
+                    if (cardFoot) {
+                        const message = document.createElement('div');
+                        message.className = 'applied-text';
+                        message.innerHTML = '<div class="applied-label">REJECTED</div><div>Rejected. See Application Status for details.</div>';
+                        cardFoot.prepend(message);
+                    }
+                    const applyButton = card.querySelector('.btn-apply');
+                    if (applyButton) {
+                        applyButton.textContent = 'VIEW STATUS';
                         applyButton.removeAttribute('aria-disabled');
                         applyButton.setAttribute('href', '#');
                         applyButton.classList.remove('btn-applied');

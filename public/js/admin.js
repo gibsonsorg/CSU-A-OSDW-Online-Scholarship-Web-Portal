@@ -122,6 +122,48 @@
         await loadProfile(currentAppId);
     }
 
+    // CHANGE: Open the approved-applicant bulk amount editor from the filter bar.
+    async function addAmountToFilteredApplicants() {
+        const result = await Swal.fire({
+            title: 'Add Amount',
+            input: 'number',
+            inputAttributes: { min: '0', step: '0.01', placeholder: 'Enter amount' },
+            showCancelButton: true,
+            confirmButtonText: 'Save to All',
+            cancelButtonText: 'Cancel',
+            inputValidator: value => value === '' || Number(value) < 0 || !Number.isFinite(Number(value)) ? 'Enter a valid amount of 0 or more.' : undefined,
+        });
+        if (!result.isConfirmed) return;
+
+        const confirmation = await Swal.fire({
+            title: 'Apply amount to all approved applicants?',
+            text: 'This will update every applicant matching the current Academic Grants filters.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, save to all',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#4a0a12',
+        });
+        if (!confirmation.isConfirmed) return;
+
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const data = {
+                grant_type: document.querySelector('[data-action="add-amount"]')?.dataset.grantType || '',
+                date_from: params.get('date_from') || '',
+                date_to: params.get('date_to') || '',
+                scholarship_name: params.get('scholarship_name') || '',
+                status: params.get('status') || '',
+                amount: result.value,
+            };
+            await postJson('/admin/applications/update-scholarship-amounts', data);
+            await Swal.fire({ icon: 'success', title: 'Saved', text: 'Amount saved to all matching approved applicants.', timer: 1800, showConfirmButton: false });
+            window.location.reload();
+        } catch (error) {
+            await Swal.fire({ icon: 'error', title: 'Unable to save amount', text: error.message });
+        }
+    }
+
     document.querySelectorAll('.view-profile-btn').forEach(button => button.addEventListener('click', async () => {
         currentAppId = button.dataset.id;
         currentStep = 1;
@@ -164,6 +206,197 @@
                 await postJson(`/admin/applications/${currentAppId}/update`, data); await loadProfile(currentAppId);
             }
         } catch (error) { Swal.fire({ icon: 'error', title: 'Action failed', text: error.message }); }
+    });
+
+    // CHANGE: Bind the approved-filter-only Add Amount button.
+    document.querySelector('[data-action="add-amount"]')?.addEventListener('click', addAmountToFilteredApplicants);
+
+    // CHANGE: Inline create/edit/delete controls for manually logged applicants.
+    const manualApplicantFields = ['last_name', 'first_name', 'middle_name', 'sex', 'course', 'year_level', 'scholarship_name', 'date', 'application_status'];
+    let openManualRow = null;
+    let openManualEmptyRow = null;
+
+    function manualScholarshipOptions(selectedValue, grantType) {
+        const filterSelect = document.getElementById('grant-scholarship-name');
+        const canonicalOptions = [];
+
+        if (filterSelect) {
+            Array.from(filterSelect.options).forEach(option => {
+                if (option.value) canonicalOptions.push(option.value);
+            });
+        }
+
+        const grantTypeMatches = grantType === 'academic' || grantType === 'non-academic';
+        if (!canonicalOptions.length && grantTypeMatches) {
+            const fallback = Array.from(document.querySelectorAll('#grant-scholarship-name option')).map(option => option.value).filter(Boolean);
+            canonicalOptions.push(...fallback);
+        }
+
+        if (!canonicalOptions.length) {
+            canonicalOptions.push(selectedValue || '');
+        }
+
+        return `<select class="manual-row-input" data-field="scholarship_name"><option value="">Select</option>${canonicalOptions.map(option => `<option value="${escapeHtml(option)}" ${selectedValue === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`;
+    }
+
+    function manualField(value, fieldName, type = 'text', grantType = '') {
+        if (fieldName === 'sex') {
+            return `<select class="manual-row-input" data-field="sex"><option value="">Select</option><option value="Male" ${value === 'Male' ? 'selected' : ''}>Male</option><option value="Female" ${value === 'Female' ? 'selected' : ''}>Female</option></select>`;
+        }
+        if (fieldName === 'year_level') {
+            return `<select class="manual-row-input" data-field="year_level"><option value="">Select</option>${['1st Year', '2nd Year', '3rd Year', '4th Year'].map(option => `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`).join('')}</select>`;
+        }
+        if (fieldName === 'application_status') {
+            return `<select class="manual-row-input" data-field="application_status"><option value="pending" ${value === 'pending' ? 'selected' : ''}>Pending</option><option value="approved" ${value === 'approved' ? 'selected' : ''}>Approved</option><option value="rejected" ${value === 'rejected' ? 'selected' : ''}>Rejected</option></select>`;
+        }
+        if (fieldName === 'scholarship_name') {
+            return manualScholarshipOptions(value || '', grantType);
+        }
+        return `<input class="manual-row-input" data-field="${fieldName}" type="${type}" value="${escapeHtml(value)}"${fieldName === 'date' ? ' required' : ''}>`;
+    }
+
+    function manualRowHtml(values, grantType, showAmount) {
+        const typeLabel = grantType === 'academic' ? 'Academic' : 'Non-Academic';
+        return `<tr class="manual-applicant-row" data-grant-type="${grantType}" data-id="${values.id || ''}">
+            <td>${manualField(values.last_name, 'last_name')}</td>
+            <td>${manualField(values.first_name, 'first_name')}</td>
+            <td>${manualField(values.middle_name, 'middle_name')}</td>
+            <td>${manualField(values.sex, 'sex')}</td>
+            <td>${manualField(values.course, 'course')}</td>
+            <td>${manualField(values.year_level, 'year_level')}</td>
+            <td><input class="manual-row-input" type="text" value="${typeLabel}" readonly></td>
+            <td>${manualField(values.scholarship_name, 'scholarship_name', 'text', grantType)}</td>
+            <td>${manualField(values.date, 'date', 'date')}</td>
+            ${showAmount ? '<td>—</td>' : ''}
+            <td>${manualField(values.application_status || 'pending', 'application_status')}</td>
+            <td><button class="btn small manual-save-btn" type="button">Save</button><button class="btn small manual-cancel-btn" type="button">Cancel</button></td>
+        </tr>`;
+    }
+
+    function setManualButtonState(isOpen) {
+        const button = document.querySelector('[data-action="add-applicant"]');
+        if (button) {
+            button.disabled = isOpen;
+            button.textContent = isOpen ? 'Add Applicant' : 'Add Applicant';
+        }
+    }
+
+    function manualValuesFromRow(row) {
+        const cells = row.querySelectorAll('td');
+        const showAmount = document.getElementById('admin-applications-table')?.dataset.showAmount === '1';
+        const statusIndex = showAmount ? 10 : 9;
+        return {
+            id: row.dataset.id,
+            last_name: cells[0]?.textContent.trim() || '',
+            first_name: cells[1]?.textContent.trim() || '',
+            middle_name: cells[2]?.textContent.trim() || '',
+            sex: cells[3]?.textContent.trim() || '',
+            course: cells[4]?.textContent.trim() || '',
+            year_level: cells[5]?.textContent.trim() || '',
+            scholarship_name: cells[7]?.textContent.trim() || '',
+            date: cells[8]?.textContent.trim() || '',
+            application_status: cells[statusIndex]?.textContent.trim().toLowerCase() || 'pending',
+        };
+    }
+
+    function collectManualValues(row) {
+        const values = {};
+        row.querySelectorAll('[data-field]').forEach(input => { values[input.dataset.field] = input.value.trim(); });
+        values.grant_type = row.closest('table').dataset.grantType;
+        return values;
+    }
+
+    async function saveManualRow(row) {
+        const values = collectManualValues(row);
+        const missing = manualApplicantFields.some(field => field !== 'middle_name' && !values[field]);
+        if (missing) {
+            await Swal.fire({ icon: 'error', title: 'Incomplete applicant', text: 'Please complete all required fields.' });
+            return;
+        }
+
+        const id = row.dataset.id;
+        const url = id ? `/admin/manual-applicants/${encodeURIComponent(id)}` : '/admin/manual-applicants';
+        try {
+            await fetch(url, {
+                method: id ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+                body: JSON.stringify(values),
+            }).then(async response => {
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.message || 'Unable to save applicant.');
+                return result;
+            });
+            window.location.reload();
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'Unable to save applicant', text: error.message });
+        }
+    }
+
+    function openManualCreateRow() {
+        const table = document.getElementById('admin-applications-table');
+        const button = document.querySelector('[data-action="add-applicant"]');
+        if (!table || !button || openManualRow) return;
+        const emptyRow = table.tBodies[0].querySelector('.empty-state-row')?.closest('tr');
+        if (emptyRow) {
+            openManualEmptyRow = emptyRow.outerHTML;
+            emptyRow.remove();
+        }
+        const row = document.createElement('tbody');
+        row.innerHTML = manualRowHtml({ application_status: 'pending' }, table.dataset.grantType, table.dataset.showAmount === '1');
+        const newRow = row.firstElementChild;
+        table.tBodies[0].prepend(newRow);
+        openManualRow = newRow;
+        setManualButtonState(true);
+    }
+
+    document.querySelector('[data-action="add-applicant"]')?.addEventListener('click', openManualCreateRow);
+    document.getElementById('admin-applications-table')?.addEventListener('click', async event => {
+        const table = document.getElementById('admin-applications-table');
+        const editButton = event.target.closest('.manual-edit-btn');
+        const deleteButton = event.target.closest('.manual-delete-btn');
+        const saveButton = event.target.closest('.manual-save-btn');
+        const cancelButton = event.target.closest('.manual-cancel-btn');
+
+        if (saveButton) {
+            await saveManualRow(saveButton.closest('tr'));
+            return;
+        }
+        if (cancelButton) {
+            const row = cancelButton.closest('tr');
+            if (row.dataset.id) row.outerHTML = row.dataset.originalHtml;
+            else row.remove();
+            if (openManualEmptyRow && !table.tBodies[0].querySelector('tr')) {
+                table.tBodies[0].insertAdjacentHTML('beforeend', openManualEmptyRow);
+            }
+            openManualEmptyRow = null;
+            openManualRow = null;
+            setManualButtonState(false);
+            return;
+        }
+        if (editButton) {
+            if (openManualRow) return;
+            const row = editButton.closest('tr');
+            row.dataset.originalHtml = row.outerHTML;
+            const values = manualValuesFromRow(row);
+            const replacement = document.createElement('tbody');
+            replacement.innerHTML = manualRowHtml(values, row.dataset.grantType || table.dataset.grantType, table.dataset.showAmount === '1');
+            const editRow = replacement.firstElementChild;
+            editRow.dataset.originalHtml = row.dataset.originalHtml;
+            row.replaceWith(editRow);
+            openManualRow = editRow;
+            setManualButtonState(true);
+            return;
+        }
+        if (deleteButton) {
+            const result = await Swal.fire({ title: 'Delete applicant?', text: 'This manual applicant will be removed.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#b91c1c' });
+            if (!result.isConfirmed) return;
+            try {
+                await fetch(`/admin/manual-applicants/${encodeURIComponent(deleteButton.dataset.id)}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' } }).then(async response => { if (!response.ok) throw new Error('Unable to delete applicant.'); });
+                window.location.reload();
+            } catch (error) {
+                Swal.fire({ icon: 'error', title: 'Unable to delete applicant', text: error.message });
+            }
+        }
     });
 
     document.querySelectorAll('.delete-user-btn').forEach(button => button.addEventListener('click', async () => {

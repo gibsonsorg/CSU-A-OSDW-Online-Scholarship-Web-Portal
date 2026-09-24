@@ -10,7 +10,7 @@
 <body>
   <nav>
     <div class="logo">
-        <img src="{{ asset('images/osdw logo.jpg') }}" alt="Municipality Logo">
+        <img src="{{ asset('images/maroon osdw.png') }}" alt="osdw Logo">
         <h2>OSDW</h2>
     </div>
 

@@ -14,7 +14,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
 {
@@ -46,10 +50,11 @@ class AdminController extends Controller
                 $query->where('application_status', $status);
             })
             ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
+            ->leftJoin('scholarships', 'scholarships.id', '=', 'applications.scholarship_id')
             ->orderByDesc('applications.created_at')
             ->orderByDesc('applications.id')
             ->orderByDesc('student_profiles.id')
-            ->select('student_profiles.*');
+            ->select('student_profiles.*', 'scholarships.type as scholarship_category_type');
 
         $recentApplications = $query->take(10)->get();
         $filterType = 'all';
@@ -64,10 +69,11 @@ class AdminController extends Controller
     public function academicDashboard(Request $request)
     {
         $recentApplications = $this->filteredApplications($request, 'academic');
+        $scholarshipNames = $this->scholarshipNames('academic');
         $filterType = 'academic';
         $stats = $this->buildDashboardStats();
 
-        return view('admin.welcome', compact('recentApplications', 'filterType', 'stats'));
+        return view('admin.welcome', compact('recentApplications', 'scholarshipNames', 'filterType', 'stats'));
     }
 
     /**
@@ -76,10 +82,11 @@ class AdminController extends Controller
     public function nonAcademicDashboard(Request $request)
     {
         $recentApplications = $this->filteredApplications($request, 'non-academic');
+        $scholarshipNames = $this->scholarshipNames('non-academic');
         $filterType = 'non-academic';
         $stats = $this->buildDashboardStats();
 
-        return view('admin.welcome', compact('recentApplications', 'filterType', 'stats'));
+        return view('admin.welcome', compact('recentApplications', 'scholarshipNames', 'filterType', 'stats'));
     }
 
     private function buildDashboardStats(): array
@@ -121,7 +128,10 @@ class AdminController extends Controller
 
     private function filteredApplications(Request $request, string $grantType)
     {
-        $search = trim((string) $request->query('search', ''));
+        $dateFrom = (string) $request->query('date_from', '');
+        $dateTo = (string) $request->query('date_to', '');
+        $scholarshipName = trim((string) $request->query('scholarship_name', ''));
+        // CHANGE: Filter applicants by the minimum admin-entered amount.
         $status = strtolower((string) $request->query('status', 'all'));
         $allowedStatuses = ['all', 'approved', 'pending', 'rejected'];
 
@@ -131,27 +141,91 @@ class AdminController extends Controller
 
         $query = StudentProfile::where('grant_type', $grantType)
             ->whereNull('deleted_at')
-            ->when($search !== '', function ($query) use ($search) {
-                $like = '%' . $search . '%';
-                $query->where(function ($query) use ($like) {
-                    $query->where('last_name', 'like', $like)
-                        ->orWhere('first_name', 'like', $like)
-                        ->orWhere('middle_name', 'like', $like)
-                        ->orWhere('course', 'like', $like)
-                        ->orWhere('scholarship_type', 'like', $like)
-                        ->orWhere('scholarship_name', 'like', $like);
-                });
+            ->when($dateFrom !== '', function ($query) use ($dateFrom) {
+                $query->whereDate(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'), '>=', $dateFrom);
+            })
+            ->when($dateTo !== '', function ($query) use ($dateTo) {
+                $query->whereDate(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'), '<=', $dateTo);
+            })
+            ->when($scholarshipName !== '', function ($query) use ($scholarshipName) {
+                $query->where('student_profiles.scholarship_name', $scholarshipName);
             })
             ->when($status !== 'all', function ($query) use ($status) {
-                $query->where('application_status', $status);
+                $query->where('student_profiles.application_status', $status);
             })
             ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
-            ->select('student_profiles.*')
-            ->orderBy('applications.created_at')
-            ->orderBy('applications.id')
-            ->orderBy('student_profiles.id');
+            ->leftJoin('scholarships', 'scholarships.id', '=', 'applications.scholarship_id')
+            ->select('student_profiles.*', 'scholarships.type as scholarship_category_type')
+            ->orderByRaw('COALESCE(applications.created_at, student_profiles.created_at) DESC')
+            ->orderBy('applications.id', 'desc')
+            ->orderBy('student_profiles.id', 'desc');
 
         return $query->paginate(10)->withQueryString();
+    }
+
+    private function scholarshipNames(string $grantType)
+    {
+        $names = Scholarship::where('type', $grantType)
+            ->orderBy('name')
+            ->pluck('name');
+
+        if ($names->isNotEmpty()) {
+            return $names;
+        }
+
+        if ($grantType !== 'academic') {
+            return collect();
+        }
+
+        return collect([
+            'Cagayan Valley Assoc. of Hawaii',
+            'University Based Scholarship',
+            'ACEF – GIAHEP',
+            'DOST SEI Project Strand',
+            'Tulong Dunong Program',
+            'LGU Aparri',
+            'Natalged A Lasam',
+            'Andres Tamayo Scholarship',
+            'Gokongwei Brothers Foundation',
+        ]);
+    }
+
+    private function canonicalScholarshipNames(string $grantType): array
+    {
+        return Scholarship::where('type', $grantType)
+            ->orderBy('name')
+            ->pluck('name')
+            ->map(fn ($name) => trim((string) $name))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function scholarshipNamesLegacyFallback(string $grantType)
+    {
+        $names = Scholarship::where('type', $grantType)
+            ->orderBy('name')
+            ->pluck('name');
+
+        if ($names->isNotEmpty()) {
+            return $names;
+        }
+
+        if ($grantType !== 'academic') {
+            return collect();
+        }
+
+        return collect([
+            'Cagayan Valley Assoc. of Hawaii',
+            'University Based Scholarship',
+            'ACEF – GIAHEP',
+            'DOST SEI Project Strand',
+            'Tulong Dunong Program',
+            'LGU Aparri',
+            'Natalged A Lasam',
+            'Andres Tamayo Scholarship',
+            'Gokongwei Brothers Foundation',
+        ]);
     }
 
     /**
@@ -643,14 +717,162 @@ class AdminController extends Controller
         }
     }
 
+    // CHANGE: Create a manually logged applicant without an applications record.
+    public function storeManualApplicant(Request $request)
+    {
+        $validated = $request->validate([
+            'grant_type' => ['required', 'in:academic,non-academic'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'sex' => ['required', 'in:Male,Female'],
+            'course' => ['required', 'string', 'max:255'],
+            'year_level' => ['required', 'in:1st Year,2nd Year,3rd Year,4th Year'],
+            'scholarship_name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::in($this->canonicalScholarshipNames($request->input('grant_type', 'academic'))),
+            ],
+            'date' => ['required', 'date'],
+            'application_status' => ['required', 'in:pending,approved,rejected'],
+        ]);
+
+        $profile = StudentProfile::create([
+            'source' => 'manual',
+            'grant_type' => $validated['grant_type'],
+            'last_name' => $validated['last_name'],
+            'first_name' => $validated['first_name'],
+            'middle_name' => $validated['middle_name'] ?? null,
+            'sex' => $validated['sex'],
+            'status' => 'Single',
+            'email' => 'manual-' . Str::uuid() . '@local.invalid',
+            'course' => $validated['course'],
+            'year_level' => $validated['year_level'],
+            'scholarship_name' => $validated['scholarship_name'],
+            'scholarship_type' => $validated['grant_type'] === 'academic' ? 'Academic' : 'Non-Academic',
+            'application_status' => $validated['application_status'],
+        ]);
+        $profile->forceFill(['created_at' => $validated['date'] . ' 00:00:00'])->save();
+
+        return response()->json(['status' => 'ok', 'data' => $profile->fresh()]);
+    }
+
+    // CHANGE: Update a manually logged applicant without opening Applicant Info.
+    public function updateManualApplicant(Request $request, $id)
+    {
+        $profile = StudentProfile::where('source', 'manual')->findOrFail($id);
+        $validated = $request->validate([
+            'grant_type' => ['required', 'in:academic,non-academic'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'sex' => ['required', 'in:Male,Female'],
+            'course' => ['required', 'string', 'max:255'],
+            'year_level' => ['required', 'in:1st Year,2nd Year,3rd Year,4th Year'],
+            'scholarship_name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::in($this->canonicalScholarshipNames($request->input('grant_type', $profile->grant_type ?: 'academic'))),
+            ],
+            'date' => ['required', 'date'],
+            'application_status' => ['required', 'in:pending,approved,rejected'],
+        ]);
+
+        $profile->fill([
+            'grant_type' => $validated['grant_type'],
+            'last_name' => $validated['last_name'],
+            'first_name' => $validated['first_name'],
+            'middle_name' => $validated['middle_name'] ?? null,
+            'sex' => $validated['sex'],
+            'course' => $validated['course'],
+            'year_level' => $validated['year_level'],
+            'scholarship_name' => $validated['scholarship_name'],
+            'scholarship_type' => $validated['grant_type'] === 'academic' ? 'Academic' : 'Non-Academic',
+            'application_status' => $validated['application_status'],
+        ]);
+        $profile->forceFill(['created_at' => $validated['date'] . ' 00:00:00'])->save();
+
+        return response()->json(['status' => 'ok', 'data' => $profile->fresh()]);
+    }
+
+    // CHANGE: Delete only manually logged applicants.
+    public function destroyManualApplicant($id)
+    {
+        $profile = StudentProfile::where('source', 'manual')->findOrFail($id);
+        $profile->delete();
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    // CHANGE: Save an amount for all filtered approved applicants for either grant page in a transaction.
+    public function updateScholarshipAmounts(Request $request)
+    {
+        $validated = $request->validate([
+            'grant_type' => ['required', 'in:academic,non-academic'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'scholarship_name' => ['nullable', 'string'],
+            'status' => ['required', 'in:approved'],
+            'amount' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        try {
+            $updated = DB::transaction(function () use ($validated) {
+                $query = StudentProfile::query()
+                    ->where('student_profiles.grant_type', $validated['grant_type'])
+                    ->whereNull('student_profiles.deleted_at')
+                    ->where('student_profiles.application_status', 'approved')
+                    ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id');
+
+                $query->when(!empty($validated['date_from']), function ($query) use ($validated) {
+                    $query->whereDate(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'), '>=', $validated['date_from']);
+                });
+                $query->when(!empty($validated['date_to']), function ($query) use ($validated) {
+                    $query->whereDate(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'), '<=', $validated['date_to']);
+                });
+                $query->when(!empty($validated['scholarship_name']), function ($query) use ($validated) {
+                    $query->where('student_profiles.scholarship_name', $validated['scholarship_name']);
+                });
+
+                $profileIds = $query->pluck('student_profiles.id');
+
+                return StudentProfile::whereIn('id', $profileIds)
+                    ->update(['amount' => $validated['amount']]);
+            });
+
+            return response()->json([
+                'status' => 'ok',
+                'message' => 'Amount saved for all applicants under this scholarship.',
+                'updated' => $updated,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to update scholarship amounts', [
+                'scholarship_name' => $validated['scholarship_name'],
+                'exception' => $e,
+            ]);
+
+            return response()->json(['status' => 'error', 'message' => 'Unable to save amounts.'], 500);
+        }
+    }
+
     /**
      * Delete an application
      */
     public function destroy($id)
     {
         try {
-            $application = StudentProfile::findOrFail($id);
-            $application->delete();
+            DB::transaction(function () use ($id) {
+                $profile = StudentProfile::findOrFail($id);
+
+                if (!is_null($profile->application_id)) {
+                    Application::whereKey($profile->application_id)->delete();
+                }
+
+                $profile->delete();
+            });
+
             return response()->json(['status' => 'ok', 'message' => 'Application deleted']);
         } catch (\Exception $e) {
             Log::error('Failed to delete application', ['application_id' => $id, 'exception' => $e]);

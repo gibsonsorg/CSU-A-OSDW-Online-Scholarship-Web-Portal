@@ -59,11 +59,7 @@
 <div class="grid-2"> 
 <div class="card">
     <div class="card-title">
-        @if($filterType === 'academic')
-            Academic Grants
-        @elseif($filterType === 'non-academic')
-            Non-Academic Grants
-        @elseif($filterType === 'old-academic')
+        @if($filterType === 'old-academic')
             Old Academic Grants
             <button class="btn small" onclick="openOldGrantUploadModal()" style="margin-left: auto;">Upload Old Data</button>
         @elseif($filterType === 'old-non-academic')
@@ -71,17 +67,15 @@
             <button class="btn small" onclick="openOldGrantUploadModal()" style="margin-left: auto;">Upload Old Data</button>
         @elseif($filterType === 'users')
             Registered Users
-        @else
-            Recent Applications
         @endif
         @if(in_array($filterType, ['academic', 'non-academic', 'old-academic', 'old-non-academic'], true))
-            @include('admin.partials.grant-filters', ['filterType' => $filterType])
+            @include('admin.partials.grant-filters', ['filterType' => $filterType, 'scholarshipNames' => $scholarshipNames ?? collect()])
         @elseif($filterType === 'users')
             @include('admin.partials.users-filters')
         @elseif($filterType === 'all')
             @include('admin.partials.application-filters')
         @endif
-        @if($filterType !== 'old-academic' && $filterType !== 'old-non-academic')
+        @if($filterType !== 'academic' && $filterType !== 'non-academic' && $filterType !== 'old-academic' && $filterType !== 'old-non-academic')
             <a href="http://127.0.0.1:8000/admin/applications" class="card-action">View All →</a>
         @endif
     </div>
@@ -137,7 +131,9 @@
             </div>
         @endif
         @else
-        <table>
+        {{-- CHANGE: Show the Amount column only for the explicit Approved status filter. --}}
+        @php($showAmountColumn = request('status') === 'approved')
+        <table id="admin-applications-table" data-grant-type="{{ $filterType }}" data-show-amount="{{ $showAmountColumn ? '1' : '0' }}">
             <thead>
                 <tr>
                     <th>Last Name</th>
@@ -145,9 +141,14 @@
                     <th>Middle Name</th>
                     <th>Sex</th>
                     <th>Course</th>
+                    <th>Year Level</th>
                     <th>Type of Scholarship</th>
                     <th>Name of Scholarship</th>
                     <th>Date</th>
+                    @if($showAmountColumn)
+                        {{-- CHANGE: Display the saved applicant amount only in Approved view. --}}
+                        <th>Amount</th>
+                    @endif
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -155,15 +156,28 @@
             <tbody>
             @if($recentApplications->count() > 0)
                 @foreach($recentApplications as $app)
-                    <tr>
+                    <tr data-source="{{ $app->source ?? 'application' }}" data-id="{{ $app->id }}">
                         <td>{{ $app->last_name }}</td>
                         <td>{{ $app->first_name }}</td>
                         <td>{{ $app->middle_name }}</td>
                         <td>{{ $app->sex }}</td>
                         <td>{{ $app->course }}</td>
-                        <td>{{ $app->scholarship_name }}</td>
-                        <td>{{ $app->scholarship_type }}</td>
+                        <td>{{ $app->year_level }}</td>
+                        <td>{{ ($app->source ?? 'application') === 'manual' ? ($app->grant_type === 'academic' ? 'Academic' : 'Non-Academic') : (($app->scholarship_category_type ?? null) === 'academic' ? 'Academic' : ((($app->scholarship_category_type ?? null) === 'non-academic') ? 'Non-Academic' : 'Unknown')) }}</td>
+                        <td>{{ ($app->source ?? 'application') === 'manual' ? $app->scholarship_name : ($app->scholarship_name ?? '—') }}</td>
                         <td>{{ optional($app->created_at)->format('Y-m-d') }}</td>
+
+                        @if($showAmountColumn)
+                            {{-- CHANGE: Preserve approved-row amount formatting when the column is visible. --}}
+                            <td>
+                                @if($app->application_status === 'approved' && $app->amount !== null)
+                                    ₱{{ number_format((float) $app->amount, 2) }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                        @endif
+
                         <td>
                             @if(isset($app->application_status) && $app->application_status === 'approved')
                                 <span class="badge approved">Approved</span>
@@ -174,13 +188,19 @@
                             @endif
                         </td>
                         <td>
-                            <button class="btn small view-profile-btn" data-id="{{ $app->id }}">Applicant info</button>
+                            @if(($app->source ?? 'application') === 'manual')
+                                <button class="btn small manual-edit-btn" data-id="{{ $app->id }}" type="button">Edit</button>
+                                <button class="btn small manual-delete-btn" data-id="{{ $app->id }}" type="button">Delete</button>
+                            @else
+                                <button class="btn small view-profile-btn" data-id="{{ $app->id }}">Applicant info</button>
+                            @endif
                         </td>
                     </tr>
                 @endforeach
             @else
                 <tr>
-                    <td colspan="10" class="text-center text-gray">No applications found.</td>
+                    {{-- CHANGE: Match the empty-state span to the conditional Amount column. --}}
+                    <td colspan="{{ $showAmountColumn ? 12 : 11 }}" class="text-center text-gray empty-state-row">No applications found.</td>
                 </tr>
             @endif
         </tbody>

@@ -2,6 +2,148 @@
 const state = { acad: 1, non: 1 };
 
 const maxPages = { acad: 2, non: 2 };
+const DRAFT_TTL_MS = 5 * 60 * 1000;
+
+function getDraftKey(grantType, scholarshipId, scholarshipName) {
+    const userId = window.currentUserId ?? 'guest';
+    const rawId = scholarshipId || scholarshipName || 'new';
+    const safeId = String(rawId).trim().replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'new';
+    return `csu_gms_draft_${userId}_${grantType}_${safeId}`;
+}
+
+function readDraft(grantType, scholarshipId, scholarshipName) {
+    if (typeof window === 'undefined' || !window.sessionStorage) return null;
+
+    try {
+        const key = getDraftKey(grantType, scholarshipId, scholarshipName);
+        const payload = JSON.parse(window.sessionStorage.getItem(key) || 'null');
+        if (!payload || !payload.timestamp || !payload.values) return null;
+
+        const age = Date.now() - Number(payload.timestamp || 0);
+        if (!Number.isFinite(age) || age > DRAFT_TTL_MS) {
+            window.sessionStorage.removeItem(key);
+            return null;
+        }
+
+        return payload;
+    } catch (error) {
+        return null;
+    }
+}
+
+function clearDraft(grantType, scholarshipId, scholarshipName) {
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    try {
+        window.sessionStorage.removeItem(getDraftKey(grantType, scholarshipId, scholarshipName));
+    } catch (error) {
+        // ignore session storage failures
+    }
+}
+
+function saveDraft(form, grantType, scholarshipId, scholarshipName) {
+    if (!form || typeof window === 'undefined' || !window.sessionStorage) return;
+
+    const values = {};
+    const excludedNames = new Set(['email', 'application_id', 'student_profile_id', 'scholarship_name', 'scholarship_type', 'scholarship_id']);
+
+    form.querySelectorAll('input[name], select[name], textarea[name]').forEach(input => {
+        if (input.type === 'file' || input.disabled || input.readOnly || !input.name || excludedNames.has(input.name)) {
+            return;
+        }
+
+        values[input.name] = input.value ?? '';
+    });
+
+    if (!Object.keys(values).length) return;
+
+    const draft = {
+        timestamp: Date.now(),
+        grantType,
+        scholarshipId: scholarshipId || form.querySelector('[name="scholarship_id"]')?.value || '',
+        scholarshipName: scholarshipName || form.querySelector('[name="scholarship_name"]')?.value || '',
+        values,
+    };
+
+    try {
+        window.sessionStorage.setItem(getDraftKey(grantType, draft.scholarshipId, draft.scholarshipName), JSON.stringify(draft));
+    } catch (error) {
+        // ignore session storage failures
+    }
+}
+
+function applyDraftToForm(form, draft) {
+    if (!form || !draft || !draft.values) return;
+
+    Object.entries(draft.values).forEach(([fieldName, value]) => {
+        const input = form.querySelector(`[name="${fieldName}"]`);
+        if (!input || input.type === 'file' || input.readOnly) return;
+        input.value = value ?? '';
+    });
+}
+
+function getPrefillData(grantType) {
+    const url = new URL('/student-application-prefill', window.location.origin);
+    url.searchParams.set('grant_type', grantType);
+
+    return fetch(url.toString(), { credentials: 'same-origin' })
+        .then(response => response.ok ? response.json() : { data: null })
+        .then(payload => payload && payload.data ? payload.data : null)
+        .catch(() => null);
+}
+
+function applyPrefillValueToForm(form, fieldName, value) {
+    if (!fieldName || value === null || value === undefined) return;
+    const input = form.querySelector(`[name="${fieldName}"]`);
+    if (!input || input.type === 'file' || input.readOnly) return;
+    input.value = value;
+}
+
+function hydrateFormOpenState(form, grantType, scholarshipId, scholarshipName) {
+    if (!form) return;
+
+    const selectedScholarshipName = scholarshipName || form.querySelector('[name="scholarship_name"]')?.value || '';
+    const selectedScholarshipId = scholarshipId || form.querySelector('[name="scholarship_id"]')?.value || '';
+
+    const draft = readDraft(grantType, selectedScholarshipId, selectedScholarshipName);
+    if (draft) {
+        applyDraftToForm(form, draft);
+        return;
+    }
+
+    getPrefillData(grantType).then(prefill => {
+        if (!prefill) return;
+        Object.entries(prefill).forEach(([fieldName, value]) => {
+            applyPrefillValueToForm(form, fieldName, value);
+        });
+    }).catch(() => {
+        // Ignore prefill failures and keep the blank form as-is.
+    });
+}
+
+function bindDraftAutosave(form, grantType) {
+    if (!form) return;
+
+    const saveDraftNow = () => {
+        const scholarshipId = form.querySelector('[name="scholarship_id"]')?.value || '';
+        const scholarshipName = form.querySelector('[name="scholarship_name"]')?.value || '';
+        saveDraft(form, grantType, scholarshipId, scholarshipName);
+    };
+
+    form.querySelectorAll('input[name], select[name], textarea[name]').forEach(input => {
+        if (input.type === 'file' || input.readOnly || !input.name) return;
+        input.addEventListener('input', saveDraftNow);
+        input.addEventListener('change', saveDraftNow);
+    });
+}
+
+function bindDraftClearOnSubmit(form, grantType) {
+    if (!form) return;
+    form.addEventListener('submit', function () {
+        const scholarshipId = form.querySelector('[name="scholarship_id"]')?.value || '';
+        const scholarshipName = form.querySelector('[name="scholarship_name"]')?.value || '';
+        clearDraft(grantType, scholarshipId, scholarshipName);
+    });
+}
 
 // Change page function
 function changePage(sec, dir) {
@@ -636,7 +778,8 @@ function validateFilesForSubmission(form, fileValidationRules) {
 }
 
 document.addEventListener('DOMContentLoaded', function(){
-    const scholarshipIdMap = window.scholarshipIdMap || {};
+    const academicScholarshipIdMap = window.academicScholarshipIdMap || {};
+    const nonAcademicScholarshipIdMap = window.nonAcademicScholarshipIdMap || {};
     const setSelectedScholarship = (title, map, hiddenIdField, nameField, typeField, card) => {
         const selected = title && (map[title] || {
             name: title,
@@ -650,8 +793,12 @@ document.addEventListener('DOMContentLoaded', function(){
 
         const selectedName = selected.name;
         const selectedType = selected.type;
+        const scholarshipIdMap = map === academicScholarshipMap
+            ? academicScholarshipIdMap
+            : nonAcademicScholarshipIdMap;
         if (nameField) nameField.value = selectedName;
         if (typeField) typeField.value = selectedType;
+        if (map === nonAcademicScholarshipMap) updateNonAcademicRequirementsNote(selectedName);
         if (hiddenIdField) {
             hiddenIdField.value = card?.dataset.scholarshipId || scholarshipIdMap[selectedName] || '';
         }
@@ -683,6 +830,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const academicForm = document.getElementById('academicApplyForm');
     const academicModal = document.getElementById('academicApplyModal');
     if (academicForm && academicModal) {
+        bindDraftAutosave(academicForm, 'academic');
+        bindDraftClearOnSubmit(academicForm, 'academic');
         const currentStep = Number(academicForm.dataset.currentAcademicStep || 1);
         updateAcademicStepUI(currentStep);
 
@@ -741,6 +890,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const nonAcademicForm = document.getElementById('applyForm');
     const nonAcademicModal = document.getElementById('applyModal');
     if (nonAcademicForm && nonAcademicModal) {
+        bindDraftAutosave(nonAcademicForm, 'non-academic');
+        bindDraftClearOnSubmit(nonAcademicForm, 'non-academic');
         const currentStep = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
         updateNonAcademicStepUI(currentStep);
 
@@ -825,6 +976,43 @@ document.addEventListener('DOMContentLoaded', function(){
         'Talamayan Scholarship': { name: 'Talamayan Scholarship', type: 'Community Support Grant Private Based' }
     };
 
+    // CHANGE: Display-only requirements for selected non-academic scholarships.
+    const nonAcademicRequirementsMap = {
+        'Campus Student Publication': ['Certificate from the adviser'],
+        'Student Council Federation Grant': ['COE (Present semester)'],
+        'Differently Abled Persons': ['Student ID (front and back), PDF format'],
+        'Socio-Cultural Scholarship': ['COE (Present semester)'],
+        "Employees' Grant": ['COE (Present semester)'],
+        'Tulong Dunong Program': ['COE (Present semester)'],
+        'Tertiary Education Subsidy': [
+            'COE (Present semester)',
+            'Student ID (front and back)',
+            'ATM',
+            '3x specimen signature',
+            'Contact number',
+            'All documents must be in PDF format'
+        ],
+        'CSU Aparri Alumni Association': ['COE (Present semester)'],
+        'Agkaykaysa': ['COE (Present semester)']
+    };
+
+    function updateNonAcademicRequirementsNote(scholarshipName) {
+        const note = document.getElementById('nonAcademicRequirementsNote');
+        const requirements = nonAcademicRequirementsMap[scholarshipName];
+        if (!note) return;
+
+        if (!requirements) {
+            note.hidden = true;
+            note.style.display = 'none';
+            note.innerHTML = '';
+            return;
+        }
+
+        note.innerHTML = `<strong>Required documents:</strong><ul style="margin:4px 0 0;padding-left:20px;">${requirements.map(item => `<li>${item}</li>`).join('')}</ul>`;
+        note.hidden = false;
+        note.style.display = 'block';
+    }
+
     // Handle academic scholarship cards
     document.querySelectorAll('#acad-p1 .btn-apply, #acad-p2 .btn-apply').forEach(btn => {
         btn.addEventListener('click', function(e){
@@ -847,6 +1035,13 @@ document.addEventListener('DOMContentLoaded', function(){
             const enrollmentSection = document.getElementById('academicEnrollmentSection');
             if (enrollmentSection) {
                 enrollmentSection.style.display = title === 'University Based Scholarship' ? 'block' : 'none';
+            }
+
+            if (title) {
+                const form = document.getElementById('academicApplyForm');
+                const selectedId = scholarshipIdInput?.value || card?.dataset.scholarshipId || '';
+                const selectedName = nameInput?.value || title;
+                hydrateFormOpenState(form, 'academic', selectedId, selectedName);
             }
 
             openScholarshipDetailsModal(title, description, 'academic', card);
@@ -872,7 +1067,6 @@ document.addEventListener('DOMContentLoaded', function(){
                 setSelectedScholarship(title, nonAcademicScholarshipMap, scholarshipIdInput, nameInput, typeInput, card);
             }
 
-            // Show ID label for Open Heart and Talamayan only
             const nonAcademicIDLabel = document.getElementById('nonAcademicIDLabel');
             const nonAcademicUploadsInput = document.getElementById('nonAcademicUploadsInput');
             if (nonAcademicIDLabel) {
@@ -885,6 +1079,13 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             }
 
+            if (title) {
+                const form = document.getElementById('applyForm');
+                const selectedId = scholarshipIdInput?.value || card?.dataset.scholarshipId || '';
+                const selectedName = nameInput?.value || title;
+                hydrateFormOpenState(form, 'non-academic', selectedId, selectedName);
+            }
+
             openScholarshipDetailsModal(title, description, 'non', card);
         });
     });
@@ -893,6 +1094,9 @@ document.addEventListener('DOMContentLoaded', function(){
     function resetAndCloseNonAcademic(){
         const form = document.getElementById('applyForm');
         if (form) {
+            const scholarshipId = form.querySelector('[name="scholarship_id"]')?.value || '';
+            const scholarshipName = form.querySelector('[name="scholarship_name"]')?.value || '';
+            saveDraft(form, 'non-academic', scholarshipId, scholarshipName);
             form.querySelectorAll('[data-reapplication-preserved]').forEach(input => input.remove());
             form.querySelectorAll('.academic-step-panel, .academic-progress-step, [data-reapplication-document-group]').forEach(element => {
                 element.hidden = false;
@@ -912,6 +1116,7 @@ document.addEventListener('DOMContentLoaded', function(){
         if (nameInput) nameInput.value = '';
         if (typeInput) typeInput.value = '';
         if (scholarshipIdInput) scholarshipIdInput.value = '';
+        updateNonAcademicRequirementsNote('');
         const nonAcademicIDLabel = document.getElementById('nonAcademicIDLabel');
         const nonAcademicUploadsInput = document.getElementById('nonAcademicUploadsInput');
         if (nonAcademicIDLabel) nonAcademicIDLabel.style.display = 'none';
@@ -950,6 +1155,9 @@ document.addEventListener('DOMContentLoaded', function(){
     function resetAndCloseAcademic(){
         const form = document.getElementById('academicApplyForm');
         if (form) {
+            const scholarshipId = form.querySelector('[name="scholarship_id"]')?.value || '';
+            const scholarshipName = form.querySelector('[name="scholarship_name"]')?.value || '';
+            saveDraft(form, 'academic', scholarshipId, scholarshipName);
             form.querySelectorAll('[data-reapplication-preserved]').forEach(input => input.remove());
             form.querySelectorAll('.academic-step-panel, .academic-progress-step, [data-reapplication-document-group]').forEach(element => {
                 element.hidden = false;

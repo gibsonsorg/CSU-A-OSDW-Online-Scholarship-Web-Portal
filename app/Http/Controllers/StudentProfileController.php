@@ -252,6 +252,77 @@ class StudentProfileController extends Controller
         })->first();
     }
 
+    public function applicationPrefill(Request $request)
+    {
+        $user = Auth::user();
+        $grantType = $request->query('grant_type', 'academic');
+
+        if (!$user || !in_array($grantType, ['academic', 'non-academic'], true)) {
+            return response()->json(['data' => null]);
+        }
+
+        $profile = StudentProfile::where('user_id', $user->id)
+            ->where('grant_type', $grantType)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$profile) {
+            return response()->json(['data' => null]);
+        }
+
+        $academicFields = [
+            'first_name',
+            'middle_name',
+            'last_name',
+            'student_id_number',
+            'course',
+            'year_level',
+            'program',
+            'birthdate',
+            'birthplace',
+            'sex',
+            'status',
+            'religion',
+            'contact_number',
+            'home_address',
+        ];
+
+        $nonAcademicFields = [
+            'first_name',
+            'middle_name',
+            'last_name',
+            'student_id_number',
+            'course',
+            'year_level',
+            'sex',
+            'status',
+            'contact_number',
+            'home_address',
+        ];
+
+        $allowedFields = $grantType === 'academic' ? $academicFields : $nonAcademicFields;
+        $data = [];
+
+        foreach ($allowedFields as $field) {
+            if ($profile->getAttribute($field) === null) {
+                continue;
+            }
+
+            $value = $profile->getAttribute($field);
+            if ($field === 'birthdate' && $value instanceof \DateTimeInterface) {
+                $value = $value->format('Y-m-d');
+            }
+
+            $data[$field] = $value;
+        }
+
+        return response()->json([
+            'data' => $data,
+            'grant_type' => $grantType,
+        ]);
+    }
+
     private function countUsableDocuments($uploads, array $reviews = []): int
     {
         $count = 0;

@@ -35,15 +35,16 @@ Route::get('/dashboard', function () {
     if (auth()->check()) {
         $appliedScholarships = StudentProfile::where('user_id', auth()->id())
             ->whereIn('application_status', ['pending', 'approved', 'rejected'])
-            ->with('application:id,created_at')
+            ->with('application:id,scholarship_id,created_at')
             ->orderByDesc('created_at')
             ->orderByDesc('application_id')
-            ->get(['scholarship_name', 'application_status', 'application_id', 'created_at'])
-            ->groupBy('scholarship_name')
-            ->map(function ($records, $scholarshipName) {
+            ->get(['scholarship_name', 'application_status', 'application_id', 'grant_type', 'created_at'])
+            ->groupBy(fn ($profile) => $profile->grant_type . '|' . $profile->scholarship_name)
+            ->map(function ($records) {
                 $latest = $records->sortByDesc('created_at')->first();
                 $profile = StudentProfile::where('user_id', auth()->id())
-                    ->where('scholarship_name', $scholarshipName)
+                    ->where('scholarship_name', $latest->scholarship_name)
+                    ->where('grant_type', $latest->grant_type)
                     ->orderByDesc('application_id')
                     ->orderByDesc('id')
                     ->first();
@@ -56,8 +57,10 @@ Route::get('/dashboard', function () {
                 ], true);
 
                 return [
-                    'name' => trim($scholarshipName),
+                    'name' => trim($latest->scholarship_name),
                     'status' => $latest->application_status ?? 'pending',
+                    'scholarship_id' => $latest->application?->scholarship_id,
+                    'grant_type' => $latest->grant_type,
                     'reopen' => $hasRejectedSection || $hasRejectedDocument,
                     'profile' => $profile,
                 ];
@@ -77,19 +80,24 @@ Route::get('/dashboard', function () {
             ->count();
     }
 
-    $scholarshipIdMap = Scholarship::pluck('id', 'name')->toArray();
+    $academicScholarshipIdMap = Scholarship::where('type', 'academic')->pluck('id', 'name')->toArray();
+    $nonAcademicScholarshipIdMap = Scholarship::where('type', 'non-academic')->pluck('id', 'name')->toArray();
     $dynamicScholarships = Scholarship::whereIn('status', ['active', 'inactive'])
         ->whereNotNull('short_information')
         ->where('type', $section === 'non' ? 'non-academic' : 'academic')
         ->orderBy('name')
         ->get();
 
-    return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications', 'scholarshipIdMap', 'dynamicScholarships'));
+    return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications', 'academicScholarshipIdMap', 'nonAcademicScholarshipIdMap', 'dynamicScholarships'));
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::get('/application-status', [StudentProfileController::class, 'applicationStatus'])
     ->middleware(['auth', 'verified'])
     ->name('application-status');
+
+Route::get('/student-application-prefill', [StudentProfileController::class, 'applicationPrefill'])
+    ->middleware(['auth', 'verified', 'web'])
+    ->name('student.application-prefill');
 
 //ADMIN DASHBOARD ROUTE 
 // Admin dashboard - shows recent applications
@@ -145,6 +153,10 @@ Route::post('/admin/applications/{id}/documents/{group}/{index}/reject', [AdminC
 
 // Update application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/update', [AdminController::class, 'update'])->middleware(['auth', 'admin']);
+Route::post('/admin/applications/update-scholarship-amounts', [AdminController::class, 'updateScholarshipAmounts'])->middleware(['auth', 'admin']);
+Route::post('/admin/manual-applicants', [AdminController::class, 'storeManualApplicant'])->middleware(['auth', 'admin']);
+Route::put('/admin/manual-applicants/{id}', [AdminController::class, 'updateManualApplicant'])->whereNumber('id')->middleware(['auth', 'admin']);
+Route::delete('/admin/manual-applicants/{id}', [AdminController::class, 'destroyManualApplicant'])->whereNumber('id')->middleware(['auth', 'admin']);
 
 // Delete application endpoint - uses AdminController with DELETE method
 Route::delete('/admin/applications/{id}', [AdminController::class, 'destroy'])->middleware(['auth', 'admin']);

@@ -100,6 +100,66 @@ class ApplicationWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_admin_delete_removes_the_reapply_block_for_student_submitted_applications(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 0,
+            'email_verified_at' => now(),
+        ]);
+        $student = User::factory()->approved()->create([
+            'student_id' => '23-11943',
+        ]);
+        $scholarship = Scholarship::create(['name' => 'Community Service Scholarship', 'type' => 'non-academic']);
+
+        $application = Application::create([
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+            'status' => 'pending',
+        ]);
+        $profile = StudentProfile::create([
+            'user_id' => $student->id,
+            'application_id' => $application->id,
+            'first_name' => 'Delete',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'course' => 'BSIT',
+            'year_level' => '1st Year',
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Non-Academic',
+            'grant_type' => 'non-academic',
+            'application_status' => 'pending',
+            'home_address' => 'Aparri',
+            'contact_number' => '09123456789',
+        ]);
+
+        $deleteResponse = $this->actingAs($admin)->postJson('/admin/applications/' . $profile->id . '/delete');
+        $deleteResponse->assertOk();
+
+        $this->assertSoftDeleted('student_profiles', ['id' => $profile->id]);
+        $this->assertDatabaseMissing('applications', ['id' => $application->id]);
+
+        $response = $this->actingAs($student)->from(route('dashboard', ['section' => 'non']))->post('/student-profiles', [
+            'first_name' => 'Delete',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => $student->student_id,
+            'home_address' => 'Aparri',
+            'contact_number' => '09123456789',
+            'course' => 'BSIT',
+            'year_level' => '1st Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Non-Academic',
+        ]);
+
+        $response->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false));
+        $response->assertSessionDoesntHaveErrors();
+    }
+
     public function test_selected_scholarship_id_is_authoritative_for_submission(): void
     {
         $student = User::factory()->approved()->create([
