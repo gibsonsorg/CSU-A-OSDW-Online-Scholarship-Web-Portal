@@ -47,14 +47,19 @@ Route::get('/dashboard', function () {
                     ->where('grant_type', $latest->grant_type)
                     ->orderByDesc('application_id')
                     ->orderByDesc('id')
+                    ->with('familyBackground')
                     ->first();
                 $documentReviews = $profile?->document_review ?? $profile?->document_reviews ?? [];
                 $hasRejectedDocument = collect($documentReviews)->contains(fn ($review) => ($review['status'] ?? null) === 'rejected');
-                $hasRejectedSection = in_array('rejected', [
+                $sectionStatuses = [
                     $profile?->student_information_status,
                     $profile?->personal_information_status,
                     $profile?->scholarship_requirements_status,
-                ], true);
+                ];
+                if ($profile?->grant_type === 'non-academic') {
+                    $sectionStatuses[] = $profile->family_background_status;
+                }
+                $hasRejectedSection = in_array('rejected', $sectionStatuses, true);
 
                 return [
                     'name' => trim($latest->scholarship_name),
@@ -136,7 +141,7 @@ Route::post('/admin/users/{id}/delete', [AdminController::class, 'deleteUser'])-
 // Fetch single application details as JSON
 // From: app/Http/Controllers/AdminController - application detail view
 Route::get('/admin/applications/{id}', function($id){
-    $p = StudentProfile::find($id);
+    $p = StudentProfile::with('familyBackground')->find($id);
     if (!$p) return response()->json(['error'=>'not_found'], 404);
     return response()->json($p);
 })->middleware(['auth', 'admin']);

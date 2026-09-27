@@ -2,6 +2,8 @@
     const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     let currentAppId = null;
     let currentStep = 1;
+    let currentFamilyPage = 1;
+    let profileStepCount = 3;
 
     const escapeHtml = value => String(value ?? '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -21,6 +23,18 @@
 
     function field(label, value, name) {
         return `<div class="academic-review-field"><label>${label}</label><input class="input" data-field="${name}" value="${escapeHtml(value || 'N/A')}" readonly></div>`;
+    }
+
+    function calculateAge(birthdate) {
+        const match = String(birthdate ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!match) return '';
+        const year = Number(match[1]);
+        const month = Number(match[2]) - 1;
+        const day = Number(match[3]);
+        const today = new Date();
+        let age = today.getFullYear() - year;
+        if (today.getMonth() < month || (today.getMonth() === month && today.getDate() < day)) age--;
+        return age >= 0 ? age : '';
     }
 
     function reviewArea(section, status, reason) {
@@ -59,22 +73,41 @@
     function renderProfile(app) {
         const body = document.getElementById('profileBody');
         const isNonAcademic = app.grant_type === 'non-academic';
+        const familyProgress = document.querySelector('[data-profile-family-progress]');
+        const familyProgressLine = document.querySelector('[data-profile-family-progress-line]');
+        const finalProgress = document.querySelector('[data-profile-final-progress]');
+        profileStepCount = isNonAcademic ? 4 : 3;
+        currentFamilyPage = 1;
+        if (familyProgress) {
+            familyProgress.hidden = !isNonAcademic;
+            if (isNonAcademic) familyProgress.dataset.profileProgressStep = '3';
+        }
+        if (familyProgressLine) familyProgressLine.hidden = !isNonAcademic;
+        if (finalProgress) {
+            finalProgress.dataset.profileProgressStep = String(profileStepCount);
+            const dot = finalProgress.querySelector('.academic-progress-dot');
+            if (dot) dot.textContent = profileStepCount;
+        }
+        document.getElementById('profileStepTotal').textContent = profileStepCount;
         let uploads = app.uploads || {};
         if (Array.isArray(uploads)) uploads = { uploads };
         const step1Fields = [
             field('First name', app.first_name, 'first_name'), field('Middle name', app.middle_name, 'middle_name'),
-            field('Last name', app.last_name, 'last_name'), field('Email', app.email, 'email'),
+            field('Last name', app.last_name, 'last_name'), field('Suffix', app.suffix, 'suffix'), field('Email', app.email, 'email'),
             field('Student ID Number', app.student_id_number || app.id_number, 'student_id_number'), field('Course', app.course, 'course'),
-            field('Year Level', app.year_level, 'year_level')
+            field('College or Department', app.college_department, 'college_department'), field('Year Level', app.year_level, 'year_level')
         ];
         if (!isNonAcademic) step1Fields.push(field('Program', app.program, 'program'));
         const step1 = step1Fields.join('') + reviewArea('student-information', app.student_information_status, app.student_information_reason);
         const step2Fields = isNonAcademic ? [
             field('Sex', app.sex, 'sex'), field('Status', app.status, 'status'),
-            field('Contact Number', app.contact_number, 'contact_number'), field('Home Address', app.home_address, 'home_address')
+            field('Contact Number', app.contact_number, 'contact_number'),
+            field('Birthday', app.birthdate ? String(app.birthdate).split('T')[0] : '', 'birthdate'),
+            field('Birthplace', app.birthplace, 'birthplace'), field('Age', calculateAge(app.birthdate), 'age'),
+            field('Home Address', app.home_address, 'home_address')
         ] : [
                 field('Birthday', app.birthdate ? String(app.birthdate).split('T')[0] : '', 'birthdate'),
-                field('Birthplace', app.birthplace, 'birthplace'), field('Sex', app.sex, 'sex'),
+                field('Birthplace', app.birthplace, 'birthplace'), field('Age', calculateAge(app.birthdate), 'age'), field('Sex', app.sex, 'sex'),
                 field('Status', app.status, 'status'), field('Religion', app.religion, 'religion'),
                 field('Contact Number', app.contact_number, 'contact_number'), field('Home Address', app.home_address, 'home_address')
             ];
@@ -86,10 +119,70 @@
             documentGroup('Uploaded Files', uploads.uploads, 'uploads', app.document_review || app.document_reviews),
             documentGroup('Certificate of Adviser', uploads.certificate_of_adviser, 'certificate_of_adviser', app.document_review || app.document_reviews)
         ].join('');
-        const step3 = field('Name of Scholarship / Sponsor', app.scholarship_name, 'scholarship_name') +
+        const scholarshipStep = field('Name of Scholarship / Sponsor', app.scholarship_name, 'scholarship_name') +
             field('Types of Scholarship', app.scholarship_type, 'scholarship_type') +
             `<div class="full"><label>Uploaded documents</label>${documents || '<div class="input">No files uploaded.</div>'}</div>`;
-        body.innerHTML = `<div class="academic-review-step" data-profile-step="1">${step1}</div><div class="academic-review-step" data-profile-step="2">${step2}</div><div class="academic-review-step" data-profile-step="3">${step3}</div>`;
+        const family = app.family_background || {};
+        const familyValue = value => value === null || value === undefined || String(value).trim() === '' ? 'N/A' : value;
+        const dateValue = value => value ? String(value).split('T')[0] : '';
+        const pairedFields = (leftLabel, leftValue, leftName, rightLabel, rightValue, rightName) => `
+            <div class="family-background-field-row">
+                ${field(leftLabel, leftValue, leftName)}
+                ${field(rightLabel, rightValue, rightName)}
+            </div>`;
+        const motherFields = [
+            pairedFields('Mother Status', familyValue(family.mother_status), 'mother_status', 'Mother Full Name', familyValue(family.mother_name), 'mother_name'),
+            pairedFields('Mother Age', familyValue(family.mother_age), 'mother_age', 'Mother Birth Date', dateValue(family.mother_birthdate) || 'N/A', 'mother_birthdate'),
+            pairedFields('Mother Present Address', familyValue(family.mother_address), 'mother_address', 'Mother Occupation', familyValue(family.mother_occupation), 'mother_occupation'),
+            pairedFields('Mother Office Address', familyValue(family.mother_office_address), 'mother_office_address', 'Mother Highest Educational Attainment', familyValue(family.mother_education), 'mother_education')
+        ].join('');
+        const fatherFields = [
+            pairedFields('Father Status', familyValue(family.father_status), 'father_status', 'Father Full Name', familyValue(family.father_name), 'father_name'),
+            pairedFields('Father Age', familyValue(family.father_age), 'father_age', 'Father Birth Date', dateValue(family.father_birthdate) || 'N/A', 'father_birthdate'),
+            pairedFields('Father Present Address', familyValue(family.father_address), 'father_address', 'Father Occupation', familyValue(family.father_occupation), 'father_occupation'),
+            pairedFields('Father Office Address', familyValue(family.father_office_address), 'father_office_address', 'Father Highest Educational Attainment', familyValue(family.father_education), 'father_education')
+        ].join('');
+        const shouldShowDisabilityDetails = String(family.has_differently_abled_member ?? '').toLowerCase() === 'yes' || family.has_differently_abled_member === true;
+        const disabilityField = shouldShowDisabilityDetails
+            ? `<div class="family-background-single-row full">${field('Kind of Disability', familyValue(family.disability_details), 'disability_details')}</div>`
+            : '';
+        const familySharedFields = [
+            pairedFields('Estimated Monthly/Annual Family Income', familyValue(family.monthly_income), 'monthly_income', 'Differently Abled Family Member', family.has_differently_abled_member === null || family.has_differently_abled_member === undefined ? 'N/A' : (family.has_differently_abled_member ? 'Yes' : 'No'), 'has_differently_abled_member'),
+            disabilityField,
+        ].join('');
+        const siblings = Array.isArray(family.siblings) ? family.siblings : [];
+        const siblingsTable = siblings.length
+            ? `<div class="family-background-modal-siblings full"><label>Siblings</label><div class="family-background-modal-table-wrap"><table><thead><tr><th>Name</th><th>Age</th><th>Marital Status</th><th>Employment/Occupation</th></tr></thead><tbody>${siblings.map(sibling => `<tr><td>${escapeHtml(familyValue(sibling.name))}</td><td>${escapeHtml(familyValue(sibling.age))}</td><td>${escapeHtml(familyValue(sibling.marital_status))}</td><td>${escapeHtml(familyValue(sibling.occupation))}</td></tr>`).join('')}</tbody></table></div></div>`
+            : '<div class="family-background-modal-siblings full"><label>Siblings</label><div class="input">N/A</div></div>';
+        const familySubpage1 = `
+            <div class="academic-review-substep" data-profile-family-page="1" ${currentFamilyPage === 1 ? 'data-profile-family-active="true"' : 'hidden'}>
+                <div class="family-background-substep-shell">
+                    <div class="family-background-substep-title">Mother</div>
+                    <div class="family-background-review-grid">${motherFields}</div>
+                </div>
+            </div>`;
+        const familySubpage2 = `
+            <div class="academic-review-substep" data-profile-family-page="2" ${currentFamilyPage === 2 ? 'data-profile-family-active="true"' : 'hidden'}>
+                <div class="family-background-substep-shell">
+                    <div class="family-background-substep-title">Father</div>
+                    <div class="family-background-review-grid">${fatherFields}</div>
+                </div>
+            </div>`;
+        const familySubpage3 = `
+            <div class="academic-review-substep" data-profile-family-page="3" ${currentFamilyPage === 3 ? 'data-profile-family-active="true"' : 'hidden'}>
+                <div class="family-background-substep-shell">
+                    <div class="family-background-substep-title">Parents / Guardian & Family Details</div>
+                    <div class="family-background-review-grid">${familySharedFields}${siblingsTable}</div>
+                    <div class="family-background-action-bar">${reviewArea('family-background', app.family_background_status, app.family_background_reason)}</div>
+                </div>
+            </div>`;
+        const familyStep = isNonAcademic ? `
+            <div class="academic-review-step" data-profile-step="3">${familySubpage1}${familySubpage2}${familySubpage3}</div>
+            <div class="academic-review-step" data-profile-step="4">${scholarshipStep}</div>`
+            : `<div class="academic-review-step" data-profile-step="1">${step1}</div><div class="academic-review-step" data-profile-step="2">${step2}</div><div class="academic-review-step" data-profile-step="3">${scholarshipStep}</div>`;
+        body.innerHTML = isNonAcademic
+            ? `<div class="academic-review-step" data-profile-step="1">${step1}</div><div class="academic-review-step" data-profile-step="2">${step2}</div>${familyStep}`
+            : `<div class="academic-review-step" data-profile-step="1">${step1}</div><div class="academic-review-step" data-profile-step="2">${step2}</div><div class="academic-review-step" data-profile-step="3">${scholarshipStep}</div>`;
         updateStepUI();
     }
 
@@ -100,10 +193,15 @@
             step.classList.toggle('active', value === currentStep);
             step.classList.toggle('completed', value < currentStep);
         });
+        document.querySelectorAll('#profileModal [data-profile-family-page]').forEach(page => {
+            const isVisible = currentStep === 3 && Number(page.dataset.profileFamilyPage) === currentFamilyPage;
+            page.hidden = !isVisible;
+            page.dataset.profileFamilyActive = isVisible ? 'true' : 'false';
+        });
         document.getElementById('profileStepCounter').textContent = currentStep;
-        document.getElementById('profilePageCounter').textContent = `${currentStep} / 3`;
+        document.getElementById('profilePageCounter').textContent = `${currentStep} / ${profileStepCount}`;
         document.getElementById('profilePrevious').disabled = currentStep === 1;
-        document.getElementById('profileNext').disabled = currentStep === 3;
+        document.getElementById('profileNext').disabled = currentStep === profileStepCount;
         document.getElementById('profilePrevious').style.visibility = 'visible';
         document.getElementById('profilePreviousTop').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
         document.getElementById('profileNext').style.visibility = 'visible';
@@ -171,14 +269,59 @@
         try { await loadProfile(currentAppId); } catch (error) { document.getElementById('profileBody').textContent = error.message; }
     }));
 
-    document.getElementById('profilePrevious')?.addEventListener('click', () => { if (currentStep > 1) { currentStep--; updateStepUI(); } });
-    document.getElementById('profilePreviousTop')?.addEventListener('click', () => { if (currentStep > 1) { currentStep--; updateStepUI(); } });
-    document.getElementById('profileNext')?.addEventListener('click', () => { if (currentStep < 3) { currentStep++; updateStepUI(); } });
+    const handleProfilePrevious = () => {
+        if (currentStep === 4) {
+            currentStep = 3;
+            currentFamilyPage = 3;
+            updateStepUI();
+            return;
+        }
+        if (currentStep === 3) {
+            if (currentFamilyPage > 1) {
+                currentFamilyPage -= 1;
+                updateStepUI();
+                return;
+            }
+            currentStep = 2;
+            currentFamilyPage = 1;
+            updateStepUI();
+            return;
+        }
+        if (currentStep > 1) {
+            currentStep -= 1;
+            if (currentStep === 3) currentFamilyPage = 3;
+            updateStepUI();
+        }
+    };
+
+    const handleProfileNext = () => {
+        if (currentStep === 3) {
+            if (currentFamilyPage < 3) {
+                currentFamilyPage += 1;
+                updateStepUI();
+                return;
+            }
+            currentStep = 4;
+            currentFamilyPage = 1;
+            updateStepUI();
+            return;
+        }
+        if (currentStep < profileStepCount) {
+            currentStep += 1;
+            if (currentStep === 3) currentFamilyPage = 1;
+            updateStepUI();
+        }
+    };
+
+    document.getElementById('profilePrevious')?.addEventListener('click', handleProfilePrevious);
+    document.getElementById('profilePreviousTop')?.addEventListener('click', handleProfilePrevious);
+    document.getElementById('profileNext')?.addEventListener('click', handleProfileNext);
     document.getElementById('closeProfile')?.addEventListener('click', () => document.getElementById('profileModal').classList.remove('open'));
 
     document.getElementById('profileBody')?.addEventListener('click', async event => {
         const documentButton = event.target.closest('[data-document-group]');
         const reviewSection = event.target.closest('.review-section');
+        const actionTarget = event.target.closest('[data-action]');
         try {
             if (documentButton) {
                 const group = documentButton.dataset.documentGroup;
@@ -186,6 +329,15 @@
                 const url = `/admin/applications/${currentAppId}/documents/${encodeURIComponent(group)}/${index}`;
                 if (documentButton.classList.contains('document-reject')) await rejectWithReason('Reject Document', `${url}/reject`);
                 else { await postJson(`${url}/approve`); await loadProfile(currentAppId); }
+                return;
+            }
+            if (actionTarget && actionTarget.dataset.action === 'approve-app') {
+                await postJson(`/admin/applications/${currentAppId}/approve`);
+                await loadProfile(currentAppId);
+                return;
+            }
+            if (actionTarget && actionTarget.dataset.action === 'reject-app') {
+                await rejectWithReason('Reject Application', `/admin/applications/${currentAppId}/reject`);
                 return;
             }
             if (!reviewSection) return;

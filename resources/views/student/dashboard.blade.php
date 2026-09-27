@@ -956,7 +956,7 @@ More info: https://unifaast.gov.ph/tes.html"
             @endphp
 
             <div class="academic-progress-wrapper">
-                <div class="academic-progress-header">Step <span id="nonAcademicStepCounter">1</span> of 3</div>
+                <div class="academic-progress-header">Step <span id="nonAcademicStepCounter">1</span> of 4</div>
                 <div class="academic-progress-track" aria-live="polite">
                     <div class="academic-progress-step active" data-progress-step="1">
                         <div class="academic-progress-dot">1</div>
@@ -970,6 +970,11 @@ More info: https://unifaast.gov.ph/tes.html"
                     <div class="academic-progress-line"></div>
                     <div class="academic-progress-step" data-progress-step="3">
                         <div class="academic-progress-dot">3</div>
+                        <div class="academic-progress-label">Family Background</div>
+                    </div>
+                    <div class="academic-progress-line"></div>
+                    <div class="academic-progress-step" data-progress-step="4">
+                        <div class="academic-progress-dot">4</div>
                         <div class="academic-progress-label">Scholarship &amp; Requirements</div>
                     </div>
                 </div>
@@ -994,12 +999,16 @@ More info: https://unifaast.gov.ph/tes.html"
                         <input class="input" type="text" name="last_name" value="{{ $lastNameDefault }}" required>
                     </div>
                     <div>
+                        <label>Suffix</label>
+                        <input class="input" type="text" name="suffix" value="{{ old('suffix') }}">
+                    </div>
+                    <div>
                         <label>Email address</label>
                         <input class="input email-readonly" type="email" name="email" value="{{ $emailDefault }}" readonly aria-readonly="true" title="Verified account email" required>
                     </div>
                     <div>
                         <label>Student ID Number</label>
-                        <input class="input" type="text" name="student_id_number" value="{{ $studentIdDefault }}">
+                        <input class="input" type="text" name="student_id_number" value="{{ $studentIdDefault }}" inputmode="numeric" maxlength="8" pattern="\d{2}-\d{5}" autocomplete="off" required>
                     </div>
                     <div>
                         <label>Course</label>
@@ -1024,6 +1033,10 @@ More info: https://unifaast.gov.ph/tes.html"
                             <option value="4th Year">4th Year</option>
                         </select>
                     </div>
+                    <div>
+                        <label>College or Department</label>
+                        <input class="input" type="text" name="college_department" value="" readonly aria-readonly="true">
+                    </div>
                 </div>
 
                 <div class="apply-row academic-step-panel" data-non-academic-step="2">
@@ -1045,7 +1058,22 @@ More info: https://unifaast.gov.ph/tes.html"
                     </div>
                     <div>
                         <label>Contact number</label>
-                        <input class="input" type="text" name="contact_number" required>
+                        <div class="contact-number-control">
+                            <span class="contact-number-prefix" aria-hidden="true">+63 9</span>
+                            <input class="input" type="tel" name="contact_number" inputmode="numeric" maxlength="9" pattern="\d{9}" autocomplete="tel-national" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label>Birthday</label>
+                        <input class="input" type="date" name="birthdate" max="2010-12-31" required>
+                    </div>
+                    <div>
+                        <label>Birthplace</label>
+                        <input class="input" type="text" name="birthplace" required>
+                    </div>
+                    <div>
+                        <label>Age</label>
+                        <input class="input" type="number" name="age" readonly aria-readonly="true" tabindex="-1">
                     </div>
                     <div class="full">
                         <label>Home address</label>
@@ -1053,7 +1081,83 @@ More info: https://unifaast.gov.ph/tes.html"
                     </div>
                 </div>
 
-                <div class="apply-row academic-step-panel" data-non-academic-step="3">
+                <div class="family-background-step academic-step-panel" data-non-academic-step="3">
+                    <div class="family-background-subpage active" data-family-background-page="1">
+                        <fieldset class="family-background-parent">
+                            <legend>MOTHER</legend>
+                            <div class="family-background-fields">
+                                <div class="family-background-status">
+                                    <span class="family-background-label">Living Status</span>
+                                    <label><input type="radio" name="family_background[mother_status]" value="Living"> Living</label>
+                                    <label><input type="radio" name="family_background[mother_status]" value="Deceased"> Deceased</label>
+                                </div>
+                                <div><label>Full Name</label><input class="input" type="text" name="family_background[mother_name]" placeholder="Last Name, First Name, M.I."></div>
+                                <div><label>Birth Date</label><input class="input" type="date" name="family_background[mother_birthdate]"></div>
+                                <div><label>Age</label><input class="input" type="number" min="0" name="family_background[mother_age]" placeholder="Age" readonly></div>
+                                <div class="family-background-full"><label>Present Address</label><input class="input" type="text" name="family_background[mother_address]" placeholder="Complete address"></div>
+                                <div><label>Occupation</label><input class="input" type="text" name="family_background[mother_occupation]" placeholder="Current job/profession"></div>
+                                <div><label>Office Address (N/A if not applicable)</label><input class="input" type="text" name="family_background[mother_office_address]" placeholder="Company address (if applicable)"></div>
+                                <div class="family-background-full"><label>Highest Educational Attainment</label><input class="input" type="text" name="family_background[mother_education]" placeholder="e.g. College Graduate, High School"></div>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <div class="family-background-subpage" data-family-background-page="2" hidden>
+                        <fieldset class="family-background-parent">
+                            <legend>FATHER</legend>
+                            <div class="family-background-fields">
+                                <div class="family-background-status">
+                                    <span class="family-background-label">Living Status</span>
+                                    <label><input type="radio" name="family_background[father_status]" value="Living"> Living</label>
+                                    <label><input type="radio" name="family_background[father_status]" value="Deceased"> Deceased</label>
+                                </div>
+                                <div><label>Full Name</label><input class="input" type="text" name="family_background[father_name]" placeholder="Last Name, First Name, M.I."></div>
+                                <div><label>Birth Date</label><input class="input" type="date" name="family_background[father_birthdate]"></div>
+                                <div><label>Age</label><input class="input" type="number" min="0" name="family_background[father_age]" placeholder="Age" readonly></div>
+                                <div class="family-background-full"><label>Present Address</label><input class="input" type="text" name="family_background[father_address]" placeholder="Complete address"></div>
+                                <div><label>Occupation</label><input class="input" type="text" name="family_background[father_occupation]" placeholder="Current job/profession"></div>
+                                <div><label>Office Address (N/A if not applicable)</label><input class="input" type="text" name="family_background[father_office_address]" placeholder="Company address (if applicable)"></div>
+                                <div class="family-background-full"><label>Highest Educational Attainment</label><input class="input" type="text" name="family_background[father_education]" placeholder="e.g. College Graduate, High School"></div>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <div class="family-background-subpage" data-family-background-page="3" hidden>
+                        <div class="family-background-shared">
+                            <div><label>Contact Number (Parents/Guardian)</label><input class="input" type="text" name="family_background[parent_contact_number]" placeholder="+63 9XX XXX XXXX"></div>
+                            <div><label>Email Address (Parents/Guardian)</label><input class="input" type="email" name="family_background[parent_email]" placeholder="example@email.com"></div>
+                            <div><label>Estimated Monthly/Annual Family Income</label><input class="input" type="number" min="0" step="0.01" name="family_background[monthly_income]" placeholder="₱ Amount"></div>
+                            <fieldset class="family-background-disability">
+                                <legend>Is any family member a Differently Abled Person?</legend>
+                                <label><input type="radio" name="family_background[has_differently_abled_member]" value="yes"> Yes</label>
+                                <label><input type="radio" name="family_background[has_differently_abled_member]" value="no"> No</label>
+                            </fieldset>
+                            <div class="family-background-full" id="familyDisabilityDetails" hidden>
+                                <label>Please specify Kind of Disability</label>
+                                <input class="input" type="text" name="family_background[disability_details]" placeholder="Type here..." disabled>
+                            </div>
+                        </div>
+
+                        <div class="family-background-siblings">
+                            <div class="family-background-siblings-header">
+                                <h3>Siblings</h3>
+                                <button class="academic-nav-btn" type="button" id="addFamilySibling">+ Add Sibling</button>
+                            </div>
+                            <div class="family-background-table-wrap">
+                                <table class="family-background-siblings-table">
+                                    <thead><tr><th>Name</th><th>Age</th><th>Marital Status</th><th>Employment/Occupation</th><th>Remove</th></tr></thead>
+                                    <tbody id="familySiblingsBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="academic-form-actions family-background-pagination" id="familyBackgroundPagination">
+                        <button type="button" class="academic-nav-btn academic-nav-next" id="familyBackgroundNext">Next →</button>
+                    </div>
+                </div>
+
+                <div class="apply-row academic-step-panel" data-non-academic-step="4">
                     <div>
                         <label>Name of scholarship</label>
                         <input id="scholarship_name" name="scholarship_name" class="input" type="text" value="" required readonly>
@@ -1159,7 +1263,7 @@ More info: https://unifaast.gov.ph/tes.html"
                 $academicFirstNameDefault = old('first_name', $firstNameDefault);
                 $academicMiddleNameDefault = old('middle_name', $middleNameDefault);
                 $academicLastNameDefault = old('last_name', $lastNameDefault);
-                $academicStudentIdDefault = old('id_number', $currentUser->student_id ?? '');
+                $academicStudentIdDefault = old('student_id_number', $currentUser->student_id ?? '');
             @endphp
 
             <!-- Progress Indicator (moved to top) -->
@@ -1202,12 +1306,16 @@ More info: https://unifaast.gov.ph/tes.html"
                         <input class="input" type="text" name="last_name" value="{{ $academicLastNameDefault }}" required>
                     </div>
                     <div>
+                        <label>Suffix</label>
+                        <input class="input" type="text" name="suffix" value="{{ old('suffix') }}">
+                    </div>
+                    <div>
                         <label>Email</label>
                         <input class="input email-readonly" type="email" name="email" value="{{ $academicEmailDefault }}" readonly aria-readonly="true" title="Verified account email">
                     </div>
                     <div>
                         <label>Student ID Number</label>
-                        <input class="input" type="text" name="id_number" value="{{ $academicStudentIdDefault }}" required>
+                        <input class="input" type="text" name="student_id_number" value="{{ $academicStudentIdDefault }}" inputmode="numeric" maxlength="8" pattern="\d{2}-\d{5}" autocomplete="off" required>
                     </div>
                     <div>
                         <label>Course</label>
@@ -1220,6 +1328,7 @@ More info: https://unifaast.gov.ph/tes.html"
                             <option>BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT</option>
                             <option>BACHELOR OF SECONDARY EDUCATION</option>
                             <option>BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM</option>
+                            <option>BACHELOR  OF ELEMENTARY EDUCATION</option>
                         </select>
                     </div>
                     <div>
@@ -1236,12 +1345,16 @@ More info: https://unifaast.gov.ph/tes.html"
                         <label>Program</label>
                         <input class="input" type="text" name="program" required>
                     </div>
+                    <div>
+                        <label>College or Department</label>
+                        <input class="input" type="text" name="college_department" value="" readonly aria-readonly="true">
+                    </div>
                 </div>
 
                 <div class="apply-row academic-step-panel" data-academic-step="2">
                     <div>
                         <label>Birthday</label>
-                        <input class="input" type="date" name="birthdate" required>
+                        <input class="input" type="date" name="birthdate" max="2010-12-31" required>
                     </div>
                     <div>
                         <label>Birthplace</label>
@@ -1269,7 +1382,10 @@ More info: https://unifaast.gov.ph/tes.html"
                     </div>
                     <div>
                         <label>Contact number</label>
-                        <input class="input" type="text" name="contact_number" required>
+                        <div class="contact-number-control">
+                            <span class="contact-number-prefix" aria-hidden="true">+63 9</span>
+                            <input class="input" type="tel" name="contact_number" inputmode="numeric" maxlength="9" pattern="\d{9}" autocomplete="tel-national" required>
+                        </div>
                     </div>
                     <div class="full">
                         <label>Home Address</label>

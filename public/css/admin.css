@@ -930,9 +930,70 @@ tr:hover td {
     gap: 10px;
 }
 
+#profileModal .academic-review-step[data-profile-step="3"].active,
+#profileModal .academic-review-step[data-profile-step="4"].active {
+    display: block;
+}
+
 #profileModal .academic-review-step .full,
 #profileModal .review-section {
     grid-column: 1 / -1;
+}
+
+#profileModal .academic-review-substep {
+    display: none;
+}
+
+#profileModal .academic-review-substep[data-profile-family-active="true"] {
+    display: block;
+}
+
+#profileModal .family-background-substep-shell {
+    width: min(100%, 900px);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+#profileModal .family-background-substep-title {
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 6px;
+}
+
+#profileModal .family-background-review-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 20px;
+    align-items: start;
+}
+
+#profileModal .family-background-single-row {
+    grid-column: 1 / -1;
+}
+
+#profileModal .family-background-field-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 20px;
+    grid-column: 1 / -1;
+}
+
+#profileModal .family-background-field-row .academic-review-field {
+    margin: 0;
+}
+
+#profileModal .family-background-modal-siblings {
+    margin-top: 8px;
+}
+
+#profileModal .family-background-action-bar {
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
 }
 
 #profileModal .academic-review-field label,
@@ -953,6 +1014,31 @@ tr:hover td {
     border-radius: 6px;
     background: #f3f4f6;
     color: #222;
+}
+
+#profileModal .family-background-modal-siblings {
+    min-width: 0;
+}
+
+#profileModal .family-background-modal-table-wrap {
+    overflow-x: auto;
+}
+
+#profileModal .family-background-modal-siblings table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#profileModal .family-background-modal-siblings th,
+#profileModal .family-background-modal-siblings td {
+    padding: 8px;
+    border: 1px solid #d1d5db;
+    text-align: left;
+}
+
+#profileModal .family-background-modal-siblings th {
+    background: #f3f4f6;
+    font-size: 0.78rem;
 }
 
 #profileModal .review-section {
@@ -987,8 +1073,7 @@ tr:hover td {
     gap: 8px;
     margin-top: 10px;
 }
-.review-actions
-{
+.review-actions {
     display: flex;
     align-items: center;
     justify-content: center;

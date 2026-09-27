@@ -45,10 +45,13 @@ nav {
     margin-right: 1rem;
 }
 
-.logo h2 {
-    font-size: 1.5rem;
+.logo h3 {
+    font-size: 1rem;
     font-weight: 600;
     color: white;
+    text-align: center;
+    margin-left: 1.rem;
+    white-space: nowrap;
 }
 
 /* Hamburger Menu Button */
@@ -63,6 +66,7 @@ nav {
     cursor: pointer;
     padding: 0;
     z-index: 100;
+    margin-left: 2rem;
 }
 
 .hamburger-menu span {
@@ -198,7 +202,7 @@ nav {
         display: flex;
         gap: 2rem;
         position: absolute;
-        left: 55%;
+        left: 50%;
         transform: translateX(-50%);
         z-index: 15;
     }
@@ -209,11 +213,10 @@ nav {
         font-weight: 500;
         transition: color 0.3s;
         position: relative;
-        right: 14rem;
     }
 
     .nav-links a:hover {
-        color:#C85A00;
+        color:rgba(255, 255, 255, 0.774);
     }
 
     .nav-links a::after {
@@ -224,7 +227,7 @@ nav {
         transform: translateX(-50%);
         width: 0;
         height: 2px;
-        background-color:#C85A00;
+        background-color:#8b1a28;
         transition: width 0.3s;
     }
 
@@ -288,8 +291,8 @@ nav {
     }
 
     .logo img {
-        width: 40px;
-        height: 40px;
+        width: 50px;
+        height: 50px;
     }
 
     .hamburger-menu {
@@ -389,13 +392,13 @@ nav {
 
     .menu-item:hover {
         background-color: #f8f9fa;
-        color: #C85A00;
+        color: #8b1a28;
     }
 
     .menu-item.active {
         background-color: #f0f0f0;
-        color: #C85A00;
-        border-left-color: #C85A00;
+        color: #8b1a28;
+        border-left-color:#8b1a28;
     }
 
     /* Menu Divider */
@@ -424,14 +427,14 @@ nav {
     }
 
     .register-item {
-        background-color: #C85A00;
+        background-color:#8b1a28;
         color: #333;
         border-bottom: none;
         border-left: none;
     }
 
     .register-item:hover {
-        background-color: #A94B00;
+        background-color:#8b1a28;
         color: #fff;
     }
 

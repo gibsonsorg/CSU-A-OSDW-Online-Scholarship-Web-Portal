@@ -139,11 +139,17 @@
                     <th>Last Name</th>
                     <th>First Name</th>
                     <th>Middle Name</th>
+                    <th>Suffix</th>
                     <th>Sex</th>
                     <th>Course</th>
+                    <th>College or Department</th>
                     <th>Year Level</th>
                     <th>Type of Scholarship</th>
                     <th>Name of Scholarship</th>
+                    @if(in_array($filterType, ['academic', 'non-academic'], true))
+                        <th>Funding</th>
+                        <th>Campus</th>
+                    @endif
                     <th>Date</th>
                     @if($showAmountColumn)
                         {{-- CHANGE: Display the saved applicant amount only in Approved view. --}}
@@ -160,11 +166,17 @@
                         <td>{{ $app->last_name }}</td>
                         <td>{{ $app->first_name }}</td>
                         <td>{{ $app->middle_name }}</td>
+                        <td>{{ $app->suffix ?? '—' }}</td>
                         <td>{{ $app->sex }}</td>
                         <td>{{ $app->course }}</td>
+                        <td>{{ $app->college_department ?? '—' }}</td>
                         <td>{{ $app->year_level }}</td>
                         <td>{{ ($app->source ?? 'application') === 'manual' ? ($app->grant_type === 'academic' ? 'Academic' : 'Non-Academic') : (($app->scholarship_category_type ?? null) === 'academic' ? 'Academic' : ((($app->scholarship_category_type ?? null) === 'non-academic') ? 'Non-Academic' : 'Unknown')) }}</td>
                         <td>{{ ($app->source ?? 'application') === 'manual' ? $app->scholarship_name : ($app->scholarship_name ?? '—') }}</td>
+                        @if(in_array($filterType, ['academic', 'non-academic'], true))
+                            <td>{{ ($app->source ?? 'application') === 'manual' ? '—' : (($app->scholarship_funding_type ?? null) ?: '—') }}</td>
+                            <td>{{ $app->campus ?? '—' }}</td>
+                        @endif
                         <td>{{ optional($app->created_at)->format('Y-m-d') }}</td>
 
                         @if($showAmountColumn)
@@ -200,7 +212,7 @@
             @else
                 <tr>
                     {{-- CHANGE: Match the empty-state span to the conditional Amount column. --}}
-                    <td colspan="{{ $showAmountColumn ? 12 : 11 }}" class="text-center text-gray empty-state-row">No applications found.</td>
+                    <td colspan="{{ 13 + (in_array($filterType, ['academic', 'non-academic'], true) ? 2 : 0) + ($showAmountColumn ? 1 : 0) }}" class="text-center text-gray empty-state-row">No applications found.</td>
                 </tr>
             @endif
         </tbody>
@@ -220,13 +232,15 @@
                 <button type="button" class="modal-close" id="closeProfile" aria-label="Close applicant profile">✕</button>
             </div>
             <div class="academic-progress-wrapper">
-                <div class="academic-progress-header">Step <span id="profileStepCounter">1</span> of 3</div>
+                <div class="academic-progress-header">Step <span id="profileStepCounter">1</span> of <span id="profileStepTotal">3</span></div>
                 <div class="academic-progress-track" aria-live="polite">
                     <div class="academic-progress-step active" data-profile-progress-step="1"><div class="academic-progress-dot">1</div><div class="academic-progress-label">Student Information</div></div>
                     <div class="academic-progress-line"></div>
                     <div class="academic-progress-step" data-profile-progress-step="2"><div class="academic-progress-dot">2</div><div class="academic-progress-label">Personal Information</div></div>
                     <div class="academic-progress-line"></div>
-                    <div class="academic-progress-step" data-profile-progress-step="3"><div class="academic-progress-dot">3</div><div class="academic-progress-label">Scholarship &amp; Requirements</div></div>
+                    <div class="academic-progress-step" data-profile-family-progress hidden><div class="academic-progress-dot">3</div><div class="academic-progress-label">Family Background</div></div>
+                    <div class="academic-progress-line" data-profile-family-progress-line hidden></div>
+                    <div class="academic-progress-step" data-profile-final-progress data-profile-progress-step="3"><div class="academic-progress-dot">3</div><div class="academic-progress-label">Scholarship &amp; Requirements</div></div>
                 </div>
             </div>
             <div id="profileBody">Loading...</div>

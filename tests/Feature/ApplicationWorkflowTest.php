@@ -7,6 +7,7 @@ use App\Models\Scholarship;
 use App\Models\StudentProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
@@ -32,7 +33,9 @@ class ApplicationWorkflowTest extends TestCase
             'email' => $student->email,
             'student_id_number' => $student->student_id,
             'home_address' => 'Aparri',
-            'contact_number' => '09123456789',
+            'contact_number' => '123456789',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
             'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
             'year_level' => '2nd Year',
             'scholarship_id' => $scholarship->id,
@@ -100,6 +103,174 @@ class ApplicationWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_non_academic_family_background_rejection_reopens_only_that_section(): void
+    {
+        $student = User::factory()->approved()->create(['student_id' => '23-11941']);
+        $scholarship = Scholarship::create(['name' => 'Family Reapplication Scholarship', 'type' => 'non-academic']);
+        $application = Application::create([
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+            'status' => 'rejected',
+        ]);
+        $profile = StudentProfile::create([
+            'user_id' => $student->id,
+            'application_id' => $application->id,
+            'first_name' => 'Approved First',
+            'last_name' => 'Approved Last',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'course' => 'BSIT',
+            'year_level' => '2nd Year',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
+            'contact_number' => '+63 9123456789',
+            'home_address' => 'Approved Address',
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Non-Academic',
+            'grant_type' => 'non-academic',
+            'application_status' => 'rejected',
+            'student_information_status' => 'approved',
+            'personal_information_status' => 'approved',
+            'scholarship_requirements_status' => 'approved',
+            'family_background_status' => 'rejected',
+            'family_background_reason' => 'Update the family details.',
+        ]);
+        $profile->familyBackground()->create([
+            'mother_name' => 'Old Mother',
+            'father_name' => 'Old Father',
+            'monthly_income' => 15000,
+            'siblings' => [['name' => 'Old Sibling', 'age' => 10]],
+        ]);
+
+        $this->actingAs($student)->get('/dashboard?section=non')
+            ->assertOk()
+            ->assertSee('family_background_status', false)
+            ->assertSee('Old Mother');
+
+        $response = $this->actingAs($student)->post('/student-profiles', [
+            'student_profile_id' => $profile->id,
+            'application_id' => $application->id,
+            'first_name' => 'Tampered First',
+            'last_name' => 'Tampered Last',
+            'sex' => 'Male',
+            'status' => 'Married',
+            'email' => $student->email,
+            'student_id_number' => $student->student_id,
+            'course' => 'Different Course',
+            'year_level' => '3rd Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Non-Academic',
+            'birthdate' => '2001-02-02',
+            'birthplace' => 'New Place',
+            'contact_number' => '987654321',
+            'home_address' => 'Tampered Address',
+            'family_background' => [
+                'mother_name' => 'Updated Mother',
+                'father_name' => 'Updated Father',
+                'monthly_income' => 20000,
+                'siblings' => [['name' => 'Updated Sibling', 'age' => 12]],
+            ],
+        ]);
+
+        $response->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false));
+        $fresh = $profile->fresh();
+        $family = $fresh->familyBackground;
+        $this->assertSame('Approved First', $fresh->first_name);
+        $this->assertSame('BSIT', $fresh->course);
+        $this->assertSame('Approved Address', $fresh->home_address);
+        $this->assertSame('approved', $fresh->student_information_status);
+        $this->assertSame('approved', $fresh->personal_information_status);
+        $this->assertSame('approved', $fresh->scholarship_requirements_status);
+        $this->assertSame('pending', $fresh->family_background_status);
+        $this->assertNull($fresh->family_background_reason);
+        $this->assertSame('pending', $fresh->application_status);
+        $this->assertSame('Updated Mother', $family->mother_name);
+        $this->assertSame('Updated Father', $family->father_name);
+        $this->assertSame('20000.00', $family->monthly_income);
+        $this->assertSame('Updated Sibling', $family->siblings[0]['name']);
+    }
+
+    public function test_approved_family_background_is_preserved_when_another_section_is_reopened(): void
+    {
+        $student = User::factory()->approved()->create(['student_id' => '23-11942']);
+        $scholarship = Scholarship::create(['name' => 'Preserved Family Scholarship', 'type' => 'non-academic']);
+        $application = Application::create([
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+            'status' => 'rejected',
+        ]);
+        $profile = StudentProfile::create([
+            'user_id' => $student->id,
+            'application_id' => $application->id,
+            'first_name' => 'Original First',
+            'last_name' => 'Original Last',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'course' => 'BSIT',
+            'year_level' => '2nd Year',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
+            'contact_number' => '+63 9123456789',
+            'home_address' => 'Original Address',
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Non-Academic',
+            'grant_type' => 'non-academic',
+            'application_status' => 'rejected',
+            'student_information_status' => 'approved',
+            'personal_information_status' => 'rejected',
+            'scholarship_requirements_status' => 'approved',
+            'family_background_status' => 'approved',
+        ]);
+        $profile->familyBackground()->create([
+            'mother_name' => 'Approved Mother',
+            'father_name' => 'Approved Father',
+            'monthly_income' => 18000,
+            'siblings' => [['name' => 'Approved Sibling', 'age' => 14]],
+        ]);
+
+        $response = $this->actingAs($student)->post('/student-profiles', [
+            'student_profile_id' => $profile->id,
+            'application_id' => $application->id,
+            'first_name' => 'Tampered First',
+            'last_name' => 'Tampered Last',
+            'sex' => 'Male',
+            'status' => 'Married',
+            'email' => $student->email,
+            'student_id_number' => $student->student_id,
+            'course' => 'Different Course',
+            'year_level' => '3rd Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Non-Academic',
+            'birthdate' => '2001-02-02',
+            'birthplace' => 'New Place',
+            'contact_number' => '987654321',
+            'home_address' => 'Updated Address',
+            'family_background' => [
+                'mother_name' => 'Tampered Mother',
+                'father_name' => 'Tampered Father',
+                'monthly_income' => 1,
+            ],
+        ]);
+
+        $response->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false));
+        $fresh = $profile->fresh();
+        $family = $fresh->familyBackground;
+        $this->assertSame('Original First', $fresh->first_name);
+        $this->assertSame('Updated Address', $fresh->home_address);
+        $this->assertSame('approved', $fresh->student_information_status);
+        $this->assertSame('pending', $fresh->personal_information_status);
+        $this->assertSame('approved', $fresh->scholarship_requirements_status);
+        $this->assertSame('approved', $fresh->family_background_status);
+        $this->assertSame('Approved Mother', $family->mother_name);
+        $this->assertSame('Approved Father', $family->father_name);
+        $this->assertSame('18000.00', $family->monthly_income);
+        $this->assertSame('Approved Sibling', $family->siblings[0]['name']);
+    }
+
     public function test_admin_delete_removes_the_reapply_block_for_student_submitted_applications(): void
     {
         $admin = User::factory()->create([
@@ -148,7 +319,9 @@ class ApplicationWorkflowTest extends TestCase
             'email' => $student->email,
             'student_id_number' => $student->student_id,
             'home_address' => 'Aparri',
-            'contact_number' => '09123456789',
+            'contact_number' => '123456789',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
             'course' => 'BSIT',
             'year_level' => '1st Year',
             'scholarship_id' => $scholarship->id,
@@ -179,7 +352,9 @@ class ApplicationWorkflowTest extends TestCase
             'email' => $student->email,
             'student_id_number' => $student->student_id,
             'home_address' => 'Aparri',
-            'contact_number' => '09123456789',
+            'contact_number' => '123456789',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
             'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
             'year_level' => '2nd Year',
             'scholarship_id' => $scholarship->id,
@@ -194,12 +369,159 @@ class ApplicationWorkflowTest extends TestCase
             'user_id' => $student->id,
             'scholarship_name' => 'Athletic Scholarship',
             'scholarship_type' => 'Sports Excellence Program In-House',
+            'campus' => 'Aparri',
         ]);
         $this->assertDatabaseHas('applications', [
             'user_id' => $student->id,
             'scholarship_id' => $scholarship->id,
             'status' => 'pending',
         ]);
+    }
+
+    public function test_student_submission_rejects_invalid_id_phone_and_birthdate_formats(): void
+    {
+        $student = User::factory()->approved()->create(['student_id' => '23-10009']);
+        $scholarship = Scholarship::create(['name' => 'Validation Scholarship', 'type' => 'non-academic']);
+        $payload = [
+            'first_name' => 'Validation',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => '2311978',
+            'home_address' => 'Aparri',
+            'contact_number' => '123456789',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
+            'course' => 'BSIT',
+            'year_level' => '1st Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Non-Academic',
+        ];
+
+        $this->actingAs($student)->from('/dashboard')->post('/student-profiles', $payload)
+            ->assertSessionHasErrors('student_id_number');
+
+        $payload['student_id_number'] = '23-11978';
+        $payload['contact_number'] = '09123456789';
+        $this->from('/dashboard')->post('/student-profiles', $payload)
+            ->assertSessionHasErrors('contact_number');
+
+        $payload['contact_number'] = '123456789';
+        $payload['birthdate'] = '2011-01-01';
+        $this->from('/dashboard')->post('/student-profiles', $payload)
+            ->assertSessionHasErrors('birthdate');
+    }
+
+    public function test_academic_submission_still_requires_program_and_religion_with_birthday_present(): void
+    {
+        $student = User::factory()->approved()->create(['student_id' => '23-10011']);
+        $scholarship = Scholarship::create(['name' => 'Academic Validation Scholarship', 'type' => 'academic']);
+
+        $this->actingAs($student)->from('/dashboard')->post('/student-profiles', [
+            'first_name' => 'Academic',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => '23-10011',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
+            'contact_number' => '123456789',
+            'course' => 'BSIT',
+            'year_level' => '1st Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Academic',
+        ])->assertSessionHasErrors(['program', 'religion']);
+    }
+
+    public function test_student_dashboard_renders_id_phone_birthday_and_non_academic_personal_fields(): void
+    {
+        $student = User::factory()->approved()->create(['student_id' => '23-10010']);
+        $response = $this->actingAs($student)->get('/dashboard');
+
+        $response->assertOk();
+        $html = $response->getContent();
+        $this->assertSame(2, substr_count($html, 'maxlength="8"'));
+        $this->assertSame(2, substr_count($html, 'pattern="\d{2}-\d{5}"'));
+        $this->assertSame(2, substr_count($html, 'max="2010-12-31"'));
+        $this->assertSame(2, substr_count($html, 'maxlength="9"'));
+        $this->assertSame(2, substr_count($html, 'pattern="\d{9}"'));
+        $this->assertSame(2, substr_count($html, '+63 9</span>'));
+        $this->assertStringContainsString('name="age" readonly', $html);
+
+        preg_match('/<div class="apply-row academic-step-panel" data-non-academic-step="2">(.*?)<div class="apply-row academic-step-panel" data-non-academic-step="3">/s', $html, $matches);
+        $stepTwo = $matches[1] ?? '';
+        $labels = ['Sex', 'Status', 'Contact number', 'Birthday', 'Birthplace', 'Age', 'Home address'];
+        $previousPosition = -1;
+        foreach ($labels as $label) {
+            $position = strpos($stepTwo, '<label>' . $label . '</label>');
+            $this->assertNotFalse($position, 'Missing Non-Academic Step 2 field: ' . $label);
+            $this->assertGreaterThan($previousPosition, $position);
+            $previousPosition = $position;
+        }
+    }
+
+    public function test_family_background_is_an_optional_fourth_non_academic_step_only(): void
+    {
+        $student = User::factory()->approved()->create(['student_id' => '23-10012']);
+        $response = $this->actingAs($student)->get('/dashboard');
+
+        $response->assertOk();
+        $html = $response->getContent();
+        preg_match_all('/class="apply-row academic-step-panel(?: active)?" data-non-academic-step="(\d+)"/', $html, $nonAcademicSteps);
+        preg_match_all('/class="apply-row academic-step-panel(?: active)?" data-academic-step="(\d+)"/', $html, $academicSteps);
+        $this->assertSame(['1', '2', '4'], $nonAcademicSteps[1]);
+        $this->assertSame(['1', '2', '3'], $academicSteps[1]);
+        $this->assertStringContainsString('Step <span id="nonAcademicStepCounter">1</span> of 4', $html);
+        $this->assertStringContainsString('Step <span id="academicStepCounter">1</span> of 3:', $html);
+        $this->assertStringContainsString('Family Background', $html);
+        $this->assertStringContainsString('id="familySiblingsBody"></tbody>', $html);
+        $this->assertStringContainsString('id="addFamilySibling"', $html);
+        $this->assertStringContainsString('data-family-background-page="1"', $html);
+        $this->assertStringContainsString('data-family-background-page="2"', $html);
+        $this->assertStringContainsString('data-family-background-page="3"', $html);
+        $this->assertStringContainsString('id="familyBackgroundNext">Next →</button>', $html);
+        $this->assertStringNotContainsString('familyBackgroundPrevious', $html);
+        $this->assertStringNotContainsString('familyBackgroundPageCounter', $html);
+        $this->assertStringContainsString('id="familyDisabilityDetails" hidden', $html);
+
+        preg_match('/<div class="family-background-step academic-step-panel" data-non-academic-step="3">(.*?)<div class="apply-row academic-step-panel" data-non-academic-step="4">/s', $html, $familyStepMatches);
+        $familyStep = $familyStepMatches[1] ?? '';
+        $this->assertNotSame('', $familyStep);
+        $this->assertStringNotContainsString('required', $familyStep);
+        $this->assertLessThan(strpos($familyStep, '<legend>FATHER</legend>'), strpos($familyStep, '<legend>MOTHER</legend>'));
+        $this->assertLessThan(
+            strpos($familyStep, 'name="family_background[mother_age]"'),
+            strpos($familyStep, 'name="family_background[mother_birthdate]"')
+        );
+        $this->assertLessThan(
+            strpos($familyStep, 'name="family_background[father_age]"'),
+            strpos($familyStep, 'name="family_background[father_birthdate]"')
+        );
+        $this->assertStringContainsString('name="family_background[mother_age]" placeholder="Age" readonly', $familyStep);
+        $this->assertStringContainsString('name="family_background[father_age]" placeholder="Age" readonly', $familyStep);
+        $this->assertSame(2, substr_count($familyStep, 'Office Address (N/A if not applicable)'));
+        foreach ([
+            'Last Name, First Name, M.I.',
+            'placeholder="Age"',
+            'Complete address',
+            'Current job/profession',
+            'Company address (if applicable)',
+            'e.g. College Graduate, High School',
+            '+63 9XX XXX XXXX',
+            'example@email.com',
+            '₱ Amount',
+            'Type here...',
+        ] as $placeholder) {
+            $this->assertStringContainsString($placeholder, $familyStep);
+        }
+        $this->assertStringNotContainsString('Number of Siblings', $html);
+        $this->assertStringNotContainsString('List all brothers and sisters.', $html);
+        $this->assertFileExists(public_path('images/delete.png'));
+        $this->assertStringContainsString('src="${siblingDeleteIconUrl}"', file_get_contents(public_path('js/users.js')));
     }
 
     public function test_socio_cultural_submission_requires_uploaded_document(): void
@@ -221,7 +543,9 @@ class ApplicationWorkflowTest extends TestCase
             'email' => $student->email,
             'student_id_number' => $student->student_id,
             'home_address' => 'Aparri',
-            'contact_number' => '09123456789',
+            'contact_number' => '123456789',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
             'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
             'year_level' => '2nd Year',
             'scholarship_id' => $scholarship->id,
@@ -256,7 +580,9 @@ class ApplicationWorkflowTest extends TestCase
             'email' => $student->email,
             'student_id_number' => $student->student_id,
             'home_address' => 'Aparri',
-            'contact_number' => '09123456789',
+            'contact_number' => '123456789',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
             'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
             'year_level' => '2nd Year',
             'scholarship_id' => $scholarship->id,
@@ -271,6 +597,16 @@ class ApplicationWorkflowTest extends TestCase
             'scholarship_id' => $scholarship->id,
             'status' => 'pending',
         ]);
+        $this->assertDatabaseHas('student_profiles', [
+            'user_id' => $student->id,
+            'scholarship_name' => 'Socio-Cultural Scholarship',
+            'grant_type' => 'non-academic',
+            'birthdate' => '2000-01-01 00:00:00',
+            'birthplace' => 'Aparri',
+            'contact_number' => '+63 9123456789',
+        ]);
+        $profile = StudentProfile::where('user_id', $student->id)->firstOrFail();
+        $this->assertDatabaseMissing('family_backgrounds', ['student_profile_id' => $profile->id]);
     }
 
     public function test_tulong_dunong_program_uses_existing_database_record(): void
@@ -297,6 +633,7 @@ class ApplicationWorkflowTest extends TestCase
             'scholarship_type' => 'Kuya Win Scholarship Program',
             'program' => 'Information Technology',
             'id_number' => '23-20001',
+            'contact_number' => '123456789',
             'birthdate' => '2000-01-01',
             'birthplace' => 'Aparri',
             'religion' => 'Catholic',
@@ -428,7 +765,7 @@ class ApplicationWorkflowTest extends TestCase
             'birthdate' => '2001-02-02',
             'birthplace' => 'New City',
             'religion' => 'Protestant',
-            'contact_number' => '09999999999',
+            'contact_number' => '987654321',
             'home_address' => 'New Address',
         ]);
 
@@ -539,7 +876,7 @@ class ApplicationWorkflowTest extends TestCase
             'birthdate' => '1999-01-01',
             'birthplace' => 'Stale Place',
             'religion' => 'Christian',
-            'contact_number' => '09999999999',
+            'contact_number' => '987654321',
             'home_address' => 'Stale Address',
             'scholarship_name' => $scholarship->name,
             'scholarship_type' => 'Academic',
@@ -570,7 +907,7 @@ class ApplicationWorkflowTest extends TestCase
             'birthdate' => '2001-02-02',
             'birthplace' => 'New Place',
             'religion' => 'Protestant',
-            'contact_number' => '09999999999',
+            'contact_number' => '987654321',
             'home_address' => 'New Address',
         ]);
 
@@ -1079,7 +1416,7 @@ class ApplicationWorkflowTest extends TestCase
             'email' => $student->email,
             'student_id_number' => $student->student_id,
             'home_address' => 'Aparri',
-            'contact_number' => '09123456789',
+            'contact_number' => '123456789',
             'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
             'year_level' => '2nd Year',
             'program' => 'Information Technology',
@@ -1102,6 +1439,163 @@ class ApplicationWorkflowTest extends TestCase
         $this->assertSame($scholarshipCount, Scholarship::count());
     }
 
+    public function test_academic_and_non_academic_admin_tables_display_funding_and_campus_metadata(): void
+    {
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $user = User::factory()->approved()->create();
+
+        $international = Scholarship::create(['name' => 'Cagayan Valley Assoc. of Hawaii', 'type' => 'academic', 'funding_type' => 'International']);
+        $inHouse = Scholarship::create(['name' => 'University Based Scholarship', 'type' => 'academic', 'funding_type' => 'In-house']);
+        $localGovt = Scholarship::create(['name' => 'ACEF – GIAHEP', 'type' => 'academic', 'funding_type' => 'Local-Government']);
+        $localPrivate = Scholarship::create(['name' => 'Andres Tamayo Scholarship', 'type' => 'academic', 'funding_type' => 'Local-Private']);
+
+        $internationalApp = Application::create(['user_id' => $user->id, 'scholarship_id' => $international->id, 'status' => 'pending']);
+        $inHouseApp = Application::create(['user_id' => $user->id, 'scholarship_id' => $inHouse->id, 'status' => 'pending']);
+        $localGovtApp = Application::create(['user_id' => $user->id, 'scholarship_id' => $localGovt->id, 'status' => 'pending']);
+        $localPrivateApp = Application::create(['user_id' => $user->id, 'scholarship_id' => $localPrivate->id, 'status' => 'pending']);
+
+        $this->createProfile($user, $internationalApp, 'International', $international->name);
+        $this->createProfile($user, $inHouseApp, 'InHouse', $inHouse->name);
+        $this->createProfile($user, $localGovtApp, 'Government', $localGovt->name);
+        $this->createProfile($user, $localPrivateApp, 'Private', $localPrivate->name);
+
+        StudentProfile::create([
+            'user_id' => $user->id,
+            'first_name' => 'Manual',
+            'last_name' => 'Applicant',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $user->email,
+            'course' => 'BSIT',
+            'campus' => 'Aparri',
+            'year_level' => '1st Year',
+            'scholarship_name' => 'Manual Academic',
+            'scholarship_type' => 'Academic',
+            'grant_type' => 'academic',
+            'application_status' => 'pending',
+            'source' => 'manual',
+            'campus' => 'Aparri',
+        ]);
+
+        $academicResponse = $this->actingAs($admin)->get('/admin/academic');
+        $academicResponse->assertOk();
+        $academicResponse->assertSee('Funding');
+        $academicResponse->assertSee('International');
+        $academicResponse->assertSee('In-house');
+        $academicResponse->assertSee('Local-Government');
+        $academicResponse->assertSee('Local-Private');
+        $academicResponse->assertSee('Campus');
+        $academicResponse->assertSee('Aparri');
+        $academicResponse->assertSee('—');
+        $this->assertMatchesRegularExpression('/<th>Funding<\/th>\s*<th>Campus<\/th>/', $academicResponse->getContent());
+
+        $nonAcademicResponse = $this->actingAs($admin)->get('/admin/non-academic');
+        $nonAcademicResponse->assertOk();
+        $nonAcademicResponse->assertSee('Funding');
+        $nonAcademicResponse->assertSee('Campus');
+        $this->assertMatchesRegularExpression('/<th>Funding<\/th>\s*<th>Campus<\/th>/', $nonAcademicResponse->getContent());
+    }
+
+    public function test_non_academic_admin_table_displays_funding_metadata_after_scholarship_name(): void
+    {
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $user = User::factory()->approved()->create();
+
+        $athletic = Scholarship::create(['name' => 'Athletic Scholarship', 'type' => 'non-academic', 'funding_type' => 'In-house']);
+        $tulong = Scholarship::create(['name' => 'Tulong Dunong Program', 'type' => 'non-academic', 'funding_type' => 'Government']);
+
+        $athleticApp = Application::create(['user_id' => $user->id, 'scholarship_id' => $athletic->id, 'status' => 'pending']);
+        $tulongApp = Application::create(['user_id' => $user->id, 'scholarship_id' => $tulong->id, 'status' => 'pending']);
+
+        $this->createProfile($user, $athleticApp, 'Athlete', $athletic->name, 'non-academic');
+        $this->createProfile($user, $tulongApp, 'Tulong', $tulong->name, 'non-academic');
+
+        StudentProfile::create([
+            'user_id' => $user->id,
+            'first_name' => 'Manual',
+            'last_name' => 'Applicant',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $user->email,
+            'course' => 'BSIT',
+            'campus' => 'Aparri',
+            'year_level' => '1st Year',
+            'scholarship_name' => 'Manual Non-Academic',
+            'scholarship_type' => 'Non-Academic',
+            'grant_type' => 'non-academic',
+            'application_status' => 'pending',
+            'source' => 'manual',
+        ]);
+
+        $response = $this->actingAs($admin)->get('/admin/non-academic');
+
+        $response->assertOk();
+        $response->assertSee('Funding');
+        $response->assertSee('Name of Scholarship');
+        $response->assertSee('In-house');
+        $response->assertSee('Government');
+        $response->assertSee('Campus');
+        $response->assertSee('Aparri');
+        $response->assertSee('—');
+        $this->assertMatchesRegularExpression('/<th>Funding<\/th>\s*<th>Campus<\/th>/', $response->getContent());
+    }
+
+    public function test_manual_applicant_create_and_update_always_set_campus_to_aparri(): void
+    {
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        Scholarship::create(['name' => 'Manual Campus Scholarship', 'type' => 'academic']);
+
+        $payload = [
+            'grant_type' => 'academic',
+            'last_name' => 'Applicant',
+            'first_name' => 'Manual',
+            'sex' => 'Female',
+            'course' => 'BSIT',
+            'year_level' => '1st Year',
+            'scholarship_name' => 'Manual Campus Scholarship',
+            'date' => '2026-09-26',
+            'application_status' => 'pending',
+        ];
+
+        $createResponse = $this->actingAs($admin)->postJson('/admin/manual-applicants', $payload);
+        $createResponse->assertOk()->assertJsonPath('data.campus', 'Aparri');
+        $profileId = $createResponse->json('data.id');
+
+        $this->putJson('/admin/manual-applicants/' . $profileId, $payload)
+            ->assertOk()
+            ->assertJsonPath('data.campus', 'Aparri');
+
+        $this->assertDatabaseHas('student_profiles', [
+            'id' => $profileId,
+            'source' => 'manual',
+            'campus' => 'Aparri',
+        ]);
+    }
+
+    public function test_admin_scholarship_name_filter_orders_by_submission_time_ascending(): void
+    {
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $firstUser = User::factory()->approved()->create();
+        $secondUser = User::factory()->approved()->create();
+        $scholarship = Scholarship::create(['name' => 'Filtered Scholarship', 'type' => 'academic']);
+        $firstApplication = Application::create(['user_id' => $firstUser->id, 'scholarship_id' => $scholarship->id, 'status' => 'pending']);
+        $secondApplication = Application::create(['user_id' => $secondUser->id, 'scholarship_id' => $scholarship->id, 'status' => 'pending']);
+        DB::table('applications')->where('id', $firstApplication->id)->update(['created_at' => now()->subDay()]);
+        DB::table('applications')->where('id', $secondApplication->id)->update(['created_at' => now()]);
+        $this->createProfile($firstUser, $firstApplication, 'Earliest', 'Filtered Scholarship');
+        $this->createProfile($secondUser, $secondApplication, 'Latest', 'Filtered Scholarship');
+
+        $response = $this->actingAs($admin)->get('/admin/academic?scholarship_name=' . urlencode('Filtered Scholarship'));
+
+        $response->assertOk();
+        preg_match('/<th>Last Name<\/th>.*?<tbody>(.*?)<\/tbody>/s', $response->getContent(), $matches);
+        $table = $matches[1] ?? '';
+        $this->assertLessThan(
+            strpos($table, '<td>Latest</td>'),
+            strpos($table, '<td>Earliest</td>')
+        );
+    }
+
     public function test_admin_academic_table_orders_by_application_creation_time(): void
     {
         $admin = User::factory()->approved()->create(['role' => 0]);
@@ -1110,10 +1604,8 @@ class ApplicationWorkflowTest extends TestCase
         $scholarship = Scholarship::create(['name' => 'Order Scholarship', 'type' => 'academic']);
         $firstApplication = Application::create(['user_id' => $firstUser->id, 'scholarship_id' => $scholarship->id, 'status' => 'pending']);
         $secondApplication = Application::create(['user_id' => $secondUser->id, 'scholarship_id' => $scholarship->id, 'status' => 'pending']);
-        $firstApplication->created_at = now()->subDay();
-        $firstApplication->save();
-        $secondApplication->created_at = now();
-        $secondApplication->save();
+        DB::table('applications')->where('id', $firstApplication->id)->update(['created_at' => now()->subDay()]);
+        DB::table('applications')->where('id', $secondApplication->id)->update(['created_at' => now()]);
         $this->createProfile($firstUser, $firstApplication, 'Earliest');
         $this->createProfile($secondUser, $secondApplication, 'Latest');
 
@@ -1128,7 +1620,7 @@ class ApplicationWorkflowTest extends TestCase
         );
     }
 
-    private function createProfile(User $user, Application $application, string $firstName): void
+    private function createProfile(User $user, Application $application, string $firstName, ?string $scholarshipName = null, string $grantType = 'academic'): void
     {
         StudentProfile::create([
             'user_id' => $user->id,
@@ -1139,10 +1631,11 @@ class ApplicationWorkflowTest extends TestCase
             'status' => 'Single',
             'email' => $user->email,
             'course' => 'BSIT',
+            'campus' => 'Aparri',
             'year_level' => '1st Year',
-            'scholarship_name' => 'Order Scholarship',
+            'scholarship_name' => $scholarshipName ?? 'Order Scholarship',
             'scholarship_type' => 'Academic',
-            'grant_type' => 'academic',
+            'grant_type' => $grantType,
             'application_status' => 'pending',
         ]);
     }

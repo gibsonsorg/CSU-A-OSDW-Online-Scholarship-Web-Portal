@@ -220,6 +220,21 @@ class StudentProfileController extends Controller
         ][$name] ?? null;
     }
 
+    private function resolveCollegeDepartment(?string $course): ?string
+    {
+        $course = trim((string) ($course ?? ''));
+
+        return [
+            'BACHELOR OF SCIENCE IN CRIMINOLOGY' => 'College of Criminal Justice Education',
+            'BACHELOR OF SCIENCE IN FISHERIES' => 'College of Fisheries and Aquatic Sciences',
+            'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY' => 'College of Information and Computing Science',
+            'BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT' => 'College of Hospitality Management',
+            'BACHELOR OF SECONDARY EDUCATION' => 'College of Teacher Education',
+            'BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM' => 'College of Business, Entrepreneurship and Accountancy',
+            'BACHELOR OF ELEMENTARY EDUCATION' => 'College of Teacher Education',
+        ][$course] ?? null;
+    }
+
     private function findSelectedScholarship(?string $scholarshipId, ?string $scholarshipName): ?Scholarship
     {
         if (!empty($scholarshipId)) {
@@ -265,18 +280,35 @@ class StudentProfileController extends Controller
             ->where('grant_type', $grantType)
             ->orderByDesc('created_at')
             ->orderByDesc('id')
+            ->with(['familyBackground', 'application:id,scholarship_id'])
             ->first();
 
         if (!$profile) {
             return response()->json(['data' => null]);
         }
 
+        $requestedScholarshipId = trim((string) $request->query('scholarship_id', ''));
+        $requestedScholarshipName = trim((string) $request->query('scholarship_name', ''));
+        if ($requestedScholarshipId !== '' || $requestedScholarshipName !== '') {
+            $previousScholarshipId = (string) ($profile->application?->scholarship_id ?? '');
+            $sameScholarship = $requestedScholarshipId !== '' && $previousScholarshipId !== ''
+                ? $requestedScholarshipId === $previousScholarshipId
+                : ($requestedScholarshipName !== ''
+                    && mb_strtolower($requestedScholarshipName) === mb_strtolower(trim((string) $profile->scholarship_name)));
+
+            if ($sameScholarship) {
+                return response()->json(['data' => null]);
+            }
+        }
+
         $academicFields = [
             'first_name',
             'middle_name',
             'last_name',
+            'suffix',
             'student_id_number',
             'course',
+            'college_department',
             'year_level',
             'program',
             'birthdate',
@@ -292,9 +324,13 @@ class StudentProfileController extends Controller
             'first_name',
             'middle_name',
             'last_name',
+            'suffix',
             'student_id_number',
             'course',
+            'college_department',
             'year_level',
+            'birthdate',
+            'birthplace',
             'sex',
             'status',
             'contact_number',
@@ -315,6 +351,39 @@ class StudentProfileController extends Controller
             }
 
             $data[$field] = $value;
+        }
+
+        if ($grantType === 'non-academic') {
+            $familyBackground = $profile->familyBackground?->only([
+                'mother_status',
+                'mother_name',
+                'mother_age',
+                'mother_birthdate',
+                'mother_address',
+                'mother_occupation',
+                'mother_office_address',
+                'mother_education',
+                'father_status',
+                'father_name',
+                'father_age',
+                'father_birthdate',
+                'father_address',
+                'father_occupation',
+                'father_office_address',
+                'father_education',
+                'parent_contact_number',
+                'parent_email',
+                'monthly_income',
+                'has_differently_abled_member',
+                'disability_details',
+                'siblings',
+            ]);
+            foreach (['mother_birthdate', 'father_birthdate'] as $birthdateField) {
+                if (($familyBackground[$birthdateField] ?? null) instanceof \DateTimeInterface) {
+                    $familyBackground[$birthdateField] = $familyBackground[$birthdateField]->format('Y-m-d');
+                }
+            }
+            $data['family_background'] = $familyBackground;
         }
 
         return response()->json([
@@ -389,45 +458,94 @@ class StudentProfileController extends Controller
     {
         try {
             // Detect if this is an academic or non-academic scholarship form
-            $isAcademic = $request->has('program') || $request->has('id_number') || $request->has('birthdate');
-            
+            $scholarshipIdInput = $request->input('scholarship_id');
+            $scholarshipNameInput = $request->input('scholarship_name');
+            $selectedScholarship = $this->findSelectedScholarship(
+                is_scalar($scholarshipIdInput) ? (string) $scholarshipIdInput : null,
+                is_scalar($scholarshipNameInput) ? (string) $scholarshipNameInput : null
+            );
+            $isAcademic = $selectedScholarship
+                ? $selectedScholarship->type === 'academic'
+                : $request->has('program');
+            $request->merge([
+                'student_id_number' => $request->input('student_id_number') ?? $request->input('id_number') ?? Auth::user()?->student_id,
+            ]);
+
             // Build validation rules dynamically based on form type
             $validationRules = [
                 'first_name' => 'required_without:last_name|string|max:255',
                 'middle_name' => 'nullable|string|max:255',
                 'last_name' => 'required_without:first_name|string|max:255',
+                'suffix' => 'nullable|string|max:255',
                 'sex' => 'required|in:Male,Female',
                 'status' => 'required|in:Single,Married,In a Relationship,Divorced',
                 'email' => $isAcademic ? 'nullable|email|max:255' : 'required|email|max:255',
-                'student_id_number' => 'nullable|string|max:255',
+                'student_id_number' => ['required', 'string', 'regex:/^\d{2}-\d{5}$/'],
+                'birthdate' => ['required', 'date', 'before_or_equal:2010-12-31'],
+                'birthplace' => 'required|string|max:255',
                 'home_address' => $isAcademic ? 'nullable|string' : 'required|string',
-                'contact_number' => $isAcademic ? 'nullable|string|max:50' : 'required|string|max:50',
+                'contact_number' => $isAcademic
+                    ? ['nullable', 'string', 'regex:/^\d{9}$/']
+                    : ['required', 'string', 'regex:/^\d{9}$/'],
                 'course' => 'required|string',
+                'college_department' => 'nullable|string|max:255',
                 'year_level' => 'required|in:1st Year,2nd Year,3rd Year,4th Year',
                 'scholarship_id' => 'nullable|integer|min:1',
                 'scholarship_name' => 'required|string',
                 'scholarship_type' => 'required|string',
+                'family_background' => 'nullable|array',
+                'family_background.father_status' => 'nullable|in:Living,Deceased',
+                'family_background.father_name' => 'nullable|string|max:255',
+                'family_background.father_age' => 'nullable|integer|min:0|max:150',
+                'family_background.father_birthdate' => 'nullable|date',
+                'family_background.father_address' => 'nullable|string|max:2000',
+                'family_background.father_occupation' => 'nullable|string|max:255',
+                'family_background.father_office_address' => 'nullable|string|max:2000',
+                'family_background.father_education' => 'nullable|string|max:255',
+                'family_background.mother_status' => 'nullable|in:Living,Deceased',
+                'family_background.mother_name' => 'nullable|string|max:255',
+                'family_background.mother_age' => 'nullable|integer|min:0|max:150',
+                'family_background.mother_birthdate' => 'nullable|date',
+                'family_background.mother_address' => 'nullable|string|max:2000',
+                'family_background.mother_occupation' => 'nullable|string|max:255',
+                'family_background.mother_office_address' => 'nullable|string|max:2000',
+                'family_background.mother_education' => 'nullable|string|max:255',
+                'family_background.parent_contact_number' => 'nullable|string|max:50',
+                'family_background.parent_email' => 'nullable|email|max:255',
+                'family_background.monthly_income' => 'nullable|numeric|min:0',
+                'family_background.has_differently_abled_member' => 'nullable|in:yes,no',
+                'family_background.disability_details' => 'nullable|string|max:2000',
+                'family_background.siblings' => 'nullable|array|max:10',
+                'family_background.siblings.*' => 'array',
+                'family_background.siblings.*.name' => 'nullable|string|max:255',
+                'family_background.siblings.*.age' => 'nullable|integer|min:0|max:150',
+                'family_background.siblings.*.marital_status' => 'nullable|in:Single,Married,Widowed,Divorced',
+                'family_background.siblings.*.occupation' => 'nullable|string|max:255',
             ];
-            
+
             // Add academic-specific fields if this is an academic form
             if ($isAcademic) {
                 $validationRules['program'] = 'required|string|max:255';
-                $validationRules['id_number'] = 'required|string|max:255';
-                $validationRules['birthdate'] = 'required|date';
-                $validationRules['birthplace'] = 'required|string|max:255';
                 $validationRules['religion'] = 'required|string|max:255';
             }
 
             // Basic validation for non-file fields
             $data = $request->validate($validationRules);
+            $familyBackgroundInput = $data['family_background'] ?? [];
+            unset($data['family_background']);
             
             $user = Auth::user();
             $data['user_id'] = $user->id;
             $data['email'] = $user->email;
+            $data['suffix'] = trim((string) ($request->input('suffix') ?? '')) ?: null;
+            $data['college_department'] = $this->resolveCollegeDepartment($data['course'] ?? null) ?? trim((string) ($request->input('college_department') ?? '')) ?: null;
+            $data['campus'] = 'Aparri';
             $data['student_id_number'] = $request->input('student_id_number') ?? $request->input('id_number') ?? $user->student_id ?? null;
+            if (isset($data['contact_number']) && $data['contact_number'] !== '') {
+                $data['contact_number'] = '+63 9' . $data['contact_number'];
+            }
 
             $selectedScholarshipId = $request->input('scholarship_id');
-            $selectedScholarship = $this->findSelectedScholarship($selectedScholarshipId, $data['scholarship_name'] ?? null);
 
             if ($selectedScholarship) {
                 [$resolvedName, $resolvedType] = $this->resolveScholarshipMetadata($selectedScholarship);
@@ -568,11 +686,16 @@ class StudentProfileController extends Controller
 
             $data['uploads'] = !empty($uploaded) ? $uploaded : null;
             $oldRejectedFiles = [];
+            $familyBackgroundRejected = false;
 
             if ($previousProfile) {
                 $studentStatus = $previousProfile->student_information_status ?? 'pending';
                 $personalStatus = $previousProfile->personal_information_status ?? 'pending';
                 $requirementsStatus = $previousProfile->scholarship_requirements_status ?? 'pending';
+                $familyBackgroundStatus = $previousProfile->family_background_status ?? 'pending';
+                $familyBackgroundRejected = !$isAcademic
+                    && $previousProfile->grant_type === 'non-academic'
+                    && $familyBackgroundStatus === 'rejected';
                 $reviewColumn = Schema::hasColumn('student_profiles', 'document_review') ? 'document_review' : 'document_reviews';
                 $previousReviews = is_array($previousProfile->{$reviewColumn}) ? $previousProfile->{$reviewColumn} : [];
                 $hasRejectedDocument = collect($previousReviews)
@@ -582,9 +705,13 @@ class StudentProfileController extends Controller
                 $data['student_information_status'] = $studentStatus === 'approved' ? 'approved' : 'pending';
                 $data['personal_information_status'] = $personalStatus === 'approved' ? 'approved' : 'pending';
                 $data['scholarship_requirements_status'] = $requirementsStatus === 'approved' ? 'approved' : 'pending';
+                if (!$isAcademic && $previousProfile->grant_type === 'non-academic') {
+                    $data['family_background_status'] = $familyBackgroundRejected ? 'pending' : ($familyBackgroundStatus === 'approved' ? 'approved' : 'pending');
+                    $data['family_background_reason'] = $familyBackgroundRejected ? null : $previousProfile->family_background_reason;
+                }
 
                 if ($studentStatus !== 'rejected') {
-                    foreach (['first_name', 'middle_name', 'last_name', 'email', 'student_id_number', 'course', 'year_level', 'program', 'id_number'] as $field) {
+                    foreach (['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'student_id_number', 'course', 'college_department', 'year_level', 'program'] as $field) {
                         $data[$field] = $previousProfile->{$field};
                     }
                 }
@@ -687,11 +814,15 @@ class StudentProfileController extends Controller
             $reviewColumn = Schema::hasColumn('student_profiles', 'document_review') ? 'document_review' : 'document_reviews';
             $previousReviews = is_array($previousProfile?->{$reviewColumn}) ? $previousProfile->{$reviewColumn} : [];
             $hasRejectedDocument = collect($previousReviews)->contains(fn ($review) => ($review['status'] ?? null) === 'rejected');
-            $hasRejectedSection = in_array('rejected', [
+            $rejectedSectionStatuses = [
                 $previousProfile?->student_information_status,
                 $previousProfile?->personal_information_status,
                 $previousProfile?->scholarship_requirements_status,
-            ], true);
+            ];
+            if (!$isAcademic && $previousProfile?->grant_type === 'non-academic') {
+                $rejectedSectionStatuses[] = $previousProfile->family_background_status;
+            }
+            $hasRejectedSection = in_array('rejected', $rejectedSectionStatuses, true);
             $applicationWasRejected = ($previousProfile?->application_status ?? null) === 'rejected';
             $canReapplyBeforeSubmission = $previousProfile && ($applicationWasRejected || $hasRejectedSection || $hasRejectedDocument);
 
@@ -815,11 +946,15 @@ class StudentProfileController extends Controller
                 $reviewColumn = Schema::hasColumn('student_profiles', 'document_review') ? 'document_review' : 'document_reviews';
                 $previousReviews = is_array($previousProfile?->{$reviewColumn}) ? $previousProfile->{$reviewColumn} : [];
                 $hasRejectedDocument = collect($previousReviews)->contains(fn ($review) => ($review['status'] ?? null) === 'rejected');
-                $hasRejectedSection = in_array('rejected', [
+                $rejectedSectionStatuses = [
                     $previousProfile?->student_information_status,
                     $previousProfile?->personal_information_status,
                     $previousProfile?->scholarship_requirements_status,
-                ], true);
+                ];
+                if (!$isAcademic && $previousProfile?->grant_type === 'non-academic') {
+                    $rejectedSectionStatuses[] = $previousProfile->family_background_status;
+                }
+                $hasRejectedSection = in_array('rejected', $rejectedSectionStatuses, true);
                 $applicationWasRejected = ($previousProfile?->application_status ?? null) === 'rejected';
                 $canReapply = $previousProfile && ($applicationWasRejected || $hasRejectedSection || $hasRejectedDocument);
 
@@ -872,6 +1007,10 @@ class StudentProfileController extends Controller
 
                     $data['application_id'] = $application->id;
                     $profile = StudentProfile::create($data);
+                }
+
+                if (!$isAcademic && (!$previousProfile || $familyBackgroundRejected || $previousProfile->grant_type !== 'non-academic')) {
+                    $this->saveFamilyBackground($profile, $familyBackgroundInput);
                 }
 
                 DB::commit();
@@ -933,6 +1072,53 @@ class StudentProfileController extends Controller
                     ->with('error', 'Failed to submit application.')
                 ->withInput();
         }
+    }
+
+    private function saveFamilyBackground(StudentProfile $profile, array $input): void
+    {
+        $fields = [
+            'father_status', 'father_name', 'father_age', 'father_birthdate', 'father_address',
+            'father_occupation', 'father_office_address', 'father_education',
+            'mother_status', 'mother_name', 'mother_age', 'mother_birthdate', 'mother_address',
+            'mother_occupation', 'mother_office_address', 'mother_education',
+            'parent_contact_number', 'parent_email', 'monthly_income', 'disability_details',
+        ];
+        $attributes = [];
+
+        foreach ($fields as $field) {
+            $value = $input[$field] ?? null;
+            $attributes[$field] = is_string($value) ? (trim($value) ?: null) : $value;
+        }
+
+        $disabilityResponse = $input['has_differently_abled_member'] ?? null;
+        $attributes['has_differently_abled_member'] = match ($disabilityResponse) {
+            'yes' => true,
+            'no' => false,
+            default => null,
+        };
+
+        $siblingFields = ['name', 'age', 'marital_status', 'occupation'];
+        $siblings = collect($input['siblings'] ?? [])
+            ->take(10)
+            ->map(function ($sibling) use ($siblingFields) {
+                $row = [];
+                foreach ($siblingFields as $field) {
+                    $value = $sibling[$field] ?? null;
+                    $row[$field] = is_string($value) ? (trim($value) ?: null) : $value;
+                }
+
+                return $row;
+            })
+            ->filter(fn ($sibling) => collect($sibling)->contains(fn ($value) => $value !== null && $value !== ''))
+            ->values()
+            ->all();
+        $attributes['siblings'] = $siblings ?: null;
+
+        if (!collect($attributes)->contains(fn ($value) => $value !== null && $value !== '')) {
+            return;
+        }
+
+        $profile->familyBackground()->updateOrCreate([], $attributes);
     }
 
     /**

@@ -105,7 +105,70 @@ class ApplicationSectionReviewTest extends TestCase
         $this->assertSame('approved', $fresh->student_information_status);
         $this->assertSame('approved', $fresh->personal_information_status);
         $this->assertSame('approved', $fresh->scholarship_requirements_status);
+        $this->assertSame('pending', $fresh->family_background_status);
         $this->assertSame('approved', $fresh->application_status);
+        $this->assertSame('approved', $application->fresh()->status);
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/family-background/approve")
+            ->assertNotFound();
+    }
+
+    public function test_non_academic_family_background_review_controls_overall_status(): void
+    {
+        Mail::fake();
+        $student = User::factory()->approved()->create(['name' => 'Family Review Student']);
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $scholarship = Scholarship::create(['name' => 'Family Review Scholarship', 'type' => 'non-academic']);
+        $application = Application::create([
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+            'status' => 'pending',
+        ]);
+        $profile = StudentProfile::create([
+            'user_id' => $student->id,
+            'application_id' => $application->id,
+            'first_name' => 'Family Review',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'course' => 'BSIT',
+            'year_level' => '2nd Year',
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Non-Academic',
+            'grant_type' => 'non-academic',
+            'application_status' => 'pending',
+            'student_information_status' => 'approved',
+            'personal_information_status' => 'approved',
+            'scholarship_requirements_status' => 'approved',
+            'family_background_status' => 'approved',
+        ]);
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/family-background/reject", [
+            'reason' => 'Please clarify the family income details.',
+        ])->assertOk();
+
+        $rejected = $profile->fresh();
+        $this->assertSame('rejected', $rejected->family_background_status);
+        $this->assertSame('Please clarify the family income details.', $rejected->family_background_reason);
+        $this->assertSame('rejected', $rejected->application_status);
+        $this->assertSame('rejected', $application->fresh()->status);
+
+        $this->actingAs($admin)->get('/admin/applications/' . $profile->id)
+            ->assertOk()
+            ->assertJsonPath('family_background_status', 'rejected')
+            ->assertJsonPath('family_background_reason', 'Please clarify the family income details.');
+        $this->actingAs($admin)->get('/admin')
+            ->assertOk()
+            ->assertSee('data-id="' . $profile->id . '"', false)
+            ->assertSee('<span class="badge rejected">Rejected</span>', false);
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/family-background/approve")
+            ->assertOk();
+
+        $approved = $profile->fresh();
+        $this->assertSame('approved', $approved->family_background_status);
+        $this->assertNull($approved->family_background_reason);
+        $this->assertSame('approved', $approved->application_status);
         $this->assertSame('approved', $application->fresh()->status);
     }
 }

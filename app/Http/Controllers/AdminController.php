@@ -54,7 +54,7 @@ class AdminController extends Controller
             ->orderByDesc('applications.created_at')
             ->orderByDesc('applications.id')
             ->orderByDesc('student_profiles.id')
-            ->select('student_profiles.*', 'scholarships.type as scholarship_category_type');
+            ->select('student_profiles.*', 'scholarships.type as scholarship_category_type', 'scholarships.funding_type as scholarship_funding_type');
 
         $recentApplications = $query->take(10)->get();
         $filterType = 'all';
@@ -155,10 +155,12 @@ class AdminController extends Controller
             })
             ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
             ->leftJoin('scholarships', 'scholarships.id', '=', 'applications.scholarship_id')
-            ->select('student_profiles.*', 'scholarships.type as scholarship_category_type')
-            ->orderByRaw('COALESCE(applications.created_at, student_profiles.created_at) DESC')
-            ->orderBy('applications.id', 'desc')
-            ->orderBy('student_profiles.id', 'desc');
+            ->select('student_profiles.*', 'scholarships.type as scholarship_category_type', 'scholarships.funding_type as scholarship_funding_type');
+
+        $createdAtDirection = $scholarshipName !== '' ? 'ASC' : 'DESC';
+        $query->orderByRaw('COALESCE(applications.created_at, student_profiles.created_at) ' . $createdAtDirection)
+            ->orderBy('applications.id', $createdAtDirection)
+            ->orderBy('student_profiles.id', $createdAtDirection);
 
         return $query->paginate(10)->withQueryString();
     }
@@ -375,8 +377,11 @@ class AdminController extends Controller
 
     public function approveSection($id, string $section)
     {
-        $fields = $this->sectionFields($section);
         $application = StudentProfile::findOrFail($id);
+        $fields = $this->sectionFields($section);
+        if ($section === 'family-background' && $application->grant_type !== 'non-academic') {
+            abort(404);
+        }
 
         $application->forceFill([
             $fields['status'] => 'approved',
@@ -389,13 +394,16 @@ class AdminController extends Controller
 
     public function rejectSection(Request $request, $id, string $section)
     {
+        $application = StudentProfile::with('user')->findOrFail($id);
         $fields = $this->sectionFields($section);
+        if ($section === 'family-background' && $application->grant_type !== 'non-academic') {
+            abort(404);
+        }
         $reason = trim((string) $request->input('reason', ''));
         if ($reason === '') {
             return response()->json(['status' => 'error', 'message' => 'A rejection reason is required.'], 422);
         }
 
-        $application = StudentProfile::with('user')->findOrFail($id);
         $application->forceFill([
             $fields['status'] => 'rejected',
             $fields['reason'] => $reason,
@@ -445,6 +453,11 @@ class AdminController extends Controller
                 'status' => 'scholarship_requirements_status',
                 'reason' => 'scholarship_requirements_reason',
                 'label' => 'Scholarship & Requirements',
+            ],
+            'family-background' => [
+                'status' => 'family_background_status',
+                'reason' => 'family_background_reason',
+                'label' => 'Family Background',
             ],
             default => abort(404),
         };
@@ -532,10 +545,13 @@ class AdminController extends Controller
             $application->personal_information_status,
             $application->scholarship_requirements_status,
         ];
+        if ($application->grant_type === 'non-academic') {
+            $statuses[] = $application->family_background_status;
+        }
 
         $overallStatus = in_array('rejected', $statuses, true)
             ? 'rejected'
-            : (count(array_filter($statuses, fn ($status) => $status === 'approved')) === 3 ? 'approved' : 'pending');
+            : (count(array_filter($statuses, fn ($status) => $status === 'approved')) === count($statuses) ? 'approved' : 'pending');
 
         if ($application->application_status !== $overallStatus) {
             $application->application_status = $overallStatus;
@@ -748,6 +764,7 @@ class AdminController extends Controller
             'status' => 'Single',
             'email' => 'manual-' . Str::uuid() . '@local.invalid',
             'course' => $validated['course'],
+            'campus' => 'Aparri',
             'year_level' => $validated['year_level'],
             'scholarship_name' => $validated['scholarship_name'],
             'scholarship_type' => $validated['grant_type'] === 'academic' ? 'Academic' : 'Non-Academic',
@@ -787,6 +804,7 @@ class AdminController extends Controller
             'middle_name' => $validated['middle_name'] ?? null,
             'sex' => $validated['sex'],
             'course' => $validated['course'],
+            'campus' => 'Aparri',
             'year_level' => $validated['year_level'],
             'scholarship_name' => $validated['scholarship_name'],
             'scholarship_type' => $validated['grant_type'] === 'academic' ? 'Academic' : 'Non-Academic',

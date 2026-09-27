@@ -118,6 +118,10 @@
             outline: none;
         }
 
+        .input-wrapper input {
+            padding-right: 48px;
+        }
+
         .form-group input:focus {
             border-color: #C85A00;
             box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
@@ -128,9 +132,34 @@
             right: 16px;
             top: 50%;
             transform: translateY(-50%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            border: 0;
+            background: transparent;
             cursor: pointer;
             color: #a0aec0;
             transition: color 0.3s;
+        }
+
+        .toggle-password svg {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .toggle-password .eye-closed,
+        .toggle-password[aria-pressed="true"] .eye-open {
+            display: none;
+        }
+
+        .toggle-password[aria-pressed="true"] .eye-closed {
+            display: block;
         }
 
         .toggle-password:hover {

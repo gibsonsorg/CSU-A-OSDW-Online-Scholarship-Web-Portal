@@ -840,6 +840,187 @@ body {
     grid-column: 1 / -1;
 }
 
+.contact-number-control {
+    display: flex;
+    min-width: 0;
+}
+
+.contact-number-prefix {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    border: 1px solid #cbd5e1;
+    border-right: 0;
+    border-radius: 6px 0 0 6px;
+    background: #f8fafc;
+    color: #334155;
+    white-space: nowrap;
+}
+
+.contact-number-control .input {
+    min-width: 0;
+    border-radius: 0 6px 6px 0;
+}
+
+.contact-number-control .input.contact-number-invalid {
+    border-color: #dc2626;
+    background-color: #fef2f2;
+}
+
+.family-background-step {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.family-background-step.academic-step-panel.active {
+    display: flex;
+}
+
+.family-background-subpage {
+    display: none;
+}
+
+.family-background-subpage.active {
+    display: block;
+}
+
+.family-background-pagination {
+    width: 100%;
+}
+
+.family-background-pagination[hidden] {
+    display: none;
+}
+
+.family-background-parents,
+.family-background-shared {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.family-background-parent {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid #d8dee8;
+    border-radius: 6px;
+}
+
+.family-background-parent legend,
+.family-background-disability legend {
+    padding: 0 5px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.family-background-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.family-background-full {
+    grid-column: 1 / -1;
+}
+
+.family-background-step label,
+.family-background-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.8rem;
+}
+
+.family-background-status,
+.family-background-disability {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    grid-column: 1 / -1;
+}
+
+.family-background-status label,
+.family-background-disability label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+}
+
+.family-background-shared {
+    align-items: start;
+}
+
+.family-background-disability {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid #d8dee8;
+    border-radius: 6px;
+}
+
+.family-background-siblings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.family-background-siblings-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.family-background-table-wrap {
+    overflow-x: auto;
+}
+
+.family-background-siblings-table {
+    width: 100%;
+    min-width: 680px;
+    border-collapse: collapse;
+}
+
+.family-background-siblings-table th,
+.family-background-siblings-table td {
+    padding: 6px;
+    border: 1px solid #d8dee8;
+    text-align: left;
+}
+
+.family-background-siblings-table th {
+    background: #f8fafc;
+    font-size: 0.76rem;
+}
+
+.family-background-siblings-table .input {
+    min-width: 120px;
+}
+
+.family-sibling-remove {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #d8dee8;
+    border-radius: 4px;
+    background: #fff;
+    color: #b91c1c;
+    cursor: pointer;
+    font-size: 1.1rem;
+}
+
+@media (max-width: 760px) {
+    .family-background-parents,
+    .family-background-shared {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .modal-close {
     float: right;
     cursor: pointer;

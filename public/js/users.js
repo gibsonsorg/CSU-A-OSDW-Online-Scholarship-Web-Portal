@@ -3,6 +3,135 @@ const state = { acad: 1, non: 1 };
 
 const maxPages = { acad: 2, non: 2 };
 const DRAFT_TTL_MS = 5 * 60 * 1000;
+const siblingDeleteIconUrl = document.currentScript?.src
+    ? new URL('../images/delete.png', document.currentScript.src).href
+    : '/images/delete.png';
+
+function formatStudentIdValue(value) {
+    const digits = String(value ?? '').replace(/\D/g, '').slice(0, 7);
+    return digits.length > 2 ? `${digits.slice(0, 2)}-${digits.slice(2)}` : digits;
+}
+
+function getContactDigits(value) {
+    let digits = String(value ?? '').replace(/\D/g, '');
+    if (digits.startsWith('639')) digits = digits.slice(3);
+    else if (digits.startsWith('09')) digits = digits.slice(2);
+    return digits.slice(0, 9);
+}
+
+function calculateAgeValue(value) {
+    const match = String(value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return '';
+
+    const birthYear = Number(match[1]);
+    const birthMonth = Number(match[2]) - 1;
+    const birthDay = Number(match[3]);
+    const today = new Date();
+    let age = today.getFullYear() - birthYear;
+    if (today.getMonth() < birthMonth || (today.getMonth() === birthMonth && today.getDate() < birthDay)) age--;
+    return age >= 0 ? String(age) : '';
+}
+
+function updateFamilyBackgroundAges(form) {
+    [['mother_birthdate', 'mother_age'], ['father_birthdate', 'father_age']].forEach(([birthdateName, ageName]) => {
+        const birthdate = form?.querySelector(`[name="family_background[${birthdateName}]"]`);
+        const age = form?.querySelector(`[name="family_background[${ageName}]"]`);
+        if (age) age.value = calculateAgeValue(birthdate?.value);
+    });
+}
+
+function updateFamilyDisabilityVisibility(form) {
+    const isDifferentlyAbled = form?.querySelector('[name="family_background[has_differently_abled_member]"]:checked')?.value === 'yes';
+    const familyPanel = form?.querySelector('[data-non-academic-step="3"]');
+    const details = familyPanel?.querySelector('#familyDisabilityDetails');
+    const detailsInput = details?.querySelector('input');
+    if (details) details.hidden = !isDifferentlyAbled;
+    if (detailsInput) {
+        const familyFieldsAreDisabled = familyPanel?.querySelector('[name="family_background[mother_name]"]')?.disabled === true;
+        detailsInput.disabled = !isDifferentlyAbled || familyFieldsAreDisabled;
+        if (!isDifferentlyAbled) detailsInput.value = '';
+    }
+}
+
+function normalizeApplicationFormValues(form) {
+    if (!form) return;
+    const studentId = form.querySelector('[name="student_id_number"]');
+    const contactNumber = form.querySelector('[name="contact_number"]');
+    const birthdate = form.querySelector('[name="birthdate"]');
+    const age = form.querySelector('[name="age"]');
+    if (studentId) studentId.value = formatStudentIdValue(studentId.value);
+    if (contactNumber) contactNumber.value = getContactDigits(contactNumber.value);
+    if (age) age.value = calculateAgeValue(birthdate?.value);
+}
+
+function bindApplicationInputFormatting(form) {
+    if (!form) return;
+    const studentId = form.querySelector('[name="student_id_number"]');
+    const contactNumber = form.querySelector('[name="contact_number"]');
+    const birthdate = form.querySelector('[name="birthdate"]');
+    const age = form.querySelector('[name="age"]');
+    let contactNumberTouched = false;
+
+    const blockNonDigits = event => {
+        if (event.inputType === 'insertText' && event.data && /\D/.test(event.data)) event.preventDefault();
+    };
+
+    if (studentId) {
+        studentId.addEventListener('beforeinput', blockNonDigits);
+        studentId.addEventListener('input', () => {
+            const cursor = studentId.selectionStart ?? studentId.value.length;
+            const digitsBeforeCursor = studentId.value.slice(0, cursor).replace(/\D/g, '').length;
+            studentId.value = formatStudentIdValue(studentId.value);
+            const nextCursor = digitsBeforeCursor > 2 ? digitsBeforeCursor + 1 : digitsBeforeCursor;
+            studentId.setSelectionRange(nextCursor, nextCursor);
+        });
+    }
+
+    if (contactNumber) {
+        const updateContactNumberIndicator = () => {
+            if (!contactNumberTouched) return;
+            const isComplete = getContactDigits(contactNumber.value).length === 9;
+            contactNumber.classList.toggle('contact-number-invalid', !isComplete);
+            contactNumber.setAttribute('aria-invalid', String(!isComplete));
+        };
+
+        contactNumber.addEventListener('beforeinput', blockNonDigits);
+        contactNumber.addEventListener('input', () => {
+            const cursor = contactNumber.selectionStart ?? contactNumber.value.length;
+            const digitsBeforeCursor = contactNumber.value.slice(0, cursor).replace(/\D/g, '').length;
+            contactNumber.value = getContactDigits(contactNumber.value);
+            contactNumber.setSelectionRange(Math.min(digitsBeforeCursor, contactNumber.value.length), Math.min(digitsBeforeCursor, contactNumber.value.length));
+            updateContactNumberIndicator();
+        });
+        contactNumber.addEventListener('blur', () => {
+            contactNumberTouched = true;
+            updateContactNumberIndicator();
+        });
+        form.addEventListener('reset', () => {
+            contactNumberTouched = false;
+            contactNumber.classList.remove('contact-number-invalid');
+            contactNumber.removeAttribute('aria-invalid');
+        });
+    }
+
+    if (birthdate && age) {
+        const updateAge = () => { age.value = calculateAgeValue(birthdate.value); };
+        birthdate.max = '2010-12-31';
+        birthdate.addEventListener('input', updateAge);
+        birthdate.addEventListener('change', updateAge);
+        birthdate.addEventListener('blur', updateAge);
+    }
+
+    form.querySelectorAll('[name="family_background[mother_birthdate]"], [name="family_background[father_birthdate]"]').forEach(birthdateField => {
+        const updateFamilyAge = () => updateFamilyBackgroundAges(form);
+        birthdateField.addEventListener('input', updateFamilyAge);
+        birthdateField.addEventListener('change', updateFamilyAge);
+        birthdateField.addEventListener('blur', updateFamilyAge);
+    });
+    updateFamilyBackgroundAges(form);
+
+    normalizeApplicationFormValues(form);
+}
 
 function getDraftKey(grantType, scholarshipId, scholarshipName) {
     const userId = window.currentUserId ?? 'guest';
@@ -78,12 +207,19 @@ function applyDraftToForm(form, draft) {
         const input = form.querySelector(`[name="${fieldName}"]`);
         if (!input || input.type === 'file' || input.readOnly) return;
         input.value = value ?? '';
+        if (fieldName === 'course' && input.value) {
+            updateCollegeDepartmentForForm(form);
+        }
     });
+
+    normalizeApplicationFormValues(form);
 }
 
-function getPrefillData(grantType) {
+function getPrefillData(grantType, scholarshipId, scholarshipName) {
     const url = new URL('/student-application-prefill', window.location.origin);
     url.searchParams.set('grant_type', grantType);
+    if (scholarshipId) url.searchParams.set('scholarship_id', scholarshipId);
+    if (scholarshipName) url.searchParams.set('scholarship_name', scholarshipName);
 
     return fetch(url.toString(), { credentials: 'same-origin' })
         .then(response => response.ok ? response.json() : { data: null })
@@ -91,33 +227,109 @@ function getPrefillData(grantType) {
         .catch(() => null);
 }
 
-function applyPrefillValueToForm(form, fieldName, value) {
-    if (!fieldName || value === null || value === undefined) return;
-    const input = form.querySelector(`[name="${fieldName}"]`);
-    if (!input || input.type === 'file' || input.readOnly) return;
-    input.value = value;
+function applyFamilyBackgroundPrefill(form, familyBackground) {
+    const familyPanel = form?.querySelector('[data-non-academic-step="3"]');
+    if (!familyPanel || !familyBackground || typeof familyBackground !== 'object') return;
+
+    Object.entries(familyBackground).forEach(([fieldName, value]) => {
+        if (fieldName === 'siblings' || value === null || value === undefined) return;
+
+        familyPanel.querySelectorAll(`[name="family_background[${fieldName}]"]`).forEach(input => {
+            if (input.type === 'radio') {
+                const normalizedValue = fieldName === 'has_differently_abled_member'
+                    ? (value ? 'yes' : 'no')
+                    : String(value);
+                input.checked = input.value.toLowerCase() === normalizedValue.toLowerCase();
+            } else {
+                input.value = fieldName.endsWith('birthdate') ? String(value).split('T')[0] : value;
+            }
+        });
+    });
+
+    const siblingsBody = familyPanel.querySelector('#familySiblingsBody');
+    const addSiblingButton = familyPanel.querySelector('#addFamilySibling');
+    siblingsBody?.replaceChildren();
+    if (addSiblingButton) addSiblingButton.disabled = false;
+    (Array.isArray(familyBackground.siblings) ? familyBackground.siblings : []).slice(0, 10).forEach(sibling => {
+        addSiblingButton?.click();
+        const row = siblingsBody?.lastElementChild;
+        ['name', 'age', 'marital_status', 'occupation'].forEach(fieldName => {
+            const input = row?.querySelector(`[name$="[${fieldName}]"]`);
+            if (input && sibling[fieldName] !== null && sibling[fieldName] !== undefined) {
+                input.value = sibling[fieldName];
+            }
+        });
+    });
+
+    updateFamilyDisabilityVisibility(form);
+    updateFamilyBackgroundAges(form);
 }
 
-function hydrateFormOpenState(form, grantType, scholarshipId, scholarshipName) {
+function applyPrefillValueToForm(form, fieldName, value) {
+    if (!fieldName || value === null || value === undefined) return;
+    if (fieldName === 'family_background') {
+        applyFamilyBackgroundPrefill(form, value);
+        return;
+    }
+    const input = form.querySelector(`[name="${fieldName}"]`);
+    if (!input || input.type === 'file') return;
+    input.value = value;
+    normalizeApplicationFormValues(form);
+    if (fieldName === 'course' && input.value) {
+        updateCollegeDepartmentForForm(form);
+    }
+}
+
+function setFormHydrationBusy(form, isBusy) {
     if (!form) return;
+    form.dataset.hydrating = isBusy ? 'true' : 'false';
+    form.setAttribute('aria-busy', isBusy ? 'true' : 'false');
 
-    const selectedScholarshipName = scholarshipName || form.querySelector('[name="scholarship_name"]')?.value || '';
-    const selectedScholarshipId = scholarshipId || form.querySelector('[name="scholarship_id"]')?.value || '';
+    const actionButtons = form.querySelectorAll('button, input[type="submit"], input[type="button"]');
+    actionButtons.forEach(button => {
+        if (button.type === 'hidden') return;
+        if (isBusy) {
+            button.dataset.wasDisabledBeforeHydration = String(button.disabled);
+            button.disabled = true;
+            return;
+        }
 
-    const draft = readDraft(grantType, selectedScholarshipId, selectedScholarshipName);
-    if (draft) {
-        applyDraftToForm(form, draft);
+        const previous = button.dataset.wasDisabledBeforeHydration;
+        button.disabled = previous === 'true';
+        delete button.dataset.wasDisabledBeforeHydration;
+    });
+}
+
+async function hydrateFormOpenState(form, grantType, scholarshipId, scholarshipName) {
+    if (!form) return;
+    if (form.dataset.reapplicationPrepared === 'true') {
         return;
     }
 
-    getPrefillData(grantType).then(prefill => {
+    delete form.dataset.familyBackgroundOnlyReapplication;
+    form.dataset.hydrating = 'true';
+    setFormHydrationBusy(form, true);
+
+    try {
+        const selectedScholarshipName = scholarshipName || form.querySelector('[name="scholarship_name"]')?.value || '';
+        const selectedScholarshipId = scholarshipId || form.querySelector('[name="scholarship_id"]')?.value || '';
+
+        const draft = readDraft(grantType, selectedScholarshipId, selectedScholarshipName);
+        if (draft) {
+            applyDraftToForm(form, draft);
+            return;
+        }
+
+        const prefill = await getPrefillData(grantType, selectedScholarshipId, selectedScholarshipName);
         if (!prefill) return;
+
         Object.entries(prefill).forEach(([fieldName, value]) => {
             applyPrefillValueToForm(form, fieldName, value);
         });
-    }).catch(() => {
-        // Ignore prefill failures and keep the blank form as-is.
-    });
+    } finally {
+        setFormHydrationBusy(form, false);
+        delete form.dataset.hydrating;
+    }
 }
 
 function bindDraftAutosave(form, grantType) {
@@ -217,16 +429,19 @@ function prepareReapplication(title, modalType) {
     const form = document.getElementById(modalType === 'academic' ? 'academicApplyForm' : 'applyForm');
     if (!form) return;
 
+    form.dataset.reapplicationPrepared = 'true';
     form.querySelectorAll('[data-reapplication-preserved]').forEach(input => input.remove());
 
     const values = {
         first_name: profile.first_name,
         middle_name: profile.middle_name,
         last_name: profile.last_name,
+        suffix: profile.suffix,
         email: profile.email,
         student_id_number: profile.student_id_number,
         id_number: profile.id_number || profile.student_id_number,
         course: profile.course,
+        college_department: profile.college_department,
         year_level: profile.year_level,
         program: profile.program,
         birthdate: profile.birthdate ? String(profile.birthdate).split('T')[0] : '',
@@ -246,17 +461,25 @@ function prepareReapplication(title, modalType) {
         input.value = value;
     });
 
+    normalizeApplicationFormValues(form);
+
+    const courseField = form.querySelector('[name="course"]');
+    if (courseField && courseField.value) {
+        updateCollegeDepartmentForForm(form);
+    }
+
     const applicationIdInput = form.querySelector('[name="application_id"]');
     const studentProfileIdInput = form.querySelector('[name="student_profile_id"]');
     if (applicationIdInput) applicationIdInput.value = profile.application_id || '';
     if (studentProfileIdInput) studentProfileIdInput.value = profile.id || '';
 
-    const studentFields = ['first_name', 'middle_name', 'last_name', 'email', 'student_id_number', 'id_number', 'course', 'year_level', 'program'];
+    const studentFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'student_id_number', 'id_number', 'course', 'college_department', 'year_level', 'program'];
     const personalFields = ['birthdate', 'birthplace', 'sex', 'status', 'religion', 'contact_number', 'home_address'];
     const sectionStatus = {
         student: profile.student_information_status,
         personal: profile.personal_information_status,
         requirements: profile.scholarship_requirements_status,
+        family: profile.family_background_status,
     };
     const reviews = profile.document_review || profile.document_reviews || {};
     const rejectedGroups = new Set(Object.entries(reviews)
@@ -282,17 +505,74 @@ function prepareReapplication(title, modalType) {
         if (input && name !== 'scholarship_id') input.readOnly = true;
     });
 
-    const sectionPanels = form.querySelectorAll('.academic-step-panel');
+    const isNonAcademic = modalType !== 'academic';
+    const familyPanel = isNonAcademic ? form.querySelector('[data-non-academic-step="3"]') : null;
+    const familyProgressStep = isNonAcademic
+        ? document.querySelector('#applyModal .academic-progress-step[data-progress-step="3"]')
+        : null;
+    const familyBackgroundRejected = isNonAcademic && sectionStatus.family === 'rejected';
+    const familyBackgroundOnlyReapplication = familyBackgroundRejected
+        && sectionStatus.student === 'approved'
+        && sectionStatus.personal === 'approved'
+        && sectionStatus.requirements === 'approved';
+    const familyBackground = profile.family_background || profile.familyBackground || {};
+    form.dataset.familyBackgroundOnlyReapplication = familyBackgroundOnlyReapplication ? 'true' : 'false';
+    if (familyPanel) {
+        if (familyBackgroundRejected) familyPanel.dataset.familyBackgroundPage = '1';
+        familyPanel.dataset.reapplicationHidden = familyBackgroundRejected ? 'false' : 'true';
+        familyPanel.hidden = !familyBackgroundRejected;
+        familyPanel.querySelectorAll('input, select, textarea').forEach(input => {
+            input.disabled = !familyBackgroundRejected;
+        });
+        Object.entries(familyBackground).forEach(([name, value]) => {
+            if (name === 'siblings' || value === null || value === undefined) return;
+            const inputs = familyPanel.querySelectorAll(`[name="family_background[${name}]"]`);
+            inputs.forEach(input => {
+                if (input.type === 'radio') {
+                    const normalizedValue = name === 'has_differently_abled_member'
+                        ? (value ? 'yes' : 'no')
+                        : String(value);
+                    input.checked = input.value.toLowerCase() === normalizedValue.toLowerCase();
+                } else {
+                    input.value = name.endsWith('birthdate') ? String(value).split('T')[0] : value;
+                }
+            });
+        });
+        const siblingsBody = familyPanel.querySelector('#familySiblingsBody');
+        const addSiblingButton = familyPanel.querySelector('#addFamilySibling');
+        (Array.isArray(familyBackground.siblings) ? familyBackground.siblings : []).forEach(sibling => {
+            addSiblingButton?.click();
+            const row = siblingsBody?.lastElementChild;
+            ['name', 'age', 'marital_status', 'occupation'].forEach(name => {
+                const input = row?.querySelector(`[name$="[${name}]"]`);
+                if (input && sibling[name] !== null && sibling[name] !== undefined) input.value = sibling[name];
+            });
+        });
+        updateFamilyDisabilityVisibility(form);
+        updateFamilyBackgroundAges(form);
+    }
+    if (familyProgressStep) {
+        familyProgressStep.dataset.reapplicationHidden = familyBackgroundRejected ? 'false' : 'true';
+        familyProgressStep.hidden = !familyBackgroundRejected;
+    }
+
+    const sectionPanels = Array.from(form.querySelectorAll('.academic-step-panel'))
+        .filter(panel => !isNonAcademic || panel.dataset.nonAcademicStep !== '3');
     sectionPanels.forEach((panel, index) => {
         const status = [sectionStatus.student, sectionStatus.personal, sectionStatus.requirements][index];
-        const visible = status === 'rejected';
+        const isLockedRequirementsAfterFamily = isNonAcademic
+            && panel.dataset.nonAcademicStep === '4'
+            && familyBackgroundRejected
+            && !familyBackgroundOnlyReapplication
+            && status === 'approved';
+        const visible = status === 'rejected' || isLockedRequirementsAfterFamily;
         panel.dataset.reapplicationHidden = visible ? 'false' : 'true';
         panel.hidden = !visible;
         panel.querySelectorAll('input, select, textarea').forEach(input => {
             const preserveScholarshipValue = ['scholarship_name', 'scholarship_type'].includes(input.name)
                 && sectionStatus.requirements !== 'rejected';
             if (input.type !== 'hidden' && !input.dataset.reapplicationPreserved && !preserveScholarshipValue) {
-                input.disabled = !visible;
+                input.disabled = status !== 'rejected';
             }
         });
     });
@@ -332,17 +612,30 @@ function prepareReapplication(title, modalType) {
         if (input) input.required = true;
     }
 
-    const rejectedSection = [sectionStatus.student, sectionStatus.personal, sectionStatus.requirements]
-        .findIndex(status => status === 'rejected');
-    const firstRejectedSection = rejectedSection >= 0 ? rejectedSection + 1 : 1;
     form.dataset.reapplicationActive = 'true';
-    form.querySelectorAll('.academic-progress-step').forEach((step, index) => {
-        const visible = [sectionStatus.student, sectionStatus.personal, sectionStatus.requirements][index] === 'rejected';
+    const sectionProgressSteps = Array.from(form.querySelectorAll('.academic-progress-step'));
+    sectionProgressSteps.forEach(step => {
+        const progressStep = Number(step.dataset.progressStep);
+        const progressStatus = isNonAcademic
+            ? ({ 1: sectionStatus.student, 2: sectionStatus.personal, 3: sectionStatus.family, 4: sectionStatus.requirements })[progressStep]
+            : ({ 1: sectionStatus.student, 2: sectionStatus.personal, 3: sectionStatus.requirements })[progressStep];
+        const visible = progressStatus === 'rejected'
+            || (isNonAcademic && familyBackgroundRejected && !familyBackgroundOnlyReapplication && progressStep === 4 && progressStatus === 'approved');
         step.dataset.reapplicationHidden = visible ? 'false' : 'true';
         step.hidden = !visible;
     });
-    if (modalType === 'academic') updateAcademicStepUI(firstRejectedSection);
-    else updateNonAcademicStepUI(firstRejectedSection);
+    const visibleStepPanels = Array.from(form.querySelectorAll('.academic-step-panel'))
+        .filter(panel => panel.dataset.reapplicationHidden !== 'true');
+    const firstRejectedStep = visibleStepPanels.findIndex(panel => {
+        const step = Number(isNonAcademic ? panel.dataset.nonAcademicStep : panel.dataset.academicStep);
+        const statuses = isNonAcademic
+            ? ({ 1: sectionStatus.student, 2: sectionStatus.personal, 3: sectionStatus.family, 4: sectionStatus.requirements })
+            : ({ 1: sectionStatus.student, 2: sectionStatus.personal, 3: sectionStatus.requirements });
+        return statuses[step] === 'rejected';
+    });
+    const firstVisibleRejectedIndex = firstRejectedStep >= 0 ? firstRejectedStep + 1 : 1;
+    if (modalType === 'academic') updateAcademicStepUI(firstVisibleRejectedIndex);
+    else updateNonAcademicStepUI(firstVisibleRejectedIndex);
 }
 
 function closeAcademicApplyModal() {
@@ -639,35 +932,73 @@ function updateNonAcademicStepUI(stepNumber = 1) {
     const totalSteps = visiblePanels.length || 3;
     const currentStep = Math.min(Math.max(Number(stepNumber) || 1, 1), totalSteps);
     form.dataset.nonAcademicStep = String(currentStep);
+    const currentPanel = visiblePanels[currentStep - 1];
+    const actualStep = Number(currentPanel?.dataset.nonAcademicStep) || currentStep;
 
     panels.forEach(panel => panel.classList.remove('active'));
     visiblePanels.forEach((panel, index) => {
         panel.classList.toggle('active', index + 1 === currentStep);
     });
 
-    if (stepCounter) stepCounter.textContent = currentStep;
+    if (stepCounter) stepCounter.textContent = actualStep;
+
+    const familyPanel = form.querySelector('[data-non-academic-step="3"]');
+    const familyPagination = form.querySelector('#familyBackgroundPagination');
+    const familyBackgroundNext = familyPanel?.querySelector('#familyBackgroundNext');
+    if (familyPanel) {
+        updateFamilyBackgroundPage(form, Number(familyPanel.dataset.familyBackgroundPage || 1));
+    }
+    const isFamilyStep = visiblePanels[currentStep - 1] === familyPanel;
+    const familyPage = Number(familyPanel?.dataset.familyBackgroundPage || 1);
+    const submitsFamilyOnlyReapplication = form.dataset.familyBackgroundOnlyReapplication === 'true'
+        && isFamilyStep
+        && familyPage === 3;
+    if (familyPagination) familyPagination.hidden = !isFamilyStep || submitsFamilyOnlyReapplication;
+    if (familyBackgroundNext) {
+        familyBackgroundNext.hidden = submitsFamilyOnlyReapplication;
+        familyBackgroundNext.textContent = 'Next →';
+    }
 
     progressSteps.forEach(step => step.classList.remove('active', 'completed'));
-    visibleProgressSteps.forEach((step, index) => {
-        const stepIndex = index + 1;
-        step.classList.toggle('active', stepIndex === currentStep);
-        step.classList.toggle('completed', stepIndex < currentStep);
+    visibleProgressSteps.forEach(step => {
+        const stepIndex = Number(step.dataset.progressStep);
+        step.classList.toggle('active', stepIndex === actualStep);
+        step.classList.toggle('completed', stepIndex < actualStep);
     });
 
     if (prevBtn) {
-        prevBtn.classList.toggle('is-hidden', currentStep === 1);
-        prevBtn.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
-        prevBtn.style.display = currentStep === 1 ? 'none' : '';
-        prevBtn.setAttribute('aria-hidden', currentStep === 1 ? 'true' : 'false');
+        const hidePrevious = currentStep === 1 && (!isFamilyStep || familyPage === 1);
+        prevBtn.classList.toggle('is-hidden', hidePrevious);
+        prevBtn.style.visibility = hidePrevious ? 'hidden' : 'visible';
+        prevBtn.style.display = hidePrevious ? 'none' : '';
+        prevBtn.setAttribute('aria-hidden', hidePrevious ? 'true' : 'false');
     }
 
     if (nextBtn) {
-        nextBtn.style.display = currentStep === totalSteps ? 'none' : 'inline-flex';
+        nextBtn.style.display = currentStep === totalSteps || isFamilyStep ? 'none' : 'inline-flex';
     }
 
     if (submitBtn) {
-        submitBtn.style.display = currentStep === totalSteps ? 'inline-flex' : 'none';
+        const isRequirementsStep = currentPanel?.dataset.nonAcademicStep === '4';
+        submitBtn.style.display = isRequirementsStep || submitsFamilyOnlyReapplication ? 'inline-flex' : 'none';
     }
+}
+
+function updateFamilyBackgroundPage(form, pageNumber) {
+    const panel = form?.querySelector('[data-non-academic-step="3"]');
+    if (!panel) return;
+
+    const pages = Array.from(panel.querySelectorAll('[data-family-background-page]'));
+    const page = Math.min(Math.max(Number(pageNumber) || 1, 1), pages.length || 3);
+    panel.dataset.familyBackgroundPage = String(page);
+    pages.forEach((subpage, index) => {
+        const isActive = index + 1 === page;
+        subpage.classList.toggle('active', isActive);
+        subpage.hidden = !isActive;
+    });
+
+    const next = panel.querySelector('#familyBackgroundNext');
+    if (next) next.textContent = 'Next →';
 }
 
 function validateAcademicCurrentStep() {
@@ -777,6 +1108,25 @@ function validateFilesForSubmission(form, fileValidationRules) {
     return true;
 }
 
+const collegeDepartmentMap = {
+    'BACHELOR OF SCIENCE IN CRIMINOLOGY': 'College of Criminal Justice Education',
+    'BACHELOR OF SCIENCE IN FISHERIES': 'College of Fisheries and Aquatic Sciences',
+    'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY': 'College of Information and Computing Science',
+    'BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT': 'College of Hospitality Management',
+    'BACHELOR OF SECONDARY EDUCATION': 'College of Teacher Education',
+    'BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM': 'College of Business, Entrepreneurship and Accountancy',
+    'BACHELOR OF ELEMENTARY EDUCATION': 'College of Teacher Education',
+};
+
+function updateCollegeDepartmentForForm(form) {
+    if (!form) return;
+    const courseField = form.querySelector('[name="course"]');
+    const collegeField = form.querySelector('[name="college_department"]');
+    if (!courseField || !collegeField) return;
+    collegeField.value = collegeDepartmentMap[courseField.value] || '';
+    collegeField.readOnly = true;
+}
+
 document.addEventListener('DOMContentLoaded', function(){
     const academicScholarshipIdMap = window.academicScholarshipIdMap || {};
     const nonAcademicScholarshipIdMap = window.nonAcademicScholarshipIdMap || {};
@@ -830,8 +1180,14 @@ document.addEventListener('DOMContentLoaded', function(){
     const academicForm = document.getElementById('academicApplyForm');
     const academicModal = document.getElementById('academicApplyModal');
     if (academicForm && academicModal) {
+        bindApplicationInputFormatting(academicForm);
         bindDraftAutosave(academicForm, 'academic');
         bindDraftClearOnSubmit(academicForm, 'academic');
+        const courseField = academicForm.querySelector('[name="course"]');
+        if (courseField) {
+            courseField.addEventListener('change', () => updateCollegeDepartmentForForm(academicForm));
+        }
+        updateCollegeDepartmentForForm(academicForm);
         const currentStep = Number(academicForm.dataset.currentAcademicStep || 1);
         updateAcademicStepUI(currentStep);
 
@@ -890,17 +1246,80 @@ document.addEventListener('DOMContentLoaded', function(){
     const nonAcademicForm = document.getElementById('applyForm');
     const nonAcademicModal = document.getElementById('applyModal');
     if (nonAcademicForm && nonAcademicModal) {
+        bindApplicationInputFormatting(nonAcademicForm);
         bindDraftAutosave(nonAcademicForm, 'non-academic');
         bindDraftClearOnSubmit(nonAcademicForm, 'non-academic');
+
+        const familySiblingsBody = nonAcademicForm.querySelector('#familySiblingsBody');
+        const addFamilySiblingButton = nonAcademicForm.querySelector('#addFamilySibling');
+        let familySiblingIndex = 0;
+        const updateFamilySiblingButton = () => {
+            if (addFamilySiblingButton && familySiblingsBody) {
+                addFamilySiblingButton.disabled = familySiblingsBody.rows.length >= 10;
+            }
+        };
+
+        addFamilySiblingButton?.addEventListener('click', () => {
+            if (!familySiblingsBody || familySiblingsBody.rows.length >= 10) return;
+            const rowIndex = familySiblingIndex++;
+            const row = document.createElement('tr');
+            row.innerHTML = `<td><input class="input" type="text" name="family_background[siblings][${rowIndex}][name]" placeholder="Full Name"></td>
+                <td><input class="input" type="number" min="0" name="family_background[siblings][${rowIndex}][age]" placeholder="Age"></td>
+                <td><select class="input" name="family_background[siblings][${rowIndex}][marital_status]"><option value="">Select...</option><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option></select></td>
+                <td><input class="input" type="text" name="family_background[siblings][${rowIndex}][occupation]" placeholder="Job or 'Student'"></td>
+                <td><button class="family-sibling-remove" type="button" aria-label="Remove sibling" title="Remove sibling"><img src="${siblingDeleteIconUrl}" alt="" width="18" height="18"></button></td>`;
+            row.querySelector('.family-sibling-remove')?.addEventListener('click', () => {
+                row.remove();
+                updateFamilySiblingButton();
+            });
+            familySiblingsBody.appendChild(row);
+            updateFamilySiblingButton();
+        });
+        updateFamilySiblingButton();
+
+        const disabilityRadios = nonAcademicForm.querySelectorAll('[name="family_background[has_differently_abled_member]"]');
+        disabilityRadios.forEach(radio => radio.addEventListener('change', () => updateFamilyDisabilityVisibility(nonAcademicForm)));
+        updateFamilyDisabilityVisibility(nonAcademicForm);
+
+        const courseField = nonAcademicForm.querySelector('[name="course"]');
+        if (courseField) {
+            courseField.addEventListener('change', () => updateCollegeDepartmentForForm(nonAcademicForm));
+        }
+        updateCollegeDepartmentForForm(nonAcademicForm);
         const currentStep = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
         updateNonAcademicStepUI(currentStep);
 
         const prevBtn = nonAcademicModal.querySelector('[data-non-academic-step="prev"]');
         const nextBtn = nonAcademicModal.querySelector('[data-non-academic-step="next"]');
+        const familyBackgroundNext = nonAcademicForm.querySelector('#familyBackgroundNext');
+
+        familyBackgroundNext?.addEventListener('click', () => {
+            const familyPage = Number(nonAcademicForm.querySelector('[data-non-academic-step="3"]')?.dataset.familyBackgroundPage || 1);
+            if (familyPage >= 3) {
+                if (nonAcademicForm.dataset.familyBackgroundOnlyReapplication === 'true') return;
+                updateNonAcademicStepUI(Number(nonAcademicForm.dataset.nonAcademicStep || 1) + 1);
+                return;
+            }
+            updateFamilyBackgroundPage(nonAcademicForm, familyPage + 1);
+            updateNonAcademicStepUI(Number(nonAcademicForm.dataset.nonAcademicStep || 1));
+        });
 
         if (prevBtn) {
             prevBtn.addEventListener('click', function() {
                 const current = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
+                const familyPanel = nonAcademicForm.querySelector('[data-non-academic-step="3"]');
+                const visiblePanels = Array.from(nonAcademicForm.querySelectorAll('.academic-step-panel'))
+                    .filter(panel => panel.dataset.reapplicationHidden !== 'true');
+                const isFamilyStep = visiblePanels[current - 1] === familyPanel;
+                if (isFamilyStep) {
+                    const familyPage = Number(familyPanel.dataset.familyBackgroundPage || 1);
+                    if (familyPage > 1) {
+                        updateFamilyBackgroundPage(nonAcademicForm, familyPage - 1);
+                        updateNonAcademicStepUI(current);
+                    }
+                    else if (current > 1) updateNonAcademicStepUI(current - 1);
+                    return;
+                }
                 if (current > 1) {
                     updateNonAcademicStepUI(current - 1);
                 }
@@ -912,6 +1331,15 @@ document.addEventListener('DOMContentLoaded', function(){
                 e.preventDefault();
                 const current = Number(nonAcademicForm.dataset.nonAcademicStep || 1);
                 const totalSteps = nonAcademicForm.querySelectorAll('.academic-step-panel:not([data-reapplication-hidden="true"])').length || 3;
+                const familyPanel = nonAcademicForm.querySelector('[data-non-academic-step="3"]');
+                const visiblePanels = Array.from(nonAcademicForm.querySelectorAll('.academic-step-panel'))
+                    .filter(panel => panel.dataset.reapplicationHidden !== 'true');
+                if (visiblePanels[current - 1] === familyPanel) {
+                    const familyPage = Number(nonAcademicForm.querySelector('[data-non-academic-step="3"]')?.dataset.familyBackgroundPage || 1);
+                    if (familyPage >= 3) updateNonAcademicStepUI(current + 1);
+                    else updateFamilyBackgroundPage(nonAcademicForm, familyPage + 1);
+                    return;
+                }
                 if (current < totalSteps && validateNonAcademicCurrentStep()) {
                     updateNonAcademicStepUI(current + 1);
                 }
@@ -1015,7 +1443,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // Handle academic scholarship cards
     document.querySelectorAll('#acad-p1 .btn-apply, #acad-p2 .btn-apply').forEach(btn => {
-        btn.addEventListener('click', function(e){
+        btn.addEventListener('click', async function(e){
             e.preventDefault();
             const card = btn.closest('.s-card');
             const title = card?.querySelector('.card-names h3')?.textContent?.trim();
@@ -1023,6 +1451,7 @@ document.addEventListener('DOMContentLoaded', function(){
             const nameInput = document.getElementById('academic_scholarship_name');
             const typeInput = document.getElementById('academic_scholarship_type');
             const scholarshipIdInput = document.getElementById('academic_scholarship_id');
+            const profile = title ? (window.reapplicationProfiles || {})[title] : null;
 
             if (nameInput) nameInput.value = '';
             if (typeInput) typeInput.value = '';
@@ -1041,7 +1470,15 @@ document.addEventListener('DOMContentLoaded', function(){
                 const form = document.getElementById('academicApplyForm');
                 const selectedId = scholarshipIdInput?.value || card?.dataset.scholarshipId || '';
                 const selectedName = nameInput?.value || title;
-                hydrateFormOpenState(form, 'academic', selectedId, selectedName);
+
+                if (profile) {
+                    openAcademicApplyModal();
+                    prepareReapplication(title, 'academic');
+                    return;
+                }
+
+                const { value: idValue } = scholarshipIdInput || { value: selectedId };
+                await hydrateFormOpenState(form, 'academic', idValue || selectedId, selectedName);
             }
 
             openScholarshipDetailsModal(title, description, 'academic', card);
@@ -1050,7 +1487,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // Handle non-academic scholarship cards
     document.querySelectorAll('#non-p1 .btn-apply, #non-p2 .btn-apply').forEach(btn => {
-        btn.addEventListener('click', function(e){
+        btn.addEventListener('click', async function(e){
             e.preventDefault();
             const card = btn.closest('.s-card');
             const title = card?.querySelector('.card-names h3')?.textContent?.trim();
@@ -1058,6 +1495,7 @@ document.addEventListener('DOMContentLoaded', function(){
             const nameInput = document.getElementById('scholarship_name');
             const typeInput = document.getElementById('scholarship_type');
             const scholarshipIdInput = document.getElementById('scholarship_id');
+            const profile = title ? (window.reapplicationProfiles || {})[title] : null;
 
             if (nameInput) nameInput.value = '';
             if (typeInput) typeInput.value = '';
@@ -1083,7 +1521,15 @@ document.addEventListener('DOMContentLoaded', function(){
                 const form = document.getElementById('applyForm');
                 const selectedId = scholarshipIdInput?.value || card?.dataset.scholarshipId || '';
                 const selectedName = nameInput?.value || title;
-                hydrateFormOpenState(form, 'non-academic', selectedId, selectedName);
+
+                if (profile) {
+                    openApplyModal();
+                    prepareReapplication(title, 'non');
+                    return;
+                }
+
+                const { value: idValue } = scholarshipIdInput || { value: selectedId };
+                await hydrateFormOpenState(form, 'non-academic', idValue || selectedId, selectedName);
             }
 
             openScholarshipDetailsModal(title, description, 'non', card);
@@ -1094,6 +1540,7 @@ document.addEventListener('DOMContentLoaded', function(){
     function resetAndCloseNonAcademic(){
         const form = document.getElementById('applyForm');
         if (form) {
+            delete form.dataset.reapplicationPrepared;
             const scholarshipId = form.querySelector('[name="scholarship_id"]')?.value || '';
             const scholarshipName = form.querySelector('[name="scholarship_name"]')?.value || '';
             saveDraft(form, 'non-academic', scholarshipId, scholarshipName);
@@ -1103,11 +1550,31 @@ document.addEventListener('DOMContentLoaded', function(){
                 delete element.dataset.reapplicationHidden;
             });
             delete form.dataset.reapplicationActive;
+            delete form.dataset.familyBackgroundOnlyReapplication;
             form.reset();
+            form.querySelector('#familySiblingsBody')?.replaceChildren();
+            updateFamilyBackgroundPage(form, 1);
+            const addFamilySiblingButton = form.querySelector('#addFamilySibling');
+            if (addFamilySiblingButton) addFamilySiblingButton.disabled = false;
+            form.dataset.nonAcademicStep = '1';
+            updateNonAcademicStepUI(1);
+            const collegeField = form.querySelector('[name="college_department"]');
+            if (collegeField) {
+                collegeField.value = '';
+                collegeField.readOnly = true;
+            }
             form.querySelectorAll('input, select, textarea').forEach(input => {
                 input.disabled = false;
-                input.readOnly = false;
+                if (input.name !== 'age') input.readOnly = false;
                 if (input.type === 'file') input.required = false;
+            });
+            const resetCollegeField = form.querySelector('[name="college_department"]');
+            if (resetCollegeField) {
+                resetCollegeField.value = '';
+                resetCollegeField.readOnly = true;
+            }
+            form.querySelectorAll('[name="family_background[has_differently_abled_member]"]').forEach(radio => {
+                radio.dispatchEvent(new Event('change', { bubbles: true }));
             });
         }
         const nameInput = document.getElementById('scholarship_name');
@@ -1132,18 +1599,41 @@ document.addEventListener('DOMContentLoaded', function(){
     if (detailsModal) detailsModal.addEventListener('click', function(e){ if (e.target === detailsModal) closeScholarshipDetailsModal(); });
 
     const detailsApplyBtn = document.getElementById('detailsApplyBtn');
-    if (detailsApplyBtn) detailsApplyBtn.addEventListener('click', function(){
+    if (detailsApplyBtn) detailsApplyBtn.addEventListener('click', async function(){
         closeScholarshipDetailsModal();
         const modal = document.getElementById('scholarshipDetailsModal');
         const modalType = modal?.dataset.modalType || 'non';
         const title = document.getElementById('detailsScholarshipTitle')?.textContent?.trim() || '';
+        const profile = title ? (window.reapplicationProfiles || {})[title] : null;
+
         if (modalType === 'academic') {
+            const form = document.getElementById('academicApplyForm');
+            const scholarshipNameInput = document.getElementById('academic_scholarship_name');
+            const scholarshipIdInput = document.getElementById('academic_scholarship_id');
+
+            if (profile) {
+                openAcademicApplyModal();
+                prepareReapplication(title, 'academic');
+                return;
+            }
+
             openAcademicApplyModal();
-            prepareReapplication(title, 'academic');
-        } else {
+            await hydrateFormOpenState(form, 'academic', scholarshipIdInput?.value || '', scholarshipNameInput?.value || title);
+            return;
+        }
+
+        const form = document.getElementById('applyForm');
+        const scholarshipNameInput = document.getElementById('scholarship_name');
+        const scholarshipIdInput = document.getElementById('scholarship_id');
+
+        if (profile) {
             openApplyModal();
             prepareReapplication(title, 'non');
+            return;
         }
+
+        openApplyModal();
+        await hydrateFormOpenState(form, 'non-academic', scholarshipIdInput?.value || '', scholarshipNameInput?.value || title);
     });
 
     const closeBtn = document.getElementById('applyModalClose');
@@ -1155,6 +1645,7 @@ document.addEventListener('DOMContentLoaded', function(){
     function resetAndCloseAcademic(){
         const form = document.getElementById('academicApplyForm');
         if (form) {
+            delete form.dataset.reapplicationPrepared;
             const scholarshipId = form.querySelector('[name="scholarship_id"]')?.value || '';
             const scholarshipName = form.querySelector('[name="scholarship_name"]')?.value || '';
             saveDraft(form, 'academic', scholarshipId, scholarshipName);
@@ -1165,11 +1656,21 @@ document.addEventListener('DOMContentLoaded', function(){
             });
             delete form.dataset.reapplicationActive;
             form.reset();
+            const collegeField = form.querySelector('[name="college_department"]');
+            if (collegeField) {
+                collegeField.value = '';
+                collegeField.readOnly = true;
+            }
             form.querySelectorAll('input, select, textarea').forEach(input => {
                 input.disabled = false;
                 input.readOnly = false;
                 if (input.type === 'file') input.required = false;
             });
+            const resetCollegeField = form.querySelector('[name="college_department"]');
+            if (resetCollegeField) {
+                resetCollegeField.value = '';
+                resetCollegeField.readOnly = true;
+            }
             form.dataset.currentAcademicStep = '1';
             updateAcademicStepUI(1);
         }
