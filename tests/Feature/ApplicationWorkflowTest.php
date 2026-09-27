@@ -476,7 +476,7 @@ class ApplicationWorkflowTest extends TestCase
         $this->assertSame(['1', '2', '4'], $nonAcademicSteps[1]);
         $this->assertSame(['1', '2', '3'], $academicSteps[1]);
         $this->assertStringContainsString('Step <span id="nonAcademicStepCounter">1</span> of 4', $html);
-        $this->assertStringContainsString('Step <span id="academicStepCounter">1</span> of 3:', $html);
+        $this->assertStringContainsString('Step <span id="academicStepCounter">1</span> of 3<span class="academic-progress-desktop-colon">:</span>', $html);
         $this->assertStringContainsString('Family Background', $html);
         $this->assertStringContainsString('id="familySiblingsBody"></tbody>', $html);
         $this->assertStringContainsString('id="addFamilySibling"', $html);

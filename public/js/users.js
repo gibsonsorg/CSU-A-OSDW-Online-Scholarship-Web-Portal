@@ -270,7 +270,7 @@ function applyDraftToForm(form, draft) {
     });
 
     normalizeApplicationFormValues(form);
-    if (form.id === 'applyForm') initializeMobileFloatingLabels(form);
+    if (form.id === 'applyForm' || form.id === 'academicApplyForm') initializeMobileFloatingLabels(form);
 }
 
 function getPrefillData(grantType, scholarshipId, scholarshipName) {
@@ -333,7 +333,7 @@ function applyPrefillValueToForm(form, fieldName, value) {
     const input = form.querySelector(`[name="${fieldName}"]`);
     if (!input || input.type === 'file') return;
     input.value = value;
-    if (form.id === 'applyForm') initializeMobileFloatingLabels(form);
+    if (form.id === 'applyForm' || form.id === 'academicApplyForm') initializeMobileFloatingLabels(form);
     normalizeApplicationFormValues(form);
     if (fieldName === 'course' && input.value) {
         updateCollegeDepartmentForForm(form);
@@ -673,7 +673,7 @@ function prepareReapplication(title, modalType) {
     }
 
     form.dataset.reapplicationActive = 'true';
-    if (isNonAcademic) initializeMobileFloatingLabels(form);
+    initializeMobileFloatingLabels(form);
     const sectionProgressSteps = Array.from(form.querySelectorAll('.academic-progress-step'));
     sectionProgressSteps.forEach(step => {
         const progressStep = Number(step.dataset.progressStep);
@@ -936,26 +936,35 @@ function updateAcademicStepUI(stepNumber = 1) {
     const totalSteps = visiblePanels.length || 3;
     const currentStep = Math.min(Math.max(Number(stepNumber) || 1, 1), totalSteps);
     form.dataset.currentAcademicStep = String(currentStep);
+    const currentPanel = visiblePanels[currentStep - 1];
+    const actualStep = Number(currentPanel?.dataset.academicStep) || currentStep;
 
     panels.forEach(panel => panel.classList.remove('active'));
     visiblePanels.forEach((panel, index) => {
         panel.classList.toggle('active', index + 1 === currentStep);
     });
 
-    if (stepCounter) stepCounter.textContent = currentStep;
+    if (stepCounter) stepCounter.textContent = actualStep;
+    const activeLabel = document.querySelector(`#academicApplyModal .academic-progress-step[data-progress-step="${actualStep}"] .academic-progress-label`);
+    const mobileStepLabel = document.getElementById('academicStepLabel');
+    const mobileProgress = document.querySelector('#academicApplyModal .academic-mobile-progress');
+    if (mobileStepLabel) mobileStepLabel.textContent = activeLabel ? `· ${activeLabel.textContent.trim()}` : '';
+    if (mobileProgress) mobileProgress.style.setProperty('--step-progress', `${actualStep * 100 / 3}%`);
+    if (currentPanel) initializeMobileFloatingLabels(currentPanel);
 
     progressSteps.forEach(step => step.classList.remove('active', 'completed'));
-    visibleProgressSteps.forEach((step, index) => {
-        const stepIndex = index + 1;
-        step.classList.toggle('active', stepIndex === currentStep);
-        step.classList.toggle('completed', stepIndex < currentStep);
+    visibleProgressSteps.forEach(step => {
+        const stepIndex = Number(step.dataset.progressStep);
+        step.classList.toggle('active', stepIndex === actualStep);
+        step.classList.toggle('completed', stepIndex < actualStep);
     });
 
     if (prevBtn) {
-        prevBtn.classList.toggle('is-hidden', currentStep === 1);
-        prevBtn.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
-        prevBtn.style.display = currentStep === 1 ? 'none' : '';
-        prevBtn.setAttribute('aria-hidden', currentStep === 1 ? 'true' : 'false');
+        const hidePrevious = currentStep === 1 && !window.matchMedia('(max-width: 768px)').matches;
+        prevBtn.classList.toggle('is-hidden', hidePrevious);
+        prevBtn.style.visibility = hidePrevious ? 'hidden' : 'visible';
+        prevBtn.style.display = hidePrevious ? 'none' : '';
+        prevBtn.setAttribute('aria-hidden', hidePrevious ? 'true' : 'false');
     }
 
     if (nextBtn) {
@@ -1247,6 +1256,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const academicModal = document.getElementById('academicApplyModal');
     if (academicForm && academicModal) {
         bindApplicationInputFormatting(academicForm);
+        initializeMobileFloatingLabels(academicForm);
         bindDraftAutosave(academicForm, 'academic');
         bindDraftClearOnSubmit(academicForm, 'academic');
         const courseField = academicForm.querySelector('[name="course"]');
@@ -1265,6 +1275,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 const current = Number(academicForm.dataset.currentAcademicStep || 1);
                 if (current > 1) {
                     updateAcademicStepUI(current - 1);
+                } else if (window.matchMedia('(max-width: 768px)').matches) {
+                    document.getElementById('academicApplyModalClose')?.click();
                 }
             });
         }

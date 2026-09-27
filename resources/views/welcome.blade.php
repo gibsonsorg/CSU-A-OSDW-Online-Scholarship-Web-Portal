@@ -11,7 +11,7 @@
   <nav>
     <div class="logo">
         <img src="{{ asset('images/maroon osdw.png') }}" alt="osdw Logo">
-        <h3>OSDW SCHOLARHSHIP</h3>
+        <h3>OSDW SCHOLARSHIP</h3>
     </div>
 
     <button class="hamburger-menu" id="hamburgerBtn">
