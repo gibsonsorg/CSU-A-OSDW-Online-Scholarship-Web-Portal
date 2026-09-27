@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ApprovedGranteesExport;
 use App\Mail\ApplicationStatusMail;
 use App\Mail\ApplicationSectionStatusMail;
 use App\Mail\ApprovalMail;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AdminController extends Controller
 {
@@ -27,40 +29,69 @@ class AdminController extends Controller
      */
     public function dashboard(Request $request)
     {
-        $search = trim((string) $request->query('search', ''));
-        $status = strtolower((string) $request->query('status', 'all'));
-        $allowedStatuses = ['all', 'approved', 'pending', 'rejected'];
-
-        if (!in_array($status, $allowedStatuses, true)) {
-            $status = 'all';
-        }
-
-        $query = StudentProfile::whereNull('deleted_at')
-            ->when($search !== '', function ($query) use ($search) {
-                $like = '%' . $search . '%';
-                $query->where(function ($query) use ($like) {
-                    $query->where('last_name', 'like', $like)
-                        ->orWhere('first_name', 'like', $like)
-                        ->orWhere('middle_name', 'like', $like)
-                        ->orWhere('course', 'like', $like)
-                        ->orWhere('scholarship_name', 'like', $like);
-                });
-            })
-            ->when($status !== 'all', function ($query) use ($status) {
-                $query->where('application_status', $status);
-            })
-            ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
-            ->leftJoin('scholarships', 'scholarships.id', '=', 'applications.scholarship_id')
-            ->orderByDesc('applications.created_at')
-            ->orderByDesc('applications.id')
-            ->orderByDesc('student_profiles.id')
-            ->select('student_profiles.*', 'scholarships.type as scholarship_category_type', 'scholarships.funding_type as scholarship_funding_type');
-
-        $recentApplications = $query->take(10)->get();
+        $scholarshipType = $this->summaryScholarshipType($request);
+        $recentApplications = $this->summaryApplicationsQuery($request)->paginate(10)->withQueryString();
+        $scholarshipNames = Scholarship::whereIn('type', ['academic', 'non-academic'])
+            ->orderBy('name')
+            ->get(['name', 'type']);
         $filterType = 'all';
         $stats = $this->buildDashboardStats();
 
-        return view('admin.welcome', compact('recentApplications', 'filterType', 'stats'));
+        return view('admin.welcome', compact('recentApplications', 'scholarshipNames', 'filterType', 'stats', 'scholarshipType'));
+    }
+
+    public function exportApprovedGrantees(Request $request)
+    {
+        $filename = 'approved_grantees_' . now()->format('Y-m-d') . '.xlsx';
+
+        return Excel::download(
+            new ApprovedGranteesExport($this->summaryApplicationsQuery($request)),
+            $filename
+        );
+    }
+
+    private function summaryScholarshipType(Request $request): string
+    {
+        $scholarshipType = (string) $request->query('grant_type', '');
+
+        return in_array($scholarshipType, ['academic', 'non-academic'], true) ? $scholarshipType : '';
+    }
+
+    private function summaryApplicationsQuery(Request $request)
+    {
+        $dateFrom = (string) $request->query('date_from', '');
+        $dateTo = (string) $request->query('date_to', '');
+        $scholarshipType = $this->summaryScholarshipType($request);
+        $scholarshipName = trim((string) $request->query('scholarship_name', ''));
+
+        return StudentProfile::whereNull('student_profiles.deleted_at')
+            ->where('student_profiles.application_status', 'approved')
+            ->when($scholarshipType !== '', function ($query) use ($scholarshipType) {
+                $query->where('student_profiles.grant_type', $scholarshipType);
+            })
+            ->when($dateFrom !== '', function ($query) use ($dateFrom) {
+                $query->whereDate(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'), '>=', $dateFrom);
+            })
+            ->when($dateTo !== '', function ($query) use ($dateTo) {
+                $query->whereDate(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'), '<=', $dateTo);
+            })
+            ->when($scholarshipName !== '', function ($query) use ($scholarshipName) {
+                $query->where('student_profiles.scholarship_name', $scholarshipName);
+            })
+            ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
+            ->leftJoin('scholarships', 'scholarships.id', '=', 'applications.scholarship_id')
+            ->leftJoin('scholarships as profile_scholarships', function ($join) {
+                $join->on('profile_scholarships.name', '=', 'student_profiles.scholarship_name')
+                    ->on('profile_scholarships.type', '=', 'student_profiles.grant_type');
+            })
+            ->orderByDesc(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'))
+            ->orderByDesc('applications.id')
+            ->orderByDesc('student_profiles.id')
+            ->select(
+                'student_profiles.*',
+                'student_profiles.grant_type as scholarship_category_type',
+                DB::raw('COALESCE(scholarships.funding_type, profile_scholarships.funding_type) as scholarship_funding_type')
+            );
     }
 
     /**
@@ -828,7 +859,7 @@ class AdminController extends Controller
     public function updateScholarshipAmounts(Request $request)
     {
         $validated = $request->validate([
-            'grant_type' => ['required', 'in:academic,non-academic'],
+            'grant_type' => ['required', 'in:academic,non-academic,all'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'scholarship_name' => ['nullable', 'string'],
@@ -839,7 +870,9 @@ class AdminController extends Controller
         try {
             $updated = DB::transaction(function () use ($validated) {
                 $query = StudentProfile::query()
-                    ->where('student_profiles.grant_type', $validated['grant_type'])
+                    ->when($validated['grant_type'] !== 'all', function ($query) use ($validated) {
+                        $query->where('student_profiles.grant_type', $validated['grant_type']);
+                    })
                     ->whereNull('student_profiles.deleted_at')
                     ->where('student_profiles.application_status', 'approved')
                     ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id');

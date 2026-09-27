@@ -75,7 +75,7 @@
         @elseif($filterType === 'all')
             @include('admin.partials.application-filters')
         @endif
-        @if($filterType !== 'academic' && $filterType !== 'non-academic' && $filterType !== 'old-academic' && $filterType !== 'old-non-academic')
+        @if($filterType !== 'all' && $filterType !== 'academic' && $filterType !== 'non-academic' && $filterType !== 'old-academic' && $filterType !== 'old-non-academic')
             <a href="http://127.0.0.1:8000/admin/applications" class="card-action">View All →</a>
         @endif
     </div>
@@ -131,8 +131,8 @@
             </div>
         @endif
         @else
-        {{-- CHANGE: Show the Amount column only for the explicit Approved status filter. --}}
-        @php($showAmountColumn = request('status') === 'approved')
+        {{-- The Summary of Reports is approved-only, so Amount is always visible there. --}}
+        @php($showAmountColumn = $filterType === 'all' || request('status') === 'approved')
         <table id="admin-applications-table" data-grant-type="{{ $filterType }}" data-show-amount="{{ $showAmountColumn ? '1' : '0' }}">
             <thead>
                 <tr>
@@ -146,7 +146,7 @@
                     <th>Year Level</th>
                     <th>Type of Scholarship</th>
                     <th>Name of Scholarship</th>
-                    @if(in_array($filterType, ['academic', 'non-academic'], true))
+                    @if($filterType === 'all' || in_array($filterType, ['academic', 'non-academic'], true))
                         <th>Funding</th>
                         <th>Campus</th>
                     @endif
@@ -173,9 +173,9 @@
                         <td>{{ $app->year_level }}</td>
                         <td>{{ ($app->source ?? 'application') === 'manual' ? ($app->grant_type === 'academic' ? 'Academic' : 'Non-Academic') : (($app->scholarship_category_type ?? null) === 'academic' ? 'Academic' : ((($app->scholarship_category_type ?? null) === 'non-academic') ? 'Non-Academic' : 'Unknown')) }}</td>
                         <td>{{ ($app->source ?? 'application') === 'manual' ? $app->scholarship_name : ($app->scholarship_name ?? '—') }}</td>
-                        @if(in_array($filterType, ['academic', 'non-academic'], true))
-                            <td>{{ ($app->source ?? 'application') === 'manual' ? '—' : (($app->scholarship_funding_type ?? null) ?: '—') }}</td>
-                            <td>{{ $app->campus ?? '—' }}</td>
+                        @if($filterType === 'all' || in_array($filterType, ['academic', 'non-academic'], true))
+                            <td>{{ ($app->scholarship_funding_type ?? null) ?: '—' }}</td>
+                            <td>{{ $app->campus ?: 'Aparri' }}</td>
                         @endif
                         <td>{{ optional($app->created_at)->format('Y-m-d') }}</td>
 

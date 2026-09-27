@@ -159,8 +159,8 @@ class ApplicationSectionReviewTest extends TestCase
             ->assertJsonPath('family_background_reason', 'Please clarify the family income details.');
         $this->actingAs($admin)->get('/admin')
             ->assertOk()
-            ->assertSee('data-id="' . $profile->id . '"', false)
-            ->assertSee('<span class="badge rejected">Rejected</span>', false);
+            ->assertDontSee('data-id="' . $profile->id . '"', false)
+            ->assertDontSee('<span class="badge rejected">Rejected</span>', false);
 
         $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/family-background/approve")
             ->assertOk();
@@ -170,5 +170,133 @@ class ApplicationSectionReviewTest extends TestCase
         $this->assertNull($approved->family_background_reason);
         $this->assertSame('approved', $approved->application_status);
         $this->assertSame('approved', $application->fresh()->status);
+    }
+
+    public function test_summary_report_lists_only_approved_applicants_and_filters_across_types(): void
+    {
+        $student = User::factory()->approved()->create();
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $academicScholarship = Scholarship::create(['name' => 'Summary Academic Award', 'type' => 'academic']);
+        $nonAcademicScholarship = Scholarship::create(['name' => 'Summary Community Award', 'type' => 'non-academic']);
+
+        $makeProfile = function (Scholarship $scholarship, string $status, string $firstName, string $createdAt) use ($student): StudentProfile {
+            $profile = StudentProfile::create([
+                'user_id' => $student->id,
+                'first_name' => $firstName,
+                'last_name' => 'Summary',
+                'sex' => 'Female',
+                'status' => 'Single',
+                'email' => $firstName . '-' . $scholarship->type . '@example.test',
+                'course' => 'BSIT',
+                'college_department' => 'College of Computing',
+                'year_level' => '2nd Year',
+                'scholarship_name' => $scholarship->name,
+                'scholarship_type' => ucfirst($scholarship->type),
+                'grant_type' => $scholarship->type,
+                'application_status' => $status,
+                'campus' => 'Aparri',
+            ]);
+            $profile->forceFill(['created_at' => $createdAt, 'updated_at' => $createdAt])->save();
+
+            return $profile;
+        };
+
+        $academicProfile = $makeProfile($academicScholarship, 'approved', 'AcademicApproved', '2026-09-20 10:00:00');
+        $nonAcademicProfile = $makeProfile($nonAcademicScholarship, 'approved', 'NonAcademicApproved', '2026-09-22 10:00:00');
+        $pendingProfile = $makeProfile($academicScholarship, 'pending', 'AcademicPending', '2026-09-23 10:00:00');
+
+        $this->actingAs($admin)->get('/admin')
+            ->assertOk()
+            ->assertSee('Summary Academic Award')
+            ->assertSee('Summary Community Award')
+            ->assertSee('data-id="' . $academicProfile->id . '"', false)
+            ->assertSee('data-id="' . $nonAcademicProfile->id . '"', false)
+            ->assertDontSee('data-id="' . $pendingProfile->id . '"', false)
+            ->assertSee('<th>Funding</th>', false)
+            ->assertSee('<th>Campus</th>', false)
+            ->assertSee('<th>Amount</th>', false)
+            ->assertSee('data-action="add-amount" data-grant-type="all"', false)
+            ->assertDontSee('data-action="add-applicant"', false);
+
+        $this->actingAs($admin)->get('/admin?grant_type=academic')
+            ->assertOk()
+            ->assertSee('data-id="' . $academicProfile->id . '"', false)
+            ->assertDontSee('data-id="' . $nonAcademicProfile->id . '"', false);
+
+        $this->actingAs($admin)->get('/admin?grant_type=non-academic')
+            ->assertOk()
+            ->assertSee('data-id="' . $nonAcademicProfile->id . '"', false)
+            ->assertDontSee('data-id="' . $academicProfile->id . '"', false);
+
+        $this->actingAs($admin)->get('/admin?date_from=2026-09-21&date_to=2026-09-22&scholarship_name=' . urlencode($nonAcademicScholarship->name))
+            ->assertOk()
+            ->assertSee('data-id="' . $nonAcademicProfile->id . '"', false)
+            ->assertDontSee('data-id="' . $academicProfile->id . '"', false);
+
+        $this->actingAs($admin)->get('/admin/academic')
+            ->assertOk()
+            ->assertSee('data-action="add-applicant"', false)
+            ->assertSee('data-grant-type="academic"', false);
+        $this->actingAs($admin)->get('/admin/non-academic')
+            ->assertOk()
+            ->assertSee('data-action="add-applicant"', false)
+            ->assertSee('data-grant-type="non-academic"', false);
+
+        $this->actingAs($admin)->get('/admin/academic?status=approved')
+            ->assertOk()
+            ->assertDontSee('data-action="add-amount"', false)
+            ->assertSee('<th>Amount</th>', false)
+            ->assertSee('data-action="add-applicant"', false);
+        $this->actingAs($admin)->get('/admin/non-academic?status=approved')
+            ->assertOk()
+            ->assertDontSee('data-action="add-amount"', false)
+            ->assertSee('<th>Amount</th>', false)
+            ->assertSee('data-action="add-applicant"', false);
+    }
+
+    public function test_summary_report_bulk_amount_update_respects_combined_filters(): void
+    {
+        $student = User::factory()->approved()->create();
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $academicScholarship = Scholarship::create(['name' => 'Bulk Academic Award', 'type' => 'academic']);
+        $nonAcademicScholarship = Scholarship::create(['name' => 'Bulk Community Award', 'type' => 'non-academic']);
+        $makeProfile = function (Scholarship $scholarship, string $status, string $firstName, string $createdAt) use ($student): StudentProfile {
+            $profile = StudentProfile::create([
+                'user_id' => $student->id,
+                'first_name' => $firstName,
+                'last_name' => 'Bulk',
+                'sex' => 'Male',
+                'status' => 'Single',
+                'email' => $firstName . '-' . $scholarship->type . '@example.test',
+                'course' => 'BSIT',
+                'year_level' => '1st Year',
+                'scholarship_name' => $scholarship->name,
+                'scholarship_type' => ucfirst($scholarship->type),
+                'grant_type' => $scholarship->type,
+                'application_status' => $status,
+                'amount' => 0,
+            ]);
+            $profile->forceFill(['created_at' => $createdAt, 'updated_at' => $createdAt])->save();
+
+            return $profile;
+        };
+        $target = $makeProfile($academicScholarship, 'approved', 'BulkTarget', '2026-09-20 10:00:00');
+        $otherType = $makeProfile($nonAcademicScholarship, 'approved', 'BulkOtherType', '2026-09-20 10:00:00');
+        $otherDate = $makeProfile($academicScholarship, 'approved', 'BulkOtherDate', '2026-08-20 10:00:00');
+        $notApproved = $makeProfile($academicScholarship, 'rejected', 'BulkRejected', '2026-09-20 10:00:00');
+
+        $this->actingAs($admin)->postJson('/admin/applications/update-scholarship-amounts', [
+            'grant_type' => 'all',
+            'date_from' => '2026-09-01',
+            'date_to' => '2026-09-30',
+            'scholarship_name' => $academicScholarship->name,
+            'status' => 'approved',
+            'amount' => 7500,
+        ])->assertOk()->assertJsonPath('updated', 1);
+
+        $this->assertSame('7500.00', $target->fresh()->amount);
+        $this->assertSame('0.00', $otherType->fresh()->amount);
+        $this->assertSame('0.00', $otherDate->fresh()->amount);
+        $this->assertSame('0.00', $notApproved->fresh()->amount);
     }
 }

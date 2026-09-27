@@ -107,6 +107,7 @@ Route::get('/student-application-prefill', [StudentProfileController::class, 'ap
 //ADMIN DASHBOARD ROUTE 
 // Admin dashboard - shows recent applications
 Route::get('/admin', [AdminController::class, 'dashboard'])->middleware(['auth', 'verified', 'admin'])->name('admin.dashboard');
+Route::get('/admin/reports/download', [AdminController::class, 'exportApprovedGrantees'])->middleware(['auth', 'verified', 'admin'])->name('admin.dashboard.export');
 
 // Admin dashboard filtered by academic grants
 Route::get('/admin/academic', [AdminController::class, 'academicDashboard'])->middleware(['auth', 'verified', 'admin'])->name('admin.academic');

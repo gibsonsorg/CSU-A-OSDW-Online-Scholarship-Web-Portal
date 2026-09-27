@@ -222,6 +222,8 @@
 
     // CHANGE: Open the approved-applicant bulk amount editor from the filter bar.
     async function addAmountToFilteredApplicants() {
+        const amountButton = document.querySelector('[data-action="add-amount"]');
+        const isCombinedScope = amountButton?.dataset.grantType === 'all';
         const result = await Swal.fire({
             title: 'Add Amount',
             input: 'number',
@@ -235,7 +237,9 @@
 
         const confirmation = await Swal.fire({
             title: 'Apply amount to all approved applicants?',
-            text: 'This will update every applicant matching the current Academic Grants filters.',
+            text: isCombinedScope
+                ? 'This will update approved applicants matching the current Summary of Reports filters.'
+                : 'This will update every applicant matching the current Academic Grants filters.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Yes, save to all',
@@ -247,11 +251,11 @@
         try {
             const params = new URLSearchParams(window.location.search);
             const data = {
-                grant_type: document.querySelector('[data-action="add-amount"]')?.dataset.grantType || '',
+                grant_type: amountButton?.dataset.grantType || '',
                 date_from: params.get('date_from') || '',
                 date_to: params.get('date_to') || '',
                 scholarship_name: params.get('scholarship_name') || '',
-                status: params.get('status') || '',
+                status: isCombinedScope ? 'approved' : (params.get('status') || ''),
                 amount: result.value,
             };
             await postJson('/admin/applications/update-scholarship-amounts', data);

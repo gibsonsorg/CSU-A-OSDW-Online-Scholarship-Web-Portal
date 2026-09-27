@@ -11,7 +11,7 @@
 
     <nav class="sidebar-nav">
         <div class="nav-label">Main</div>
-        <a href="{{ route('admin.dashboard') }}" class="nav-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+        <a href="{{ route('admin.dashboard') }}" class="nav-item {{ request()->routeIs('admin.dashboard') && request()->query('section') !== 'reports' ? 'active' : '' }}">
             <span class="nav-icon"></span> Dashboard
         </a>
 
@@ -35,7 +35,7 @@
         </a>
 
         <div class="nav-label">Administration</div>
-        <a href="{{ route('admin.dashboard') }}" class="nav-item">
+        <a href="{{ route('admin.dashboard', ['section' => 'reports']) }}" class="nav-item {{ request()->routeIs('admin.dashboard') && request()->query('section') === 'reports' ? 'active' : '' }}">
             <span class="nav-icon"></span> Summary of Reports
             
         </a>

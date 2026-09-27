@@ -26,10 +26,6 @@
         </select>
     </div>
     <button class="grant-filter-button" type="submit">Filter</button>
-    {{-- CHANGE: Show bulk amount editing for either grant page only after Approved is selected. --}}
-    @if(request('status') === 'approved')
-        <button class="grant-filter-button add-amount-button" type="button" data-action="add-amount" data-grant-type="{{ $filterType }}">Add Amount</button>
-    @endif
     @if(in_array($filterType ?? null, ['academic', 'non-academic'], true))
         <button id="add-applicant-button" class="grant-filter-button" type="button" data-action="add-applicant" data-grant-type="{{ $filterType }}">Add Applicant</button>
     @endif
