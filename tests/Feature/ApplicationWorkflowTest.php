@@ -503,7 +503,8 @@ class ApplicationWorkflowTest extends TestCase
         );
         $this->assertStringContainsString('name="family_background[mother_age]" placeholder="Age" readonly', $familyStep);
         $this->assertStringContainsString('name="family_background[father_age]" placeholder="Age" readonly', $familyStep);
-        $this->assertSame(2, substr_count($familyStep, 'Office Address (N/A if not applicable)'));
+        $this->assertSame(2, substr_count($familyStep, 'class="office-address-desktop-note"'));
+        $this->assertSame(2, substr_count($familyStep, 'class="office-address-mobile-note"'));
         foreach ([
             'Last Name, First Name, M.I.',
             'placeholder="Age"',

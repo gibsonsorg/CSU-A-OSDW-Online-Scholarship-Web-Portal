@@ -956,7 +956,8 @@ More info: https://unifaast.gov.ph/tes.html"
             @endphp
 
             <div class="academic-progress-wrapper">
-                <div class="academic-progress-header">Step <span id="nonAcademicStepCounter">1</span> of 4</div>
+                <div class="academic-progress-header">Step <span id="nonAcademicStepCounter">1</span> of 4 <span id="nonAcademicStepLabel" hidden></span></div>
+                <div class="non-academic-mobile-progress" aria-hidden="true" hidden><span></span></div>
                 <div class="academic-progress-track" aria-live="polite">
                     <div class="academic-progress-step active" data-progress-step="1">
                         <div class="academic-progress-dot">1</div>
@@ -1096,7 +1097,7 @@ More info: https://unifaast.gov.ph/tes.html"
                                 <div><label>Age</label><input class="input" type="number" min="0" name="family_background[mother_age]" placeholder="Age" readonly></div>
                                 <div class="family-background-full"><label>Present Address</label><input class="input" type="text" name="family_background[mother_address]" placeholder="Complete address"></div>
                                 <div><label>Occupation</label><input class="input" type="text" name="family_background[mother_occupation]" placeholder="Current job/profession"></div>
-                                <div><label>Office Address (N/A if not applicable)</label><input class="input" type="text" name="family_background[mother_office_address]" placeholder="Company address (if applicable)"></div>
+                                <div><label>Office Address<span class="office-address-desktop-note"> (N/A if not applicable)</span></label><input class="input" type="text" name="family_background[mother_office_address]" placeholder="Company address (if applicable)"><small class="office-address-mobile-note" hidden>(N/A if not applicable)</small></div>
                                 <div class="family-background-full"><label>Highest Educational Attainment</label><input class="input" type="text" name="family_background[mother_education]" placeholder="e.g. College Graduate, High School"></div>
                             </div>
                         </fieldset>
@@ -1116,7 +1117,7 @@ More info: https://unifaast.gov.ph/tes.html"
                                 <div><label>Age</label><input class="input" type="number" min="0" name="family_background[father_age]" placeholder="Age" readonly></div>
                                 <div class="family-background-full"><label>Present Address</label><input class="input" type="text" name="family_background[father_address]" placeholder="Complete address"></div>
                                 <div><label>Occupation</label><input class="input" type="text" name="family_background[father_occupation]" placeholder="Current job/profession"></div>
-                                <div><label>Office Address (N/A if not applicable)</label><input class="input" type="text" name="family_background[father_office_address]" placeholder="Company address (if applicable)"></div>
+                                <div><label>Office Address<span class="office-address-desktop-note"> (N/A if not applicable)</span></label><input class="input" type="text" name="family_background[father_office_address]" placeholder="Company address (if applicable)"><small class="office-address-mobile-note" hidden>(N/A if not applicable)</small></div>
                                 <div class="family-background-full"><label>Highest Educational Attainment</label><input class="input" type="text" name="family_background[father_education]" placeholder="e.g. College Graduate, High School"></div>
                             </div>
                         </fieldset>

@@ -32,6 +32,62 @@ function calculateAgeValue(value) {
     return age >= 0 ? String(age) : '';
 }
 
+function refreshMobileFloatingField(input) {
+    const wrapper = input?.closest('.mobile-floating-field');
+    if (!wrapper) return;
+    const hasValue = String(input.value ?? '').trim() !== '';
+    wrapper.classList.toggle('is-floating', hasValue || input.matches(':focus') || input.readOnly || input.disabled);
+    wrapper.classList.toggle('is-readonly', input.readOnly || input.disabled);
+}
+
+function initializeMobileFloatingLabels(form) {
+    if (!form) return;
+    const fields = form.querySelectorAll('input:not([type="hidden"]):not([type="file"]):not([type="radio"]):not([type="checkbox"]), select, textarea');
+    fields.forEach(input => {
+        let wrapper = input.parentElement;
+        let label = null;
+        while (wrapper && wrapper !== form) {
+            label = Array.from(wrapper.children).find(child => child.tagName === 'LABEL') || null;
+            if (label) break;
+            wrapper = wrapper.parentElement;
+        }
+        if (!wrapper || !label) return;
+
+        wrapper.classList.add('mobile-floating-field');
+        label.classList.add('mobile-floating-label');
+        input.classList.add('mobile-floating-control');
+        if (input.dataset.mobileFloatingBound !== 'true') {
+            ['focus', 'blur', 'input', 'change'].forEach(eventName => {
+                input.addEventListener(eventName, () => refreshMobileFloatingField(input));
+            });
+            input.dataset.mobileFloatingBound = 'true';
+        }
+        refreshMobileFloatingField(input);
+    });
+}
+
+function initializeMobileUploadFilenames(form) {
+    if (!form) return;
+    form.querySelectorAll('input[type="file"]').forEach(input => {
+        let filename = input.nextElementSibling;
+        if (!filename?.classList.contains('non-academic-upload-filename')) {
+            filename = document.createElement('span');
+            filename.className = 'non-academic-upload-filename';
+            filename.hidden = true;
+            input.insertAdjacentElement('afterend', filename);
+        }
+        const updateFilename = () => {
+            filename.textContent = Array.from(input.files || []).map(file => file.name).join(', ');
+            filename.hidden = filename.textContent === '';
+        };
+        if (input.dataset.mobileFilenameBound !== 'true') {
+            input.addEventListener('change', updateFilename);
+            input.dataset.mobileFilenameBound = 'true';
+        }
+        updateFilename();
+    });
+}
+
 function updateFamilyBackgroundAges(form) {
     [['mother_birthdate', 'mother_age'], ['father_birthdate', 'father_age']].forEach(([birthdateName, ageName]) => {
         const birthdate = form?.querySelector(`[name="family_background[${birthdateName}]"]`);
@@ -50,6 +106,7 @@ function updateFamilyDisabilityVisibility(form) {
         const familyFieldsAreDisabled = familyPanel?.querySelector('[name="family_background[mother_name]"]')?.disabled === true;
         detailsInput.disabled = !isDifferentlyAbled || familyFieldsAreDisabled;
         if (!isDifferentlyAbled) detailsInput.value = '';
+        refreshMobileFloatingField(detailsInput);
     }
 }
 
@@ -213,6 +270,7 @@ function applyDraftToForm(form, draft) {
     });
 
     normalizeApplicationFormValues(form);
+    if (form.id === 'applyForm') initializeMobileFloatingLabels(form);
 }
 
 function getPrefillData(grantType, scholarshipId, scholarshipName) {
@@ -263,6 +321,7 @@ function applyFamilyBackgroundPrefill(form, familyBackground) {
 
     updateFamilyDisabilityVisibility(form);
     updateFamilyBackgroundAges(form);
+    initializeMobileFloatingLabels(form);
 }
 
 function applyPrefillValueToForm(form, fieldName, value) {
@@ -274,6 +333,7 @@ function applyPrefillValueToForm(form, fieldName, value) {
     const input = form.querySelector(`[name="${fieldName}"]`);
     if (!input || input.type === 'file') return;
     input.value = value;
+    if (form.id === 'applyForm') initializeMobileFloatingLabels(form);
     normalizeApplicationFormValues(form);
     if (fieldName === 'course' && input.value) {
         updateCollegeDepartmentForForm(form);
@@ -613,6 +673,7 @@ function prepareReapplication(title, modalType) {
     }
 
     form.dataset.reapplicationActive = 'true';
+    if (isNonAcademic) initializeMobileFloatingLabels(form);
     const sectionProgressSteps = Array.from(form.querySelectorAll('.academic-progress-step'));
     sectionProgressSteps.forEach(step => {
         const progressStep = Number(step.dataset.progressStep);
@@ -941,6 +1002,11 @@ function updateNonAcademicStepUI(stepNumber = 1) {
     });
 
     if (stepCounter) stepCounter.textContent = actualStep;
+    const activeLabel = document.querySelector(`#applyModal .academic-progress-step[data-progress-step="${actualStep}"] .academic-progress-label`);
+    const mobileStepLabel = document.getElementById('nonAcademicStepLabel');
+    const mobileProgress = document.querySelector('#applyModal .non-academic-mobile-progress');
+    if (mobileStepLabel) mobileStepLabel.textContent = activeLabel ? `· ${activeLabel.textContent.trim()}` : '';
+    if (mobileProgress) mobileProgress.style.setProperty('--step-progress', `${actualStep * 25}%`);
 
     const familyPanel = form.querySelector('[data-non-academic-step="3"]');
     const familyPagination = form.querySelector('#familyBackgroundPagination');
@@ -1247,6 +1313,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const nonAcademicModal = document.getElementById('applyModal');
     if (nonAcademicForm && nonAcademicModal) {
         bindApplicationInputFormatting(nonAcademicForm);
+        initializeMobileFloatingLabels(nonAcademicForm);
+        initializeMobileUploadFilenames(nonAcademicForm);
         bindDraftAutosave(nonAcademicForm, 'non-academic');
         bindDraftClearOnSubmit(nonAcademicForm, 'non-academic');
 
@@ -1263,16 +1331,17 @@ document.addEventListener('DOMContentLoaded', function(){
             if (!familySiblingsBody || familySiblingsBody.rows.length >= 10) return;
             const rowIndex = familySiblingIndex++;
             const row = document.createElement('tr');
-            row.innerHTML = `<td><input class="input" type="text" name="family_background[siblings][${rowIndex}][name]" placeholder="Full Name"></td>
-                <td><input class="input" type="number" min="0" name="family_background[siblings][${rowIndex}][age]" placeholder="Age"></td>
-                <td><select class="input" name="family_background[siblings][${rowIndex}][marital_status]"><option value="">Select...</option><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option></select></td>
-                <td><input class="input" type="text" name="family_background[siblings][${rowIndex}][occupation]" placeholder="Job or 'Student'"></td>
+            row.innerHTML = `<td><label class="mobile-sibling-field-label" hidden>Name</label><input class="input" type="text" name="family_background[siblings][${rowIndex}][name]" placeholder="Full Name"></td>
+                <td><label class="mobile-sibling-field-label" hidden>Age</label><input class="input" type="number" min="0" name="family_background[siblings][${rowIndex}][age]" placeholder="Age"></td>
+                <td><label class="mobile-sibling-field-label" hidden>Marital Status</label><select class="input" name="family_background[siblings][${rowIndex}][marital_status]"><option value="">Select...</option><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option></select></td>
+                <td><label class="mobile-sibling-field-label" hidden>Employment/Occupation</label><input class="input" type="text" name="family_background[siblings][${rowIndex}][occupation]" placeholder="Job or 'Student'"></td>
                 <td><button class="family-sibling-remove" type="button" aria-label="Remove sibling" title="Remove sibling"><img src="${siblingDeleteIconUrl}" alt="" width="18" height="18"></button></td>`;
             row.querySelector('.family-sibling-remove')?.addEventListener('click', () => {
                 row.remove();
                 updateFamilySiblingButton();
             });
             familySiblingsBody.appendChild(row);
+            initializeMobileFloatingLabels(row);
             updateFamilySiblingButton();
         });
         updateFamilySiblingButton();
