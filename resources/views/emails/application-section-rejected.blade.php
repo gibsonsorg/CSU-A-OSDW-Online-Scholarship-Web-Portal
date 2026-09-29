@@ -1,12 +1,15 @@
-<p>Hello {{ $studentName }},</p>
+<p>Dear {{ $firstName }}, here is the current status of your application for {{ $scholarshipName }}:</p>
 
-@if($documentName)
-    <p>Your uploaded document has been rejected by the administrator.</p>
-    <p><strong>Document:</strong><br>{{ $documentName }}</p>
-@else
-    <p>Your {{ $section }} submission for your scholarship application has been rejected by the administrator.</p>
-@endif
+<ul>
+    @foreach($sections as $section)
+        <li>
+            <strong>{{ $section['label'] }}:</strong> {{ $section['status'] }}
+            @if($section['status'] === 'Rejected' && $section['reason'])
+                - Reason: {{ $section['reason'] }}
+            @endif
+        </li>
+    @endforeach
+</ul>
 
-<p><strong>Reason:</strong><br>{{ $reason }}</p>
-<p>Please log in to your account and correct the required information or upload the corrected document.</p>
-<p>Thank you.</p>
+<p>Overall Status: Rejected ({{ collect($sections)->where('status', 'Rejected')->count() }} of {{ count($sections) }} sections need your attention).</p>
+<p>Please log in to your dashboard to review and correct the rejected section(s), then resubmit your application. If you have any questions, feel free to visit the OSDW office in Aparri.</p>

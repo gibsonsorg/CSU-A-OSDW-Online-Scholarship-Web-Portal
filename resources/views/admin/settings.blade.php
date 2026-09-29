@@ -407,54 +407,10 @@
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <a href="/admin" class="sidebar-logo">
-            <div class="logo-img">
-                <img src="{{ asset('images/csu.logo.png') }}" alt="CSU Logo">
-            </div>
-            <div class="logo-text">
-                <h2>CSU Grants</h2>
-                <p>Management System</p>
-            </div>
-        </a>
+    @include('admin.partials.sidebar')
 
-        <nav class="sidebar-nav">
-            <div class="nav-label">Main</div>
-            <a href="/admin" class="nav-item">
-                <span class="nav-icon"></span> Dashboard
-            </a>
-
-            <div class="nav-label">Grants</div>
-            <a href="/admin/academic" class="nav-item">
-                <span class="nav-icon"></span> Academic Grants
-                <span class="nav-badge">0</span>
-            </a>
-
-            <a href="/admin/non-academic" class="nav-item">
-                <span class="nav-icon"></span> Non-Academic
-                <span class="nav-badge">0</span>
-            </a>
-
-            <div class="nav-label">Administration</div>
-            <a href="/admin" class="nav-item">
-                <span class="nav-icon"></span> Summary of Reports
-                <span class="nav-badge">0</span>
-            </a>
-
-            <a href="/admin" class="nav-item">
-                <span class="nav-icon"></span> Users
-            </a>
-
-            <a href="/admin/settings" class="nav-item active">
-                <span class="nav-icon"></span> Settings
-            </a>
-        </nav>
-
-     
-        </div> 
-    </div>
-
-    <div class="main">
+    <div class="main" id="adminMain">
+        @include('admin.partials.sidebar-toggle')
         <div class="topbar">
             <div class="topbar-left">
                 <h1>System Settings</h1>
@@ -602,6 +558,8 @@
             </div>
         </div>
     </div>
+
+    <script src="{{ asset('js/admin-sidebar.js') }}"></script>
 
     <script>
         // Applicant restore functionality

@@ -9,17 +9,39 @@
     <style>
         .topbar-right .btn { margin-right: 4px; }
         #admin-table-container .old-grants-pagination svg { width: 1rem; height: 1rem; }
+        .old-grants-toolbar {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            width: 100%;
+        }
+        .old-grants-toolbar > .grant-filters {
+            flex: 1 1 0;
+            min-width: 0;
+            width: auto;
+        }
+        .old-grants-toolbar > .btn {
+            flex: 0 0 auto;
+            margin: 0 0 10px;
+            white-space: nowrap;
+        }
+        @media (max-width: 900px) {
+            .old-grants-toolbar {
+                flex-wrap: wrap;
+            }
+            .old-grants-toolbar > .btn {
+                margin: 14px 0 0;
+            }
+            .old-grants-toolbar > .grant-filters {
+                flex-basis: 100%;
+            }
+        }
     </style>
 </head>
 <body>
     @include('admin.partials.sidebar')
     <div class="main" id="adminMain">
-        <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
-            <span class="hamburger-icon"></span>
-            <span class="hamburger-icon"></span>
-            <span class="hamburger-icon"></span>
-            <img class="arrow-icon" src="{{ asset('images/arrow.svg') }}" alt="Arrow icon">
-        </button>
+        @include('admin.partials.sidebar-toggle')
 
         <div class="topbar">
             <div class="topbar-left">
@@ -60,15 +82,19 @@
 <div class="card">
     <div class="card-title">
         @if($filterType === 'old-academic')
-            Old Academic Grants
-            <button class="btn small" onclick="openOldGrantUploadModal()" style="margin-left: auto;">Upload Old Data</button>
+            <div class="old-grants-toolbar">
+                @include('admin.partials.grant-filters', ['filterType' => $filterType, 'scholarshipNames' => $scholarshipNames ?? collect()])
+                <button class="btn small" onclick="openOldGrantUploadModal()">Upload Old Data</button>
+            </div>
         @elseif($filterType === 'old-non-academic')
-            Old Non-Academic Grants
-            <button class="btn small" onclick="openOldGrantUploadModal()" style="margin-left: auto;">Upload Old Data</button>
+            <div class="old-grants-toolbar">
+                @include('admin.partials.grant-filters', ['filterType' => $filterType, 'scholarshipNames' => $scholarshipNames ?? collect()])
+                <button class="btn small" onclick="openOldGrantUploadModal()">Upload Old Data</button>
+            </div>
         @elseif($filterType === 'users')
             Registered Users
         @endif
-        @if(in_array($filterType, ['academic', 'non-academic', 'old-academic', 'old-non-academic'], true))
+        @if(in_array($filterType, ['academic', 'non-academic'], true))
             @include('admin.partials.grant-filters', ['filterType' => $filterType, 'scholarshipNames' => $scholarshipNames ?? collect()])
         @elseif($filterType === 'users')
             @include('admin.partials.users-filters')
@@ -133,7 +159,7 @@
         @else
         {{-- The Summary of Reports is approved-only, so Amount is always visible there. --}}
         @php($showAmountColumn = $filterType === 'all' || request('status') === 'approved')
-        <table id="admin-applications-table" data-grant-type="{{ $filterType }}" data-show-amount="{{ $showAmountColumn ? '1' : '0' }}">
+        <table id="admin-applications-table" data-grant-type="{{ $filterType }}" data-show-amount="{{ $showAmountColumn ? '1' : '0' }}" @if($filterType === 'academic') data-today="{{ now()->format('Y-m-d') }}" data-college-lookup-url="{{ route('admin.academic.manual_applicants.college_department') }}" data-manual-store-url="{{ route('admin.academic.manual_applicants.store') }}" data-manual-update-url-template="{{ route('admin.academic.manual_applicants.update', ['id' => '__ID__']) }}" data-academic-scholarships='@json($academicScholarshipCatalog ?? [])' @elseif($filterType === 'non-academic') data-today="{{ now()->format('Y-m-d') }}" data-college-lookup-url="{{ route('admin.academic.manual_applicants.college_department') }}" data-manual-store-url="{{ route('admin.non_academic.manual_applicants.store') }}" data-manual-update-url-template="{{ route('admin.non_academic.manual_applicants.update', ['id' => '__ID__']) }}" data-non-academic-scholarships='@json($nonAcademicScholarshipCatalog ?? [])' @endif>
             <thead>
                 <tr>
                     <th>Last Name</th>
@@ -290,35 +316,8 @@
 </div>
 
           <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+          <script src="{{ asset('js/admin-sidebar.js') }}"></script>
           <script>
-              // Sidebar Toggle
-              const sidebarToggle = document.getElementById('sidebarToggle');
-              const adminSidebar = document.getElementById('adminSidebar');
-              const adminMain = document.getElementById('adminMain');
-
-              sidebarToggle.addEventListener('click', function(e) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  
-                  adminSidebar.classList.toggle('collapsed');
-                  adminMain.classList.toggle('sidebar-collapsed');
-                  sidebarToggle.classList.toggle('active');
-                  
-                  // Save state to localStorage
-                  const isCollapsed = adminSidebar.classList.contains('collapsed');
-                  localStorage.setItem('adminSidebarCollapsed', isCollapsed);
-              });
-
-              // Restore sidebar state on page load
-              window.addEventListener('load', function() {
-                  const isCollapsed = localStorage.getItem('adminSidebarCollapsed') === 'true';
-                  if (isCollapsed) {
-                      adminSidebar.classList.add('collapsed');
-                      adminMain.classList.add('sidebar-collapsed');
-                      sidebarToggle.classList.add('active');
-                  }
-              });
-
               function confirmDelete(id) {
                   Swal.fire({
                       title: 'Are you sure?',

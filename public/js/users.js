@@ -482,8 +482,17 @@ function openAcademicApplyModal() {
     if (m) { m.classList.add('open'); m.setAttribute('aria-hidden','false'); document.body.style.overflow = 'hidden'; }
 }
 
-function prepareReapplication(title, modalType) {
-    const profile = (window.reapplicationProfiles || {})[title];
+function findAppliedScholarship(scholarshipId, grantType) {
+    if (!scholarshipId) return null;
+    return (window.appliedScholarships || []).find(application =>
+        String(application.scholarship_id) === String(scholarshipId)
+        && application.grant_type === grantType
+    ) || null;
+}
+
+function prepareReapplication(title, modalType, scholarshipId) {
+    const grantType = modalType === 'academic' ? 'academic' : 'non-academic';
+    const profile = (window.reapplicationProfiles || {})[`${grantType}|${scholarshipId}`];
     if (!profile) return;
 
     const form = document.getElementById(modalType === 'academic' ? 'academicApplyForm' : 'applyForm');
@@ -831,7 +840,22 @@ function openScholarshipDetailsModal(title, description, modalType = 'non', card
             }
         }
 
+        const grantType = modalType === 'academic' ? 'academic' : 'non-academic';
+        const scholarshipId = card?.dataset.scholarshipId
+            || (modalType === 'academic' ? window.academicScholarshipIdMap : window.nonAcademicScholarshipIdMap)?.[title]
+            || '';
+        const application = findAppliedScholarship(scholarshipId, grantType);
+        const applyButton = document.getElementById('detailsApplyBtn');
         modal.dataset.modalType = modalType;
+        modal.dataset.scholarshipId = scholarshipId;
+        modal.dataset.grantType = grantType;
+        if (applyButton) {
+            const isLocked = Boolean(application?.locked);
+            applyButton.disabled = isLocked;
+            applyButton.textContent = isLocked ? 'UNAVAILABLE' : 'APPLY NOW';
+            if (isLocked) applyButton.setAttribute('aria-disabled', 'true');
+            else applyButton.removeAttribute('aria-disabled');
+        }
         modal.classList.add('open');
         modal.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -1529,10 +1553,13 @@ document.addEventListener('DOMContentLoaded', function(){
             const card = btn.closest('.s-card');
             const title = card?.querySelector('.card-names h3')?.textContent?.trim();
             const description = card?.dataset.description || '';
+            const selectedId = card?.dataset.scholarshipId || window.academicScholarshipIdMap?.[title] || '';
+            const application = findAppliedScholarship(selectedId, 'academic');
+            if (application?.locked) return;
             const nameInput = document.getElementById('academic_scholarship_name');
             const typeInput = document.getElementById('academic_scholarship_type');
             const scholarshipIdInput = document.getElementById('academic_scholarship_id');
-            const profile = title ? (window.reapplicationProfiles || {})[title] : null;
+            const profile = application?.reopen ? application.profile : null;
 
             if (nameInput) nameInput.value = '';
             if (typeInput) typeInput.value = '';
@@ -1549,17 +1576,15 @@ document.addEventListener('DOMContentLoaded', function(){
 
             if (title) {
                 const form = document.getElementById('academicApplyForm');
-                const selectedId = scholarshipIdInput?.value || card?.dataset.scholarshipId || '';
                 const selectedName = nameInput?.value || title;
 
                 if (profile) {
                     openAcademicApplyModal();
-                    prepareReapplication(title, 'academic');
+                    prepareReapplication(title, 'academic', selectedId);
                     return;
                 }
 
-                const { value: idValue } = scholarshipIdInput || { value: selectedId };
-                await hydrateFormOpenState(form, 'academic', idValue || selectedId, selectedName);
+                await hydrateFormOpenState(form, 'academic', scholarshipIdInput?.value || selectedId, selectedName);
             }
 
             openScholarshipDetailsModal(title, description, 'academic', card);
@@ -1573,10 +1598,13 @@ document.addEventListener('DOMContentLoaded', function(){
             const card = btn.closest('.s-card');
             const title = card?.querySelector('.card-names h3')?.textContent?.trim();
             const description = card?.dataset.description || '';
+            const selectedId = card?.dataset.scholarshipId || window.nonAcademicScholarshipIdMap?.[title] || '';
+            const application = findAppliedScholarship(selectedId, 'non-academic');
+            if (application?.locked) return;
             const nameInput = document.getElementById('scholarship_name');
             const typeInput = document.getElementById('scholarship_type');
             const scholarshipIdInput = document.getElementById('scholarship_id');
-            const profile = title ? (window.reapplicationProfiles || {})[title] : null;
+            const profile = application?.reopen ? application.profile : null;
 
             if (nameInput) nameInput.value = '';
             if (typeInput) typeInput.value = '';
@@ -1600,17 +1628,15 @@ document.addEventListener('DOMContentLoaded', function(){
 
             if (title) {
                 const form = document.getElementById('applyForm');
-                const selectedId = scholarshipIdInput?.value || card?.dataset.scholarshipId || '';
                 const selectedName = nameInput?.value || title;
 
                 if (profile) {
                     openApplyModal();
-                    prepareReapplication(title, 'non');
+                    prepareReapplication(title, 'non', selectedId);
                     return;
                 }
 
-                const { value: idValue } = scholarshipIdInput || { value: selectedId };
-                await hydrateFormOpenState(form, 'non-academic', idValue || selectedId, selectedName);
+                await hydrateFormOpenState(form, 'non-academic', scholarshipIdInput?.value || selectedId, selectedName);
             }
 
             openScholarshipDetailsModal(title, description, 'non', card);
@@ -1681,11 +1707,15 @@ document.addEventListener('DOMContentLoaded', function(){
 
     const detailsApplyBtn = document.getElementById('detailsApplyBtn');
     if (detailsApplyBtn) detailsApplyBtn.addEventListener('click', async function(){
-        closeScholarshipDetailsModal();
         const modal = document.getElementById('scholarshipDetailsModal');
         const modalType = modal?.dataset.modalType || 'non';
         const title = document.getElementById('detailsScholarshipTitle')?.textContent?.trim() || '';
-        const profile = title ? (window.reapplicationProfiles || {})[title] : null;
+        const scholarshipId = modal?.dataset.scholarshipId || '';
+        const grantType = modal?.dataset.grantType || (modalType === 'academic' ? 'academic' : 'non-academic');
+        const application = findAppliedScholarship(scholarshipId, grantType);
+        if (application?.locked) return;
+        const profile = application?.reopen ? application.profile : null;
+        closeScholarshipDetailsModal();
 
         if (modalType === 'academic') {
             const form = document.getElementById('academicApplyForm');
@@ -1694,7 +1724,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
             if (profile) {
                 openAcademicApplyModal();
-                prepareReapplication(title, 'academic');
+                prepareReapplication(title, 'academic', scholarshipId);
                 return;
             }
 
@@ -1709,7 +1739,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
         if (profile) {
             openApplyModal();
-            prepareReapplication(title, 'non');
+            prepareReapplication(title, 'non', scholarshipId);
             return;
         }
 

@@ -6,6 +6,8 @@ use App\Models\Application;
 use App\Models\Scholarship;
 use App\Models\StudentProfile;
 use App\Models\User;
+use App\Support\ApplicationSectionStatusSummary;
+use App\Support\CourseCollegeDepartment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -222,17 +224,7 @@ class StudentProfileController extends Controller
 
     private function resolveCollegeDepartment(?string $course): ?string
     {
-        $course = trim((string) ($course ?? ''));
-
-        return [
-            'BACHELOR OF SCIENCE IN CRIMINOLOGY' => 'College of Criminal Justice Education',
-            'BACHELOR OF SCIENCE IN FISHERIES' => 'College of Fisheries and Aquatic Sciences',
-            'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY' => 'College of Information and Computing Science',
-            'BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT' => 'College of Hospitality Management',
-            'BACHELOR OF SECONDARY EDUCATION' => 'College of Teacher Education',
-            'BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM' => 'College of Business, Entrepreneurship and Accountancy',
-            'BACHELOR OF ELEMENTARY EDUCATION' => 'College of Teacher Education',
-        ][$course] ?? null;
+        return CourseCollegeDepartment::forCourse($course);
     }
 
     private function findSelectedScholarship(?string $scholarshipId, ?string $scholarshipName): ?Scholarship
@@ -535,6 +527,9 @@ class StudentProfileController extends Controller
             unset($data['family_background']);
             
             $user = Auth::user();
+            $requestProfileId = $request->input('student_profile_id') ?: $request->input('profile_id');
+            $requestApplicationId = $request->input('application_id');
+
             $data['user_id'] = $user->id;
             $data['email'] = $user->email;
             $data['suffix'] = trim((string) ($request->input('suffix') ?? '')) ?: null;
@@ -560,23 +555,41 @@ class StudentProfileController extends Controller
                 $data['scholarship_type'] = $legacyType;
             }
 
-            $requestProfileId = $request->input('student_profile_id') ?: $request->input('profile_id');
-            $requestApplicationId = $request->input('application_id');
-
             if ($requestProfileId) {
                 $previousProfile = StudentProfile::whereKey($requestProfileId)
                     ->where('user_id', $user->id)
+                    ->where('grant_type', $isAcademic ? 'academic' : 'non-academic')
                     ->first();
             } elseif ($requestApplicationId) {
                 $previousProfile = StudentProfile::where('user_id', $user->id)
                     ->where('application_id', $requestApplicationId)
+                    ->where('grant_type', $isAcademic ? 'academic' : 'non-academic')
                     ->latest('id')
                     ->first();
             } else {
-                $previousProfile = StudentProfile::where('user_id', $user->id)
-                    ->where('scholarship_name', $data['scholarship_name'])
-                    ->latest('id')
-                    ->first();
+                $previousProfileQuery = StudentProfile::where('user_id', $user->id)
+                    ->where('grant_type', $isAcademic ? 'academic' : 'non-academic');
+                if ($selectedScholarship) {
+                    $previousProfileQuery->whereHas('application', fn ($query) => $query->where('scholarship_id', $selectedScholarship->id));
+                } else {
+                    $previousProfileQuery->where('scholarship_name', $data['scholarship_name']);
+                }
+                $previousProfile = $previousProfileQuery->latest('id')->first();
+            }
+
+            $lockedProfileQuery = StudentProfile::where('user_id', $user->id)
+                ->where('grant_type', $isAcademic ? 'academic' : 'non-academic')
+                ->whereNotNull('locked_at');
+            if ($selectedScholarship) {
+                $lockedProfileQuery->whereHas('application', fn ($query) => $query->where('scholarship_id', $selectedScholarship->id));
+            } elseif ($previousProfile) {
+                $lockedProfileQuery->whereKey($previousProfile->id);
+            } else {
+                $lockedProfileQuery->whereRaw('1 = 0');
+            }
+            if ($lockedProfileQuery->exists()) {
+                return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
+                    ->with('error', "You've reached the maximum number of applications for this scholarship.");
             }
 
             // Fill missing name parts from authenticated user name when available
@@ -916,6 +929,22 @@ class StudentProfileController extends Controller
                         ->with('error', 'The selected scholarship does not match the application form category.');
                 }
 
+                $lockedProfileQuery = StudentProfile::where('user_id', $user->id)
+                    ->where('grant_type', $isAcademic ? 'academic' : 'non-academic')
+                    ->whereNotNull('locked_at');
+                if ($scholarship) {
+                    $lockedProfileQuery->whereHas('application', fn ($query) => $query->where('scholarship_id', $scholarship->id));
+                } elseif ($previousProfile) {
+                    $lockedProfileQuery->whereKey($previousProfile->id);
+                } else {
+                    $lockedProfileQuery->whereRaw('1 = 0');
+                }
+                if ($lockedProfileQuery->lockForUpdate()->exists()) {
+                    DB::rollBack();
+                    return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
+                        ->with('error', "You've reached the maximum number of applications for this scholarship.");
+                }
+
                 $existingApp = null;
 
                 if (!empty($requestApplicationId)) {
@@ -968,15 +997,26 @@ class StudentProfileController extends Controller
                 if ($isAcademicScholarship) {
                     $activeCategoryApplications = Application::where('applications.user_id', $user->id)
                         ->join('scholarships', 'scholarships.id', '=', 'applications.scholarship_id')
+                        ->leftJoin('student_profiles', function ($join) {
+                            $join->on('student_profiles.application_id', '=', 'applications.id')
+                                ->whereNull('student_profiles.deleted_at');
+                        })
                         ->where('scholarships.type', 'academic')
-                        ->whereIn('applications.status', ['pending', 'approved'])
+                        ->where(function ($query) {
+                            $query->whereIn('applications.status', ['pending', 'approved'])
+                                ->orWhereNotNull('student_profiles.locked_at');
+                        })
                         ->when($existingApp && $canReapply, fn ($query) => $query->where('applications.id', '!=', $existingApp->id))
+                        ->distinct('applications.id')
                         ->lockForUpdate()
-                        ->count();
+                        ->count('applications.id');
                 } else {
                     $activeCategoryApplications = StudentProfile::where('user_id', $user->id)
                         ->where('grant_type', $data['grant_type'])
-                        ->whereIn('application_status', ['pending', 'approved'])
+                        ->where(function ($query) {
+                            $query->whereIn('application_status', ['pending', 'approved'])
+                                ->orWhereNotNull('locked_at');
+                        })
                         ->when($previousProfile && $canReapply, fn ($query) => $query->where('id', '!=', $previousProfile->id))
                         ->lockForUpdate()
                         ->count();
@@ -994,6 +1034,7 @@ class StudentProfileController extends Controller
                     $application->save();
                     $data['application_id'] = $application->id;
                     $previousProfile->fill($data);
+                    $previousProfile->reapply_count = (int) $previousProfile->reapply_count + 1;
                     $previousProfile->application_status = 'pending';
                     $previousProfile->rejection_reason = null;
                     $previousProfile->save();
@@ -1200,6 +1241,14 @@ class StudentProfileController extends Controller
             'application_status',
             'rejection_reason',
             'grant_type',
+            'student_information_status',
+            'student_information_reason',
+            'personal_information_status',
+            'personal_information_reason',
+            'scholarship_requirements_status',
+            'scholarship_requirements_reason',
+            'family_background_status',
+            'family_background_reason',
             'created_at',
             'updated_at',
         ];
@@ -1207,12 +1256,22 @@ class StudentProfileController extends Controller
         $academicApplications = StudentProfile::where('user_id', $userId)
             ->where('grant_type', 'academic')
             ->orderByDesc('created_at')
-            ->get($applicationFields);
+            ->get($applicationFields)
+            ->map(function (StudentProfile $application) {
+                $application->setAttribute('section_status_summary', ApplicationSectionStatusSummary::for($application));
+
+                return $application;
+            });
 
         $nonAcademicApplications = StudentProfile::where('user_id', $userId)
             ->where('grant_type', 'non-academic')
             ->orderByDesc('created_at')
-            ->get($applicationFields);
+            ->get($applicationFields)
+            ->map(function (StudentProfile $application) {
+                $application->setAttribute('section_status_summary', ApplicationSectionStatusSummary::for($application));
+
+                return $application;
+            });
 
         return view('student.application-status', compact(
             'academicApplications',

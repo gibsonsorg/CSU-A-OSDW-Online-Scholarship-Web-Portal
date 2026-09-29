@@ -81,6 +81,7 @@
         if (familyProgress) {
             familyProgress.hidden = !isNonAcademic;
             if (isNonAcademic) familyProgress.dataset.profileProgressStep = '3';
+            else familyProgress.removeAttribute('data-profile-progress-step');
         }
         if (familyProgressLine) familyProgressLine.hidden = !isNonAcademic;
         if (finalProgress) {
@@ -369,12 +370,29 @@
 
     // CHANGE: Inline create/edit/delete controls for manually logged applicants.
     const manualApplicantFields = ['last_name', 'first_name', 'middle_name', 'sex', 'course', 'year_level', 'scholarship_name', 'date', 'application_status'];
+    const structuredManualRequiredFields = ['last_name', 'first_name', 'sex', 'course', 'year_level', 'scholarship_name', 'date', 'application_status'];
+    const academicManualCourses = [
+        'BACHELOR OF SCIENCE IN CRIMINOLOGY',
+        'BACHELOR OF SCIENCE IN FISHERIES',
+        'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
+        'BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT',
+        'BACHELOR OF SECONDARY EDUCATION',
+        'BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM',
+        'BACHELOR OF ELEMENTARY EDUCATION',
+    ];
     let openManualRow = null;
     let openManualEmptyRow = null;
 
-    function manualScholarshipOptions(selectedValue, grantType) {
+    function manualScholarshipOptions(selectedValue, grantType, table) {
         const filterSelect = document.getElementById('grant-scholarship-name');
         const canonicalOptions = [];
+
+        if (grantType === 'academic' || grantType === 'non-academic') {
+            let catalog = [];
+            const catalogKey = grantType === 'academic' ? 'academicScholarships' : 'nonAcademicScholarships';
+            try { catalog = JSON.parse(table.dataset[catalogKey] || '[]'); } catch {}
+            return `<select class="manual-row-input" data-field="scholarship_name" required><option value="">Select</option>${catalog.map(scholarship => `<option value="${escapeHtml(scholarship.name)}" data-funding-type="${escapeHtml(scholarship.funding_type || '')}" ${selectedValue === scholarship.name ? 'selected' : ''}>${escapeHtml(scholarship.name)}</option>`).join('')}</select>`;
+        }
 
         if (filterSelect) {
             Array.from(filterSelect.options).forEach(option => {
@@ -411,7 +429,43 @@
         return `<input class="manual-row-input" data-field="${fieldName}" type="${type}" value="${escapeHtml(value)}"${fieldName === 'date' ? ' required' : ''}>`;
     }
 
-    function manualRowHtml(values, grantType, showAmount) {
+    function structuredManualRowHtml(values, grantType, showAmount, table) {
+        const typeLabel = grantType === 'academic' ? 'Academic' : 'Non-Academic';
+        const catalogKey = grantType === 'academic' ? 'academicScholarships' : 'nonAcademicScholarships';
+        const textField = (name, value, required = false) => `<input class="manual-row-input" data-field="${name}" type="text" value="${escapeHtml(value || '')}"${required ? ' required' : ''}>`;
+        const selectField = (name, value, options, required = false) => `<select class="manual-row-input" data-field="${name}"${required ? ' required' : ''}><option value="">Select</option>${options.map(option => `<option value="${escapeHtml(option)}" ${value === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`;
+        const statusSelect = `<select class="manual-row-input" data-field="application_status" required>${[['pending', 'Pending'], ['approved', 'Approved'], ['rejected', 'Rejected']].map(([value, label]) => `<option value="${value}" ${(values.application_status || 'pending') === value ? 'selected' : ''}>${label}</option>`).join('')}</select>`;
+        const scholarshipOptions = manualScholarshipOptions(values.scholarship_name || '', grantType, table);
+        const selectedScholarship = (() => {
+            try {
+                return JSON.parse(table.dataset[catalogKey] || '[]').find(item => item.name === values.scholarship_name)?.funding_type || '—';
+            } catch {
+                return '—';
+            }
+        })();
+
+        return `<tr class="manual-applicant-row" data-grant-type="${grantType}" data-id="${values.id || ''}">
+            <td>${textField('last_name', values.last_name, true)}</td>
+            <td>${textField('first_name', values.first_name, true)}</td>
+            <td>${textField('middle_name', values.middle_name)}</td>
+            <td>${textField('suffix', values.suffix)}</td>
+            <td>${selectField('sex', values.sex, ['Male', 'Female'], true)}</td>
+            <td>${selectField('course', values.course, academicManualCourses, true)}</td>
+            <td><input class="manual-row-input" data-derived-field="college_department" type="text" value="${escapeHtml(values.college_department || '')}" readonly></td>
+            <td>${selectField('year_level', values.year_level, ['1st Year', '2nd Year', '3rd Year', '4th Year'], true)}</td>
+            <td><input class="manual-row-input" type="text" value="${typeLabel}" readonly></td>
+            <td>${scholarshipOptions}</td>
+            <td><input class="manual-row-input" data-derived-field="funding" type="text" value="${escapeHtml(selectedScholarship || '—')}" readonly></td>
+            <td><input class="manual-row-input" type="text" value="Aparri" readonly></td>
+            <td><input class="manual-row-input" data-field="date" type="date" value="${escapeHtml(values.date || table.dataset.today || '')}" required></td>
+            ${showAmount ? '<td>—</td>' : ''}
+            <td>${statusSelect}</td>
+            <td><button class="btn small manual-save-btn" type="button">Save</button><button class="btn small manual-cancel-btn" type="button">Cancel</button></td>
+        </tr>`;
+    }
+
+    function manualRowHtml(values, grantType, showAmount, table) {
+        if (grantType === 'academic' || grantType === 'non-academic') return structuredManualRowHtml(values, grantType, showAmount, table);
         const typeLabel = grantType === 'academic' ? 'Academic' : 'Non-Academic';
         return `<tr class="manual-applicant-row" data-grant-type="${grantType}" data-id="${values.id || ''}">
             <td>${manualField(values.last_name, 'last_name')}</td>
@@ -440,6 +494,23 @@
     function manualValuesFromRow(row) {
         const cells = row.querySelectorAll('td');
         const showAmount = document.getElementById('admin-applications-table')?.dataset.showAmount === '1';
+        const rowGrantType = row.dataset.grantType || document.getElementById('admin-applications-table')?.dataset.grantType;
+        if (rowGrantType === 'academic' || rowGrantType === 'non-academic') {
+            return {
+                id: row.dataset.id,
+                last_name: cells[0]?.textContent.trim() || '',
+                first_name: cells[1]?.textContent.trim() || '',
+                middle_name: cells[2]?.textContent.trim() || '',
+                suffix: cells[3]?.textContent.trim() === '—' ? '' : (cells[3]?.textContent.trim() || ''),
+                sex: cells[4]?.textContent.trim() || '',
+                course: cells[5]?.textContent.trim() || '',
+                college_department: cells[6]?.textContent.trim() || '',
+                year_level: cells[7]?.textContent.trim() || '',
+                scholarship_name: cells[9]?.textContent.trim() || '',
+                date: cells[12]?.textContent.trim() || '',
+                application_status: cells[showAmount ? 14 : 13]?.textContent.trim().toLowerCase() || 'pending',
+            };
+        }
         const statusIndex = showAmount ? 10 : 9;
         return {
             id: row.dataset.id,
@@ -464,14 +535,21 @@
 
     async function saveManualRow(row) {
         const values = collectManualValues(row);
-        const missing = manualApplicantFields.some(field => field !== 'middle_name' && !values[field]);
+        const isStructuredGrant = row.dataset.grantType === 'academic' || row.dataset.grantType === 'non-academic';
+        const requiredFields = isStructuredGrant
+            ? structuredManualRequiredFields
+            : manualApplicantFields.filter(field => field !== 'middle_name');
+        const missing = requiredFields.some(field => !values[field]);
         if (missing) {
             await Swal.fire({ icon: 'error', title: 'Incomplete applicant', text: 'Please complete all required fields.' });
             return;
         }
 
         const id = row.dataset.id;
-        const url = id ? `/admin/manual-applicants/${encodeURIComponent(id)}` : '/admin/manual-applicants';
+        const table = row.closest('table');
+        const url = isStructuredGrant
+            ? (id ? table.dataset.manualUpdateUrlTemplate.replace('__ID__', encodeURIComponent(id)) : table.dataset.manualStoreUrl)
+            : (id ? `/admin/manual-applicants/${encodeURIComponent(id)}` : '/admin/manual-applicants');
         try {
             await fetch(url, {
                 method: id ? 'PUT' : 'POST',
@@ -498,7 +576,7 @@
             emptyRow.remove();
         }
         const row = document.createElement('tbody');
-        row.innerHTML = manualRowHtml({ application_status: 'pending' }, table.dataset.grantType, table.dataset.showAmount === '1');
+        row.innerHTML = manualRowHtml({ application_status: 'pending', date: table.dataset.today }, table.dataset.grantType, table.dataset.showAmount === '1', table);
         const newRow = row.firstElementChild;
         table.tBodies[0].prepend(newRow);
         openManualRow = newRow;
@@ -535,12 +613,17 @@
             row.dataset.originalHtml = row.outerHTML;
             const values = manualValuesFromRow(row);
             const replacement = document.createElement('tbody');
-            replacement.innerHTML = manualRowHtml(values, row.dataset.grantType || table.dataset.grantType, table.dataset.showAmount === '1');
+            const grantType = row.dataset.grantType || table.dataset.grantType;
+            replacement.innerHTML = manualRowHtml(values, grantType, table.dataset.showAmount === '1', table);
             const editRow = replacement.firstElementChild;
             editRow.dataset.originalHtml = row.dataset.originalHtml;
             row.replaceWith(editRow);
             openManualRow = editRow;
             setManualButtonState(true);
+            if (grantType === 'academic' || grantType === 'non-academic') {
+                updateManualFunding(editRow);
+                updateManualCollege(editRow);
+            }
             return;
         }
         if (deleteButton) {
@@ -553,6 +636,40 @@
                 Swal.fire({ icon: 'error', title: 'Unable to delete applicant', text: error.message });
             }
         }
+    });
+
+    function updateManualFunding(row) {
+        const scholarship = row.querySelector('[data-field="scholarship_name"]');
+        const funding = row.querySelector('[data-derived-field="funding"]');
+        if (scholarship && funding) funding.value = scholarship.selectedOptions[0]?.dataset.fundingType || '—';
+    }
+
+    async function updateManualCollege(row) {
+        const table = row.closest('table');
+        const course = row.querySelector('[data-field="course"]');
+        const college = row.querySelector('[data-derived-field="college_department"]');
+        if (!table || !course || !college) return;
+
+        const selectedCourse = course.value;
+        college.value = '';
+        if (!selectedCourse) return;
+
+        const url = new URL(table.dataset.collegeLookupUrl, window.location.origin);
+        url.searchParams.set('course', selectedCourse);
+        try {
+            const response = await fetch(url, { headers: { Accept: 'application/json' } });
+            const result = await response.json();
+            if (response.ok && course.value === selectedCourse) college.value = result.college_department || '';
+        } catch (error) {
+            console.error('Unable to resolve college or department.', error);
+        }
+    }
+
+    document.getElementById('admin-applications-table')?.addEventListener('change', event => {
+        const row = event.target.closest('.manual-applicant-row[data-grant-type="academic"], .manual-applicant-row[data-grant-type="non-academic"]');
+        if (!row) return;
+        if (event.target.matches('[data-field="course"]')) updateManualCollege(row);
+        if (event.target.matches('[data-field="scholarship_name"]')) updateManualFunding(row);
     });
 
     document.querySelectorAll('.delete-user-btn').forEach(button => button.addEventListener('click', async () => {

@@ -10,7 +10,7 @@ class StudentProfile extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'user_id','application_id','source','student_id_number','first_name','middle_name','last_name','suffix','sex','status','email','home_address','contact_number','course','college_department','campus','year_level','program','id_number','birthdate','birthplace','religion','scholarship_name','scholarship_type','amount','uploads','application_status','grant_type','rejection_reason','student_information_status','student_information_reason','personal_information_status','personal_information_reason','scholarship_requirements_status','scholarship_requirements_reason','family_background_status','family_background_reason','document_review','document_reviews'
+        'user_id','application_id','source','student_id_number','first_name','middle_name','last_name','suffix','sex','status','email','home_address','contact_number','course','college_department','campus','year_level','program','id_number','birthdate','birthplace','religion','scholarship_name','scholarship_type','amount','uploads','application_status','grant_type','rejection_reason','student_information_status','student_information_reason','personal_information_status','personal_information_reason','scholarship_requirements_status','scholarship_requirements_reason','family_background_status','family_background_reason','document_review','document_reviews','reapply_count','locked_at'
     ];
 
     protected $casts = [
@@ -19,6 +19,7 @@ class StudentProfile extends Model
         'document_reviews' => 'array',
         'birthdate' => 'date',
         'amount' => 'decimal:2',
+        'locked_at' => 'datetime',
     ];
 
     public function user()

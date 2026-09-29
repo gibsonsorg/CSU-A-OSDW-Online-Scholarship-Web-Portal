@@ -45,7 +45,7 @@
         <a href="{{ route('admin.users') }}" class="nav-item {{ request()->routeIs('admin.users') ? 'active' : '' }}">
             <span class="nav-icon"></span> Users
         </a>
-        <a href="/admin/settings" class="nav-item">
+        <a href="{{ route('backup.index') }}" class="nav-item {{ request()->routeIs('backup.index') ? 'active' : '' }}">
             <span class="nav-icon"></span>Settings
         </a>
 

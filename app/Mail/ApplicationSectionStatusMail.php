@@ -12,18 +12,14 @@ class ApplicationSectionStatusMail extends Mailable implements ShouldQueue
     use Queueable, SerializesModels;
 
     public function __construct(
-        public string $studentName,
-        public string $section,
-        public string $reason,
-        public ?string $documentName = null,
+        public string $firstName,
+        public string $scholarshipName,
+        public array $sections,
     ) {}
 
     public function build(): self
     {
-        $isDocument = $this->documentName !== null;
-        $subject = $isDocument
-            ? 'Scholarship Application - Document Rejected'
-            : 'Scholarship Application - ' . $this->section . ' Rejected';
+        $subject = 'Update on Your Scholarship Application — ' . $this->scholarshipName;
 
         return $this->subject($subject)->view('emails/application-section-rejected');
     }

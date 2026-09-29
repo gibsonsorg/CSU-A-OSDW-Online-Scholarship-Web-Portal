@@ -142,11 +142,12 @@
             border-top: 1px solid #f3f4f6;
         }
 
-        .app-item.is-rejected {
+        .app-item.is-clickable {
             cursor: pointer;
         }
 
-        .app-item.is-rejected:hover {
+        .app-item.is-clickable:hover,
+        .app-item.is-clickable:focus-visible {
             background: #f9fafb;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
             transform: translateY(-1px);
@@ -338,22 +339,42 @@
         }
 
         .rejection-message-box {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
+            background: #f8fafc;
+            border: 1px solid #dbe2ea;
             border-radius: 14px;
             padding: 1.1rem 1.15rem;
-            color: #7f1d1d;
+            color: #334155;
             font-size: 0.92rem;
             line-height: 1.65;
-            white-space: pre-wrap;
             word-break: break-word;
         }
 
-        .rejection-message-box.is-empty {
-            background: #f9fafb;
-            border-color: #e5e7eb;
-            color: #6b7280;
-            font-style: italic;
+        .rejection-message-box.is-rejected {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #7f1d1d;
+        }
+
+        .rejection-message-box.is-approved {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            color: #166534;
+        }
+
+        .section-status-list {
+            margin: 0;
+            padding-left: 1.25rem;
+        }
+
+        .section-status-list li + li {
+            margin-top: 0.45rem;
+        }
+
+        .section-status-overall {
+            margin: 0.9rem 0 0;
+            padding-top: 0.75rem;
+            border-top: 1px solid currentColor;
+            font-weight: 700;
         }
 
         .detail-help-box {
@@ -454,7 +475,7 @@
             <div class="status-hero">
                 <div class="status-hero-top">
                     <h1>My Application Status</h1>
-                    <p>Track all your scholarship applications in one place. Click any rejected application to read the administrator's feedback.</p>
+                    <p>Track all your scholarship applications in one place. Open any application to review its section status.</p>
                 </div>
             </div>
 
@@ -539,7 +560,7 @@
                 <div id="rejectionDetailMessage" class="rejection-message-box"></div>
 
                 <div class="detail-help-box">
-                    <p>You may review the feedback above, update your documents if needed, and apply for other available scholarships.</p>
+                    <p id="rejectionDetailGuidance">You may review the feedback above, update your documents if needed, and apply for other available scholarships.</p>
                     <div class="detail-help-actions">
                         <a href="{{ route('dashboard', ['section' => 'acad']) }}" class="detail-btn detail-btn-primary" id="rejectionBrowseLink">Browse Scholarships</a>
                         <button type="button" class="detail-btn detail-btn-secondary" id="rejectionDetailCloseBtn">Close</button>
@@ -550,23 +571,23 @@
     </div>
 
     @php
-        $rejectedApplicationsData = $allApplications
-            ->where('application_status', 'rejected')
+        $applicationsData = $allApplications
             ->map(function ($application) {
                 return [
                     'id' => $application->id,
                     'scholarship_name' => $application->scholarship_name,
                     'scholarship_type' => $application->scholarship_type,
                     'grant_type' => $application->grant_type,
+                    'application_status' => $application->application_status,
                     'applied_at' => $application->created_at->format('M d, Y'),
                     'updated_at' => $application->updated_at->format('M d, Y'),
-                    'rejection_reason' => $application->rejection_reason,
+                    'section_status_summary' => $application->section_status_summary,
                 ];
             })
             ->values();
     @endphp
 
-    <script id="rejectedApplicationsData" type="application/json">@json($rejectedApplicationsData)</script>
+    <script id="applicationsStatusData" type="application/json">@json($applicationsData)</script>
 
     <script>
         (function () {
@@ -576,18 +597,19 @@
             const appliedEl = document.getElementById('rejectionDetailApplied');
             const updatedEl = document.getElementById('rejectionDetailUpdated');
             const messageEl = document.getElementById('rejectionDetailMessage');
+            const guidanceEl = document.getElementById('rejectionDetailGuidance');
             const browseLink = document.getElementById('rejectionBrowseLink');
-            const rejectedApplications = JSON.parse(
-                document.getElementById('rejectedApplicationsData').textContent || '[]'
+            const applications = JSON.parse(
+                document.getElementById('applicationsStatusData').textContent || '[]'
             );
-            const rejectedById = Object.fromEntries(
-                rejectedApplications.map(function (application) {
+            const applicationsById = Object.fromEntries(
+                applications.map(function (application) {
                     return [String(application.id), application];
                 })
             );
 
-            function openRejectionDetail(applicationId) {
-                const application = rejectedById[String(applicationId)];
+            function openApplicationDetail(applicationId) {
+                const application = applicationsById[String(applicationId)];
                 if (!application) {
                     return;
                 }
@@ -597,14 +619,40 @@
                 appliedEl.textContent = application.applied_at ? 'Applied: ' + application.applied_at : '';
                 updatedEl.textContent = application.updated_at ? 'Updated: ' + application.updated_at : '';
 
-                const reason = (application.rejection_reason || '').trim();
-                if (reason) {
-                    messageEl.textContent = reason;
-                    messageEl.classList.remove('is-empty');
+                const summary = application.section_status_summary;
+                const sectionsList = document.createElement('ul');
+                sectionsList.className = 'section-status-list';
+                summary.sections.forEach(function (section) {
+                    const item = document.createElement('li');
+                    const label = document.createElement('strong');
+                    label.textContent = section.label + ': ';
+                    item.append(label, document.createTextNode(section.status));
+
+                    if (section.status === 'Rejected') {
+                        const reason = (section.reason || '').trim()
+                            || 'No specific reason was provided. Please contact the scholarship office for more information.';
+                        item.append(document.createElement('br'), document.createTextNode('Reason: ' + reason));
+                    }
+
+                    sectionsList.appendChild(item);
+                });
+                messageEl.replaceChildren(sectionsList);
+
+                const summaryLine = document.createElement('p');
+                summaryLine.className = 'section-status-overall';
+                if (application.application_status === 'rejected') {
+                    summaryLine.textContent = 'Overall Status: Rejected (' + summary.rejected_count + ' of ' + summary.total_count + ' sections need your attention).';
+                    guidanceEl.textContent = 'You may review the feedback above, update your documents if needed, and apply for other available scholarships.';
+                } else if (application.application_status === 'approved') {
+                    summaryLine.textContent = 'Overall Status: Approved — all sections approved.';
+                    guidanceEl.textContent = 'Your application has been approved. Check your dashboard for updates and next steps.';
                 } else {
-                    messageEl.textContent = 'No specific reason was provided. Please contact the scholarship office for more information.';
-                    messageEl.classList.add('is-empty');
+                    summaryLine.textContent = 'Overall Status: Pending — ' + summary.pending_count + ' of ' + summary.total_count + ' sections still under review.';
+                    guidanceEl.textContent = 'Your application is still being reviewed. Check back for updates or browse other available scholarships.';
                 }
+                messageEl.appendChild(summaryLine);
+                messageEl.classList.toggle('is-rejected', application.application_status === 'rejected');
+                messageEl.classList.toggle('is-approved', application.application_status === 'approved');
 
                 browseLink.href = application.grant_type === 'non-academic'
                     ? '{{ route('dashboard', ['section' => 'non']) }}'
@@ -619,15 +667,15 @@
                 document.body.style.overflow = '';
             }
 
-            document.querySelectorAll('.app-item.is-rejected').forEach(function (item) {
+            document.querySelectorAll('.app-item.is-clickable').forEach(function (item) {
                 item.addEventListener('click', function () {
-                    openRejectionDetail(item.dataset.applicationId);
+                    openApplicationDetail(item.dataset.applicationId);
                 });
 
                 item.addEventListener('keydown', function (event) {
                     if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        openRejectionDetail(item.dataset.applicationId);
+                        openApplicationDetail(item.dataset.applicationId);
                     }
                 });
             });

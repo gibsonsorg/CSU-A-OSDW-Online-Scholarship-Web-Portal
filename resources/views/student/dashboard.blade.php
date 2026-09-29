@@ -1564,7 +1564,10 @@ More info: https://unifaast.gov.ph/tes.html"
     (function () {
       const section = @json($section ?? 'acad');
       const appliedScholarships = @json($appliedScholarships ?? []);
-    window.reapplicationProfiles = Object.fromEntries(appliedScholarships.filter(item => item.reopen && item.profile).map(item => [item.name, item.profile]));
+            window.appliedScholarships = appliedScholarships;
+            window.reapplicationProfiles = Object.fromEntries(appliedScholarships
+                .filter(item => item.reopen && item.profile && item.scholarship_id)
+                .map(item => [`${item.grant_type}|${item.scholarship_id}`, item.profile]));
       const activeAcademicApplications = @json($activeAcademicApplications ?? 0);
       const activeNonAcademicApplications = @json($activeNonAcademicApplications ?? 0);
       const maxApplications = 2;
@@ -1580,26 +1583,30 @@ More info: https://unifaast.gov.ph/tes.html"
           return;
         }
 
-                // CHANGE: Match applications by scholarship ID first, then category and name.
+                // Resolve static cards through their category-specific ID map.
                 const cardGrantType = card.dataset.grantType || (
                     card.closest('.page-set')?.id.startsWith('non-') ? 'non-academic' : 'academic'
                 );
-                const cardScholarshipId = card.dataset.scholarshipId || '';
+                const scholarshipIdMap = cardGrantType === 'non-academic'
+                    ? window.nonAcademicScholarshipIdMap
+                    : window.academicScholarshipIdMap;
+                const cardScholarshipId = String(card.dataset.scholarshipId || scholarshipIdMap?.[scholarshipTitle] || '');
                 const application = appliedScholarships.find(item =>
-                    (cardScholarshipId && String(item.scholarship_id) === cardScholarshipId)
-                    || (!cardScholarshipId && item.name === scholarshipTitle && item.grant_type === cardGrantType)
+                    cardScholarshipId
+                    && String(item.scholarship_id) === cardScholarshipId
+                    && item.grant_type === cardGrantType
                 );
+                const isLocked = Boolean(application?.locked);
                 const canReopen = Boolean(application?.reopen);
-                const isUnavailableByAttempts = false;
                 const isApplied = Boolean(application && application.status !== 'rejected' && !canReopen);
                 const cardFoot = card.querySelector('.card-foot');
 
-                if (isUnavailableByAttempts) {
+                if (isLocked) {
                     card.classList.add('card-unavailable');
                     if (cardFoot) {
                         const message = document.createElement('div');
                         message.className = 'unavailable-text';
-                        message.textContent = 'You have reached the maximum application attempts for this scholarship.';
+                        message.textContent = 'You\'ve reached the maximum number of applications for this scholarship.';
                         cardFoot.prepend(message);
                     }
 
@@ -1608,6 +1615,7 @@ More info: https://unifaast.gov.ph/tes.html"
                         applyButton.textContent = 'UNAVAILABLE';
                         applyButton.setAttribute('aria-disabled', 'true');
                         applyButton.setAttribute('href', 'javascript:void(0);');
+                        applyButton.tabIndex = -1;
                     }
                     return;
                 }

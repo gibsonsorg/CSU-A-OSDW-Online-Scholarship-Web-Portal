@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ApprovedGranteesExport;
+use App\Mail\ApplicationFinalRejectionMail;
 use App\Mail\ApplicationStatusMail;
 use App\Mail\ApplicationSectionStatusMail;
 use App\Mail\ApprovalMail;
@@ -11,6 +12,8 @@ use App\Models\Application;
 use App\Models\Scholarship;
 use App\Models\StudentProfile;
 use App\Models\User;
+use App\Support\ApplicationSectionStatusSummary;
+use App\Support\CourseCollegeDepartment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -101,10 +104,19 @@ class AdminController extends Controller
     {
         $recentApplications = $this->filteredApplications($request, 'academic');
         $scholarshipNames = $this->scholarshipNames('academic');
+        $academicScholarshipCatalog = Scholarship::where('type', 'academic')
+            ->orderBy('name')
+            ->get(['name', 'funding_type'])
+            ->map(fn (Scholarship $scholarship) => [
+                'name' => $scholarship->name,
+                'funding_type' => $scholarship->funding_type,
+            ])
+            ->values()
+            ->all();
         $filterType = 'academic';
         $stats = $this->buildDashboardStats();
 
-        return view('admin.welcome', compact('recentApplications', 'scholarshipNames', 'filterType', 'stats'));
+        return view('admin.welcome', compact('recentApplications', 'scholarshipNames', 'academicScholarshipCatalog', 'filterType', 'stats'));
     }
 
     /**
@@ -114,10 +126,19 @@ class AdminController extends Controller
     {
         $recentApplications = $this->filteredApplications($request, 'non-academic');
         $scholarshipNames = $this->scholarshipNames('non-academic');
+        $nonAcademicScholarshipCatalog = Scholarship::where('type', 'non-academic')
+            ->orderBy('name')
+            ->get(['name', 'funding_type'])
+            ->map(fn (Scholarship $scholarship) => [
+                'name' => $scholarship->name,
+                'funding_type' => $scholarship->funding_type,
+            ])
+            ->values()
+            ->all();
         $filterType = 'non-academic';
         $stats = $this->buildDashboardStats();
 
-        return view('admin.welcome', compact('recentApplications', 'scholarshipNames', 'filterType', 'stats'));
+        return view('admin.welcome', compact('recentApplications', 'scholarshipNames', 'nonAcademicScholarshipCatalog', 'filterType', 'stats'));
     }
 
     private function buildDashboardStats(): array
@@ -186,7 +207,15 @@ class AdminController extends Controller
             })
             ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id')
             ->leftJoin('scholarships', 'scholarships.id', '=', 'applications.scholarship_id')
-            ->select('student_profiles.*', 'scholarships.type as scholarship_category_type', 'scholarships.funding_type as scholarship_funding_type');
+            ->leftJoin('scholarships as profile_scholarships', function ($join) {
+                $join->on('profile_scholarships.name', '=', 'student_profiles.scholarship_name')
+                    ->on('profile_scholarships.type', '=', 'student_profiles.grant_type');
+            })
+            ->select(
+                'student_profiles.*',
+                'scholarships.type as scholarship_category_type',
+                DB::raw('COALESCE(scholarships.funding_type, profile_scholarships.funding_type) as scholarship_funding_type')
+            );
 
         $createdAtDirection = $scholarshipName !== '' ? 'ASC' : 'DESC';
         $query->orderByRaw('COALESCE(applications.created_at, student_profiles.created_at) ' . $createdAtDirection)
@@ -314,7 +343,7 @@ class AdminController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
         }
 
-        $this->syncOverallStatus($application);
+        $transitionedToApproved = $this->syncOverallStatus($application, false);
         if ($application->application_status !== 'approved') {
             return response()->json([
                 'status' => 'error',
@@ -322,21 +351,8 @@ class AdminController extends Controller
             ], 422);
         }
 
-        try {
-            $user = $application->user()->first();
-            if ($user) {
-                Mail::to($user->email)->send(new ApplicationStatusMail(
-                    $user->name ?? $application->first_name . ' ' . $application->last_name,
-                    $application->scholarship_name ?? 'Scholarship',
-                    'approved'
-                ));
-            }
-        } catch (\Throwable $e) {
-            Log::error('Application approval notification failed', ['application_id' => $id, 'exception' => $e]);
-            return response()->json([
-                'status' => 'ok',
-                'message' => 'Application approved, but the notification could not be queued.',
-            ]);
+        if ($transitionedToApproved) {
+            $this->queueApplicationApprovalNotification($application);
         }
 
         return response()->json(['status' => 'ok', 'message' => 'Application approved']);
@@ -384,22 +400,13 @@ class AdminController extends Controller
 
             $this->syncApplicationRecord($application, 'rejected');
 
-            try {
-                $user = $application->user()->first();
-                if ($user) {
-                    Mail::to($user->email)->send(new ApplicationStatusMail(
-                        $user->name ?? $application->first_name . ' ' . $application->last_name,
-                        $application->scholarship_name ?? 'Scholarship',
-                        'rejected'
-                    ));
-                }
-            } catch (\Throwable $e) {
-                Log::error('Application rejection notification failed', ['application_id' => $id, 'exception' => $e]);
-                return response()->json([
-                    'status' => 'ok',
-                    'message' => 'Application rejected, but the notification could not be queued.',
-                ]);
-            }
+            $this->notifyApplicationRejection($application, function ($user) use ($application) {
+                Mail::to($user->email)->send(new ApplicationStatusMail(
+                    $user->name ?? $application->first_name . ' ' . $application->last_name,
+                    $application->scholarship_name ?? 'Scholarship',
+                    'rejected'
+                ));
+            });
 
             return response()->json(['status' => 'ok', 'message' => 'Application rejected']);
         }
@@ -413,12 +420,16 @@ class AdminController extends Controller
         if ($section === 'family-background' && $application->grant_type !== 'non-academic') {
             abort(404);
         }
+        $hadPendingSections = $this->hasPendingRequiredSections($application);
 
         $application->forceFill([
             $fields['status'] => 'approved',
             $fields['reason'] => null,
         ])->save();
         $this->syncOverallStatus($application);
+        if ($this->completedRejectedReviewRound($application, $hadPendingSections)) {
+            $this->queueCompletedRejectedReviewNotification($application);
+        }
 
         return response()->json(['status' => 'ok', 'message' => $fields['label'] . ' approved']);
     }
@@ -434,6 +445,7 @@ class AdminController extends Controller
         if ($reason === '') {
             return response()->json(['status' => 'error', 'message' => 'A rejection reason is required.'], 422);
         }
+        $hadPendingSections = $this->hasPendingRequiredSections($application);
 
         $application->forceFill([
             $fields['status'] => 'rejected',
@@ -441,13 +453,11 @@ class AdminController extends Controller
         ])->save();
         $this->syncOverallStatus($application);
 
-        if ($application->user?->email) {
-            Mail::to($application->user->email)->queue(new ApplicationSectionStatusMail(
-                $application->user->name ?: trim($application->first_name . ' ' . $application->last_name),
-                $fields['label'],
-                $reason,
-            ));
-        }
+        $this->notifyApplicationRejection($application, function () use ($application, $hadPendingSections) {
+            if ($this->completedRejectedReviewRound($application, $hadPendingSections)) {
+                $this->queueCompletedRejectedReviewNotification($application);
+            }
+        });
 
         return response()->json(['status' => 'ok', 'message' => $fields['label'] . ' rejected']);
     }
@@ -505,6 +515,7 @@ class AdminController extends Controller
         if (!is_array($files) || !isset($files[$index]) || !is_string($files[$index])) {
             abort(404);
         }
+        $hadPendingSections = $this->hasPendingRequiredSections($application);
 
         $reviewColumn = $this->documentReviewColumn();
         $reviews = $application->{$reviewColumn} ?? [];
@@ -530,16 +541,64 @@ class AdminController extends Controller
 
         $this->syncOverallStatus($application);
 
-        if ($status === 'rejected' && $application->user?->email) {
-            Mail::to($application->user->email)->queue(new ApplicationSectionStatusMail(
-                $application->user->name ?: trim($application->first_name . ' ' . $application->last_name),
-                'Scholarship & Requirements',
-                $reason ?? '',
-                ucwords(str_replace(['_', '-'], ' ', $group)),
-            ));
+        if ($status === 'rejected') {
+            $this->notifyApplicationRejection($application, function () use ($application, $hadPendingSections) {
+                if ($this->completedRejectedReviewRound($application, $hadPendingSections)) {
+                    $this->queueCompletedRejectedReviewNotification($application);
+                }
+            });
+        } elseif ($this->completedRejectedReviewRound($application, $hadPendingSections)) {
+            $this->queueCompletedRejectedReviewNotification($application);
         }
 
         return response()->json(['status' => 'ok', 'message' => 'Document ' . $status]);
+    }
+
+    private function hasPendingRequiredSections(StudentProfile $application): bool
+    {
+        $statuses = [
+            $application->student_information_status,
+            $application->personal_information_status,
+            $application->scholarship_requirements_status,
+        ];
+        if ($application->grant_type === 'non-academic') {
+            $statuses[] = $application->family_background_status;
+        }
+
+        return count(array_filter($statuses, fn ($status) => !in_array($status, ['approved', 'rejected'], true))) > 0;
+    }
+
+    private function completedRejectedReviewRound(StudentProfile $application, bool $hadPendingSections): bool
+    {
+        return $hadPendingSections
+            && !$this->hasPendingRequiredSections($application)
+            && ApplicationSectionStatusSummary::for($application)['rejected_count'] > 0;
+    }
+
+    private function queueCompletedRejectedReviewNotification(StudentProfile $application): void
+    {
+        if (!$application->user_id || $application->source === 'manual' || $application->locked_at) {
+            return;
+        }
+
+        try {
+            $user = $application->user;
+            if (!$user || !$user->email) {
+                return;
+            }
+
+            $summary = ApplicationSectionStatusSummary::for($application);
+            Mail::to($user->email)->queue(new ApplicationSectionStatusMail(
+                $application->first_name ?: Str::before((string) $user->name, ' '),
+                $application->scholarship_name ?? 'Scholarship',
+                $summary['sections'],
+            ));
+        } catch (\Throwable $e) {
+            Log::error('Application rejection notification failed', [
+                'application_id' => $application->id,
+                'exception' => $e,
+            ]);
+        }
     }
 
     private function documentReviewColumn(): string
@@ -547,6 +606,46 @@ class AdminController extends Controller
         return Schema::hasColumn('student_profiles', 'document_review')
             ? 'document_review'
             : 'document_reviews';
+    }
+
+    private function notifyApplicationRejection(StudentProfile $application, callable $sendNormalMail): void
+    {
+        if (!$application->user_id || $application->source === 'manual') {
+            return;
+        }
+
+        $reapplyCount = (int) StudentProfile::whereKey($application->id)->value('reapply_count');
+        if ($reapplyCount >= 1) {
+            $lockedAt = now();
+            $claimedLock = StudentProfile::whereKey($application->id)
+                ->whereNull('locked_at')
+                ->where('reapply_count', '>=', 1)
+                ->update(['locked_at' => $lockedAt]);
+            if ($claimedLock === 0) {
+                return;
+            }
+        }
+
+        try {
+            $user = $application->user;
+            if (!$user || !$user->email) {
+                return;
+            }
+
+            if ($reapplyCount >= 1) {
+                Mail::to($user->email)->queue(new ApplicationFinalRejectionMail(
+                    $user->name ?: trim($application->first_name . ' ' . $application->last_name),
+                    $application->scholarship_name ?? 'Scholarship',
+                ));
+            } else {
+                $sendNormalMail($user);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Application rejection notification failed', [
+                'application_id' => $application->id,
+                'exception' => $e,
+            ]);
+        }
     }
 
     private function allDocumentsApproved($uploads, array $reviews): bool
@@ -569,8 +668,34 @@ class AdminController extends Controller
             ->count() === $documentCount;
     }
 
-    private function syncOverallStatus(StudentProfile $application): void
+    private function queueApplicationApprovalNotification(StudentProfile $application): void
     {
+        if (!$application->user_id || $application->source === 'manual') {
+            return;
+        }
+
+        try {
+            $user = $application->user()->first();
+            if (!$user?->email) {
+                return;
+            }
+
+            Mail::to($user->email)->queue(new ApplicationStatusMail(
+                $user->name ?? trim($application->first_name . ' ' . $application->last_name),
+                $application->scholarship_name ?? 'Scholarship',
+                'approved'
+            ));
+        } catch (\Throwable $e) {
+            Log::error('Application approval notification failed', [
+                'application_id' => $application->id,
+                'exception' => $e,
+            ]);
+        }
+    }
+
+    private function syncOverallStatus(StudentProfile $application, bool $notifyOnApproval = true): bool
+    {
+        $wasApproved = $application->application_status === 'approved';
         $statuses = [
             $application->student_information_status,
             $application->personal_information_status,
@@ -593,6 +718,13 @@ class AdminController extends Controller
         }
 
         $this->syncApplicationRecord($application, $overallStatus);
+
+        $transitionedToApproved = !$wasApproved && $overallStatus === 'approved';
+        if ($transitionedToApproved && $notifyOnApproval) {
+            $this->queueApplicationApprovalNotification($application);
+        }
+
+        return $transitionedToApproved;
     }
 
     /**
@@ -799,6 +931,106 @@ class AdminController extends Controller
             'year_level' => $validated['year_level'],
             'scholarship_name' => $validated['scholarship_name'],
             'scholarship_type' => $validated['grant_type'] === 'academic' ? 'Academic' : 'Non-Academic',
+            'application_status' => $validated['application_status'],
+        ]);
+        $profile->forceFill(['created_at' => $validated['date'] . ' 00:00:00'])->save();
+
+        return response()->json(['status' => 'ok', 'data' => $profile->fresh()]);
+    }
+
+    public function academicManualApplicantCollegeDepartment(Request $request)
+    {
+        $validated = $request->validate([
+            'course' => ['required', Rule::in(CourseCollegeDepartment::courses())],
+        ]);
+
+        return response()->json([
+            'college_department' => CourseCollegeDepartment::forCourse($validated['course']),
+        ]);
+    }
+
+    public function storeAcademicManualApplicant(Request $request)
+    {
+        return $this->storeStructuredManualApplicant($request, 'academic');
+    }
+
+    public function storeNonAcademicManualApplicant(Request $request)
+    {
+        return $this->storeStructuredManualApplicant($request, 'non-academic');
+    }
+
+    private function storeStructuredManualApplicant(Request $request, string $grantType)
+    {
+        $validated = $request->validate($this->structuredManualApplicantRules($grantType));
+        $profile = StudentProfile::create([
+            'source' => 'manual',
+            'grant_type' => $grantType,
+            'last_name' => $validated['last_name'],
+            'first_name' => $validated['first_name'],
+            'middle_name' => $validated['middle_name'] ?? null,
+            'suffix' => $validated['suffix'] ?? null,
+            'sex' => $validated['sex'],
+            'status' => 'Single',
+            'email' => 'manual-' . Str::uuid() . '@local.invalid',
+            'course' => $validated['course'],
+            'college_department' => CourseCollegeDepartment::forCourse($validated['course']),
+            'campus' => 'Aparri',
+            'year_level' => $validated['year_level'],
+            'scholarship_name' => $validated['scholarship_name'],
+            'scholarship_type' => $grantType === 'academic' ? 'Academic' : 'Non-Academic',
+            'application_status' => $validated['application_status'],
+        ]);
+        $profile->forceFill(['created_at' => $validated['date'] . ' 00:00:00'])->save();
+
+        return response()->json(['status' => 'ok', 'data' => $profile->fresh()]);
+    }
+
+    private function structuredManualApplicantRules(string $grantType): array
+    {
+        return [
+            'last_name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'suffix' => ['nullable', 'string', 'max:50'],
+            'sex' => ['required', Rule::in(['Male', 'Female'])],
+            'course' => ['required', Rule::in(CourseCollegeDepartment::courses())],
+            'year_level' => ['required', Rule::in(['1st Year', '2nd Year', '3rd Year', '4th Year'])],
+            'scholarship_name' => ['required', 'string', Rule::in($this->canonicalScholarshipNames($grantType))],
+            'date' => ['required', 'date'],
+            'application_status' => ['required', Rule::in(['pending', 'approved', 'rejected'])],
+        ];
+    }
+
+    public function updateAcademicManualApplicant(Request $request, $id)
+    {
+        return $this->updateStructuredManualApplicant($request, $id, 'academic');
+    }
+
+    public function updateNonAcademicManualApplicant(Request $request, $id)
+    {
+        return $this->updateStructuredManualApplicant($request, $id, 'non-academic');
+    }
+
+    private function updateStructuredManualApplicant(Request $request, $id, string $grantType)
+    {
+        $profile = StudentProfile::where('source', 'manual')
+            ->where('grant_type', $grantType)
+            ->findOrFail($id);
+        $validated = $request->validate($this->structuredManualApplicantRules($grantType));
+
+        $profile->fill([
+            'grant_type' => $grantType,
+            'last_name' => $validated['last_name'],
+            'first_name' => $validated['first_name'],
+            'middle_name' => $validated['middle_name'] ?? null,
+            'suffix' => $validated['suffix'] ?? null,
+            'sex' => $validated['sex'],
+            'course' => $validated['course'],
+            'college_department' => CourseCollegeDepartment::forCourse($validated['course']),
+            'campus' => 'Aparri',
+            'year_level' => $validated['year_level'],
+            'scholarship_name' => $validated['scholarship_name'],
+            'scholarship_type' => $grantType === 'academic' ? 'Academic' : 'Non-Academic',
             'application_status' => $validated['application_status'],
         ]);
         $profile->forceFill(['created_at' => $validated['date'] . ' 00:00:00'])->save();

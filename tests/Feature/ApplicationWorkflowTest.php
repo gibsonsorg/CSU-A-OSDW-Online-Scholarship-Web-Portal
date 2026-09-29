@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Application;
+use App\Mail\ApplicationFinalRejectionMail;
+use App\Mail\ApplicationSectionStatusMail;
 use App\Models\Scholarship;
 use App\Models\StudentProfile;
 use App\Models\User;
@@ -1139,8 +1141,9 @@ class ApplicationWorkflowTest extends TestCase
         $this->assertSame('pending', $fresh->{$documentReviewColumn}['uploads.0']['status']);
     }
 
-    public function test_rejected_document_replacement_updates_current_file_and_resets_status_to_pending(): void
+    public function test_second_document_rejection_locks_reapplication_but_admin_can_still_approve(): void
     {
+        Mail::fake();
         Storage::fake('local');
         $student = User::factory()->approved()->create();
         $scholarship = Scholarship::create(['name' => 'Resubmission Scholarship', 'type' => 'academic']);
@@ -1221,6 +1224,8 @@ class ApplicationWorkflowTest extends TestCase
         ])->assertOk();
 
         $secondResponse = $this->actingAs($student)->post('/student-profiles', [
+            'student_profile_id' => $profile->id,
+            'application_id' => $application->id,
             'first_name' => 'Test',
             'last_name' => 'Student',
             'sex' => 'Female',
@@ -1239,21 +1244,23 @@ class ApplicationWorkflowTest extends TestCase
             'uploads' => [UploadedFile::fake()->create('second-grades.pdf', 10, 'application/pdf')],
         ]);
 
-        $secondResponse->assertRedirect(route('dashboard', ['section' => 'acad'], absolute: false));
-        $secondFresh = $profile->fresh();
-        $this->assertNotSame($fresh->uploads['certificate_of_grades'][0], $secondFresh->uploads['certificate_of_grades'][0]);
-        $this->assertSame('pending', $secondFresh->{$documentReviewColumn}['certificate_of_grades.0']['status']);
-        $this->assertNull($secondFresh->{$documentReviewColumn}['certificate_of_grades.0']['reason']);
-        $this->assertSame('pending', $secondFresh->scholarship_requirements_status);
-        $this->assertSame('pending', $secondFresh->application_status);
+        $secondResponse->assertRedirect(route('dashboard', ['section' => 'acad'], absolute: false))
+            ->assertSessionHas('error', "You've reached the maximum number of applications for this scholarship.");
+        $locked = $profile->fresh();
+        $this->assertSame(1, (int) $locked->reapply_count);
+        $this->assertNotNull($locked->locked_at);
+        $this->assertSame($fresh->uploads['certificate_of_grades'][0], $locked->uploads['certificate_of_grades'][0]);
+        $this->assertSame('rejected', $locked->{$documentReviewColumn}['certificate_of_grades.0']['status']);
+        $this->assertCount(1, Mail::queued(ApplicationFinalRejectionMail::class));
+        Mail::assertNotQueued(ApplicationSectionStatusMail::class);
 
-        $adminSecondView = $this->actingAs($admin)->getJson('/admin/applications/' . $secondFresh->id);
+        $adminSecondView = $this->actingAs($admin)->getJson('/admin/applications/' . $locked->id);
         $adminSecondView->assertOk();
-        $adminSecondView->assertJsonPath('uploads.certificate_of_grades.0', $secondFresh->uploads['certificate_of_grades'][0]);
+        $adminSecondView->assertJsonPath('uploads.certificate_of_grades.0', $locked->uploads['certificate_of_grades'][0]);
         $adminSecondReviews = $adminSecondView->json($documentReviewColumn);
-        $this->assertSame('pending', $adminSecondReviews['certificate_of_grades.0']['status']);
+        $this->assertSame('rejected', $adminSecondReviews['certificate_of_grades.0']['status']);
 
-        $this->actingAs($admin)->postJson('/admin/applications/' . $secondFresh->id . '/documents/certificate_of_grades/0/approve')
+        $this->actingAs($admin)->postJson('/admin/applications/' . $locked->id . '/documents/certificate_of_grades/0/approve')
             ->assertOk();
 
         $approved = $profile->fresh();
@@ -1262,12 +1269,13 @@ class ApplicationWorkflowTest extends TestCase
         $this->assertSame('approved', $approved->scholarship_requirements_status);
         $this->assertSame('approved', $approved->application_status);
         $this->assertSame('approved', $application->fresh()->status);
+        $this->assertNotNull($approved->locked_at);
 
         $adminDashboard = $this->actingAs($admin)->get('/admin/academic');
         $adminDashboard->assertOk()->assertSee('Approved');
 
         $studentDashboard = $this->actingAs($student)->get('/dashboard');
-        $studentDashboard->assertOk()->assertSee('Your application for this scholarship is approved');
+        $studentDashboard->assertOk()->assertSee('maximum number of applications for this scholarship.');
     }
 
     public function test_legacy_upload_group_replacement_keeps_current_file_and_clears_rejected_status(): void

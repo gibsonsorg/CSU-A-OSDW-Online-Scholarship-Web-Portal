@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Mail\ApplicationSectionStatusMail;
+use App\Mail\ApplicationStatusMail;
 use App\Models\Application;
 use App\Models\Scholarship;
 use App\Models\StudentProfile;
 use App\Models\User;
+use App\Support\ApplicationSectionStatusSummary;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -56,12 +59,213 @@ class ApplicationSectionReviewTest extends TestCase
         $documentReviews = $fresh->document_review ?? $fresh->document_reviews;
         $this->assertSame('approved', $documentReviews['certificate_of_grades.0']['status']);
         Mail::assertQueued(ApplicationSectionStatusMail::class, function (ApplicationSectionStatusMail $mail): bool {
-            return $mail->section === 'Personal Information' && $mail->documentName === null;
+            return $mail->firstName === 'Jane'
+                && $mail->scholarshipName === 'Merit Scholarship'
+                && $mail->sections === [
+                    ['label' => 'Student Information', 'status' => 'Approved', 'reason' => null],
+                    ['label' => 'Personal Information', 'status' => 'Rejected', 'reason' => 'Contact number needs correction.'],
+                    ['label' => 'Scholarship & Requirements', 'status' => 'Approved', 'reason' => null],
+                ];
+        });
+        $mail = Mail::queued(ApplicationSectionStatusMail::class)->first();
+        $this->assertSame(ApplicationSectionStatusSummary::for($fresh)['sections'], $mail->sections);
+        $this->assertSame('Update on Your Scholarship Application — Merit Scholarship', $mail->build()->subject);
+        $this->assertStringContainsString('Overall Status: Rejected (1 of 3 sections need your attention)', $mail->render());
+        $this->assertStringContainsString('Reason: Contact number needs correction.', $mail->render());
+    }
+
+    public function test_each_academic_rejection_sends_a_fresh_full_status_snapshot(): void
+    {
+        Mail::fake();
+        $student = User::factory()->approved()->create(['name' => 'Avery Student']);
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $profile = $this->makeStatusReviewProfile($student, 'academic');
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/student-information/reject", [
+            'reason' => 'Correct your contact number.',
+        ])->assertOk();
+        $this->assertCount(0, Mail::queued(ApplicationSectionStatusMail::class));
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/personal-information/approve")
+            ->assertOk();
+        $this->assertCount(0, Mail::queued(ApplicationSectionStatusMail::class));
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/scholarship-requirements/reject", [
+            'reason' => 'Upload the missing certificate.',
+        ])->assertOk();
+        $this->assertCount(1, Mail::queued(ApplicationSectionStatusMail::class));
+        $mail = Mail::queued(ApplicationSectionStatusMail::class)->first();
+        $this->assertSame(['Rejected', 'Approved', 'Rejected'], array_column($mail->sections, 'status'));
+        $this->assertSame('Correct your contact number.', $mail->sections[0]['reason']);
+        $this->assertSame('Upload the missing certificate.', $mail->sections[2]['reason']);
+        $this->assertStringContainsString('2 of 3 sections need your attention', $mail->render());
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/student-information/reject", [
+            'reason' => 'Updated reason after completion.',
+        ])->assertOk();
+        $this->assertCount(1, Mail::queued(ApplicationSectionStatusMail::class));
+
+        $profile->fresh()->forceFill([
+            'student_information_status' => 'pending',
+            'student_information_reason' => null,
+        ])->save();
+        $this->assertSame('pending', $profile->fresh()->student_information_status);
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/student-information/reject", [
+            'reason' => 'Updated after reopening.',
+        ])->assertOk();
+        $this->assertSame('rejected', $profile->fresh()->student_information_status);
+        $this->assertCount(2, Mail::queued(ApplicationSectionStatusMail::class));
+    }
+
+    public function test_completed_rejection_mail_failure_does_not_fail_the_admin_action(): void
+    {
+        $student = User::factory()->approved()->create(['name' => 'Failure Test Student']);
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $profile = $this->makeStatusReviewProfile($student, 'academic', [
+            'personal_information_status' => 'approved',
+            'scholarship_requirements_status' => 'approved',
+        ]);
+        Mail::shouldReceive('to')->once()->with($student->email)->andThrow(new \RuntimeException('Queue unavailable.'));
+        Log::shouldReceive('error')->once()->with('Application rejection notification failed', \Mockery::type('array'));
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/student-information/reject", [
+            'reason' => 'Correct the student information.',
+        ])->assertOk();
+
+        $this->assertSame('rejected', $profile->fresh()->student_information_status);
+    }
+
+    public function test_non_academic_review_sends_once_after_all_four_sections_are_decided(): void
+    {
+        Mail::fake();
+        $student = User::factory()->approved()->create(['name' => 'Non-Academic Student']);
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $profile = $this->makeStatusReviewProfile($student, 'non-academic');
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/student-information/reject", [
+            'reason' => 'Correct student information.',
+        ])->assertOk();
+        $this->assertCount(0, Mail::queued(ApplicationSectionStatusMail::class));
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/personal-information/approve")
+            ->assertOk();
+        $this->assertCount(0, Mail::queued(ApplicationSectionStatusMail::class));
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/family-background/reject", [
+            'reason' => 'Clarify family details.',
+        ])->assertOk();
+        $this->assertCount(0, Mail::queued(ApplicationSectionStatusMail::class));
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/scholarship-requirements/approve")
+            ->assertOk();
+
+        $this->assertCount(1, Mail::queued(ApplicationSectionStatusMail::class));
+        $mail = Mail::queued(ApplicationSectionStatusMail::class)->first();
+        $this->assertSame(['Rejected', 'Approved', 'Rejected', 'Approved'], array_column($mail->sections, 'status'));
+        $this->assertStringContainsString('2 of 4 sections need your attention', $mail->render());
+    }
+
+    public function test_document_rejection_uses_the_updated_requirements_status_in_combined_email(): void
+    {
+        Mail::fake();
+        $student = User::factory()->approved()->create(['name' => 'Document Student']);
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $profile = $this->makeStatusReviewProfile($student, 'academic', [
+            'uploads' => ['certificate_of_grades' => ['student_profiles/grades.pdf']],
+        ]);
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/documents/certificate_of_grades/0/reject", [
+            'reason' => 'The uploaded document is unreadable.',
+        ])->assertOk();
+        $this->assertCount(0, Mail::queued(ApplicationSectionStatusMail::class));
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/student-information/approve")
+            ->assertOk();
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/personal-information/approve")
+            ->assertOk();
+
+        $this->assertSame('rejected', $profile->fresh()->scholarship_requirements_status);
+        $this->assertCount(1, Mail::queued(ApplicationSectionStatusMail::class));
+        $mail = Mail::queued(ApplicationSectionStatusMail::class)->first();
+        $this->assertSame('Rejected', $mail->sections[2]['status']);
+        $this->assertSame('The uploaded document is unreadable.', $mail->sections[2]['reason']);
+        $this->assertStringContainsString('1 of 3 sections need your attention', $mail->render());
+    }
+
+    public function test_approval_and_manual_applicant_rejection_send_no_combined_email(): void
+    {
+        Mail::fake();
+        $student = User::factory()->approved()->create(['name' => 'Regular Student']);
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $profile = $this->makeStatusReviewProfile($student, 'academic');
+        $manualProfile = $this->makeStatusReviewProfile($student, 'academic', [
+            'user_id' => null,
+            'source' => 'manual',
+            'email' => 'manual-applicant@example.test',
+        ]);
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/student-information/approve")
+            ->assertOk();
+        $this->actingAs($admin)->postJson("/admin/applications/{$manualProfile->id}/sections/student-information/reject", [
+            'reason' => 'Correct the information.',
+        ])->assertOk();
+        $this->actingAs($admin)->postJson("/admin/applications/{$manualProfile->id}/sections/personal-information/approve")
+            ->assertOk();
+        $this->actingAs($admin)->postJson("/admin/applications/{$manualProfile->id}/sections/scholarship-requirements/reject", [
+            'reason' => 'Correct the requirements.',
+        ])->assertOk();
+
+        Mail::assertNothingQueued();
+    }
+
+    public function test_application_status_page_uses_shared_section_summary_for_both_grant_types_and_all_statuses(): void
+    {
+        $student = User::factory()->approved()->create(['name' => 'Status Page Student']);
+        $definitions = [
+            ['grant_type' => 'academic', 'application_status' => 'pending', 'student_information_status' => 'approved'],
+            ['grant_type' => 'academic', 'application_status' => 'approved', 'student_information_status' => 'approved', 'personal_information_status' => 'approved', 'scholarship_requirements_status' => 'approved'],
+            ['grant_type' => 'academic', 'application_status' => 'rejected', 'student_information_status' => 'rejected', 'student_information_reason' => 'Correct the student number.', 'personal_information_status' => 'approved', 'scholarship_requirements_status' => 'rejected', 'scholarship_requirements_reason' => 'Replace the certificate.'],
+            ['grant_type' => 'non-academic', 'application_status' => 'pending', 'student_information_status' => 'approved', 'personal_information_status' => 'rejected', 'personal_information_reason' => 'Clarify your address.'],
+            ['grant_type' => 'non-academic', 'application_status' => 'approved', 'student_information_status' => 'approved', 'personal_information_status' => 'approved', 'scholarship_requirements_status' => 'approved', 'family_background_status' => 'approved'],
+            ['grant_type' => 'non-academic', 'application_status' => 'rejected', 'student_information_status' => 'rejected', 'student_information_reason' => 'Correct the student number.', 'personal_information_status' => 'approved', 'scholarship_requirements_status' => 'rejected', 'scholarship_requirements_reason' => 'Replace the certificate.', 'family_background_status' => 'approved'],
+        ];
+
+        foreach ($definitions as $index => $definition) {
+            $grantType = $definition['grant_type'];
+            $attributes = array_merge([
+                'application_status' => $definition['application_status'],
+                'scholarship_name' => 'Status Page Award ' . $index,
+            ], $definition);
+            $this->makeStatusReviewProfile($student, $grantType, $attributes);
+        }
+
+        $response = $this->actingAs($student)->get(route('application-status'));
+        $response->assertOk()
+            ->assertSee('Pending — 1 of 3 sections reviewed')
+            ->assertSee('Approved — 3 of 3 sections approved')
+            ->assertSee('Rejected — 2 of 3 sections need attention')
+            ->assertSee('Pending — 2 of 4 sections reviewed')
+            ->assertSee('Approved — 4 of 4 sections approved')
+            ->assertSee('Rejected — 2 of 4 sections need attention')
+            ->assertSee('Family Background')
+            ->assertSee('Correct the student number.')
+            ->assertSee('Replace the certificate.');
+
+        $response->assertViewHas('academicApplications', function ($applications): bool {
+            return $applications->every(fn (StudentProfile $application): bool =>
+                $application->section_status_summary === ApplicationSectionStatusSummary::for($application)
+            );
+        });
+        $response->assertViewHas('nonAcademicApplications', function ($applications): bool {
+            return $applications->every(fn (StudentProfile $application): bool =>
+                $application->section_status_summary === ApplicationSectionStatusSummary::for($application)
+            );
         });
     }
 
     public function test_overall_application_is_approved_only_after_all_three_sections_are_approved(): void
     {
+        Mail::fake();
         $student = User::factory()->approved()->create(['name' => 'Final Approval Student']);
         $admin = User::factory()->approved()->create(['role' => 0]);
         $scholarship = Scholarship::create(['name' => 'Final Approval Scholarship', 'type' => 'academic']);
@@ -108,6 +312,8 @@ class ApplicationSectionReviewTest extends TestCase
         $this->assertSame('pending', $fresh->family_background_status);
         $this->assertSame('approved', $fresh->application_status);
         $this->assertSame('approved', $application->fresh()->status);
+        $this->assertCount(1, Mail::queued(ApplicationStatusMail::class));
+        Mail::assertNotQueued(ApplicationSectionStatusMail::class);
         $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/sections/family-background/approve")
             ->assertNotFound();
     }
@@ -152,6 +358,7 @@ class ApplicationSectionReviewTest extends TestCase
         $this->assertSame('Please clarify the family income details.', $rejected->family_background_reason);
         $this->assertSame('rejected', $rejected->application_status);
         $this->assertSame('rejected', $application->fresh()->status);
+        Mail::assertNotQueued(ApplicationSectionStatusMail::class);
 
         $this->actingAs($admin)->get('/admin/applications/' . $profile->id)
             ->assertOk()
@@ -170,6 +377,7 @@ class ApplicationSectionReviewTest extends TestCase
         $this->assertNull($approved->family_background_reason);
         $this->assertSame('approved', $approved->application_status);
         $this->assertSame('approved', $application->fresh()->status);
+        $this->assertCount(1, Mail::queued(ApplicationStatusMail::class));
     }
 
     public function test_summary_report_lists_only_approved_applicants_and_filters_across_types(): void
@@ -298,5 +506,27 @@ class ApplicationSectionReviewTest extends TestCase
         $this->assertSame('0.00', $otherType->fresh()->amount);
         $this->assertSame('0.00', $otherDate->fresh()->amount);
         $this->assertSame('0.00', $notApproved->fresh()->amount);
+    }
+
+    private function makeStatusReviewProfile(User $student, string $grantType, array $attributes = []): StudentProfile
+    {
+        return StudentProfile::create(array_merge([
+            'user_id' => $student->id,
+            'first_name' => 'Review',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'course' => 'BSIT',
+            'year_level' => '2nd Year',
+            'scholarship_name' => 'Status Review Award',
+            'scholarship_type' => $grantType === 'academic' ? 'Academic' : 'Non-Academic',
+            'grant_type' => $grantType,
+            'application_status' => 'pending',
+            'student_information_status' => 'pending',
+            'personal_information_status' => 'pending',
+            'scholarship_requirements_status' => 'pending',
+            'family_background_status' => 'pending',
+        ], $attributes));
     }
 }

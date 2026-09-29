@@ -886,6 +886,11 @@ tr:hover td {
     color: #6b0f1a;
 }
 
+#profileModal .academic-progress-step[hidden],
+#profileModal .academic-progress-line[hidden] {
+    display: none;
+}
+
 #profileModal .academic-progress-dot {
     width: 20px;
     height: 20px;
