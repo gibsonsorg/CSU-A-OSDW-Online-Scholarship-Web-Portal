@@ -132,5 +132,7 @@
                 @endif
             });
         </script>
+
+        @include('layouts.inactivity-logout')
     </body>
 </html>

@@ -230,7 +230,7 @@ body {
     align-items: center;
     gap: 4px;
     padding: 0;
-    color: var(--maroon-dark);
+    color: #fff;
     transition: all 0.3s ease;
     z-index: 400;
 }
@@ -242,23 +242,18 @@ body {
     background: currentColor;
     border-radius: 2px;
     transition: all 0.3s ease;
-    background-color: white;
+    background-color: #fff;
 }
 .sidebar-toggle.active {
     left: 18px;
-}
-.sidebar-toggle .arrow-icon {
-    display: none;
-    width: 20px;
-    height: 20px;
-    transition: all 0.3s ease;
+    color: #000;
 }
 
 .sidebar-toggle.active span {
-    display: none;
+    background-color: #000;
 }
 
-.sidebar-toggle.active .arrow-icon {
+.sidebar-toggle span {
     display: block;
 }
 
@@ -1714,6 +1709,102 @@ tr:hover td {
 .scholarship-management-pagination svg {
     width: 1rem;
     height: 1rem;
+}
+
+.admin-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+    margin-top: 16px;
+    padding: 14px 0 2px;
+    border-top: 1px solid #e8e5e2;
+    color: #6b5f55;
+}
+
+.admin-pagination__summary {
+    flex: 0 1 auto;
+    margin: 0;
+    color: #6b5f55;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.admin-pagination__controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.admin-pagination__link {
+    display: inline-flex;
+    min-width: 34px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 9px;
+    border: 1px solid #ded9d4;
+    border-radius: 7px;
+    background: #fff;
+    color: #4a403a;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.admin-pagination__page {
+    width: 34px;
+    padding: 0;
+}
+
+.admin-pagination__link:not(.is-disabled):not(.is-current):hover {
+    border-color: #b9a8a1;
+    background: #faf7f5;
+    color: #4a0a12;
+}
+
+.admin-pagination__link.is-current {
+    border-color: #6b0f1a;
+    background: #6b0f1a;
+    color: #fff;
+    font-weight: 600;
+}
+
+.admin-pagination__link.is-disabled {
+    border-color: #ebe8e5;
+    background: #f7f6f5;
+    color: #aaa39d;
+    cursor: not-allowed;
+}
+
+.admin-pagination__ellipsis {
+    display: inline-flex;
+    width: 24px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    color: #80766f;
+    font-size: 0.8rem;
+}
+
+@media (max-width: 760px) {
+    .admin-pagination {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .admin-pagination__controls {
+        justify-content: flex-start;
+        width: 100%;
+    }
 }
 
 @media (max-width: 760px) {

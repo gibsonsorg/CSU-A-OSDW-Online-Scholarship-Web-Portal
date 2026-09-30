@@ -178,7 +178,9 @@
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-button').forEach(tab => tab.classList.remove('active'));
             document.getElementById(tabName).classList.add('active');
-            button.classList.add('active');
+            if (button) {
+                button.classList.add('active');
+            }
         }
 
         function togglePassword(fieldId, button) {
@@ -187,6 +189,11 @@
             field.type = isVisible ? 'text' : 'password';
             button.setAttribute('aria-pressed', String(isVisible));
             button.setAttribute('aria-label', isVisible ? 'Hide password' : 'Show password');
+        }
+
+        if (new URLSearchParams(window.location.search).get('login_type') === 'admin') {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.getElementById('admin').classList.add('active');
         }
     </script>
 </body>

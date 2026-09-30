@@ -8,7 +8,6 @@ use App\Http\Controllers\BackupSettingsController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\ScholarshipController;
 use App\Models\StudentProfile;
-use App\Models\Application;
 use App\Models\Scholarship;
 use Illuminate\Support\Facades\Route;
 
@@ -27,8 +26,7 @@ Route::get('/', function () {
 Route::get('/dashboard', function () {
     $section = request()->query('section', 'acad');
     $appliedScholarships = [];
-    $activeAcademicApplications = 0;
-    $activeNonAcademicApplications = 0;
+    $activeApplications = 0;
 
     $scholarshipIdMap = [];
 
@@ -38,7 +36,7 @@ Route::get('/dashboard', function () {
             ->with('application:id,scholarship_id,created_at')
             ->orderByDesc('created_at')
             ->orderByDesc('application_id')
-            ->get(['id', 'scholarship_name', 'application_status', 'application_id', 'grant_type', 'reapply_count', 'locked_at', 'created_at'])
+            ->get(['id', 'scholarship_name', 'application_status', 'rejection_reason', 'application_id', 'grant_type', 'reapply_count', 'locked_at', 'created_at'])
             ->groupBy(fn ($profile) => $profile->grant_type . '|' . ($profile->application?->scholarship_id ?? $profile->scholarship_name))
             ->map(function ($records) {
                 $latest = $records->sortByDesc('created_at')->first();
@@ -51,51 +49,23 @@ Route::get('/dashboard', function () {
                     $profileQuery->where('scholarship_name', $latest->scholarship_name);
                 }
                 $profile = $profileQuery->orderByDesc('id')->first();
-                $documentReviews = $profile?->document_review ?? $profile?->document_reviews ?? [];
-                $hasRejectedDocument = collect($documentReviews)->contains(fn ($review) => ($review['status'] ?? null) === 'rejected');
-                $sectionStatuses = [
-                    $profile?->student_information_status,
-                    $profile?->personal_information_status,
-                    $profile?->scholarship_requirements_status,
-                ];
-                if ($profile?->grant_type === 'non-academic') {
-                    $sectionStatuses[] = $profile->family_background_status;
-                }
-                $hasRejectedSection = in_array('rejected', $sectionStatuses, true);
-
                 return [
                     'name' => trim($latest->scholarship_name),
                     'status' => $latest->application_status ?? 'pending',
+                    'rejection_reason' => $profile?->rejection_reason,
                     'scholarship_id' => $latest->application?->scholarship_id,
                     'grant_type' => $latest->grant_type,
                     'locked' => !is_null($profile?->locked_at),
-                    'reopen' => $hasRejectedSection || $hasRejectedDocument,
+                    'reopen' => $profile?->application_status === 'rejected' && is_null($profile?->locked_at),
                     'profile' => $profile,
                 ];
             })
             ->values()
             ->toArray();
 
-        $activeAcademicApplications = Application::where('applications.user_id', auth()->id())
-            ->join('scholarships', 'scholarships.id', '=', 'applications.scholarship_id')
-            ->leftJoin('student_profiles', function ($join) {
-                $join->on('student_profiles.application_id', '=', 'applications.id')
-                    ->whereNull('student_profiles.deleted_at');
-            })
-            ->where('scholarships.type', 'academic')
-            ->where(function ($query) {
-                $query->whereIn('applications.status', ['pending', 'approved'])
-                    ->orWhereNotNull('student_profiles.locked_at');
-            })
-            ->distinct('applications.id')
-            ->count();
-
-        $activeNonAcademicApplications = StudentProfile::where('user_id', auth()->id())
-            ->where('grant_type', 'non-academic')
-            ->where(function ($query) {
-                $query->whereIn('application_status', ['pending', 'approved'])
-                    ->orWhereNotNull('locked_at');
-            })
+        $activeApplications = StudentProfile::where('user_id', auth()->id())
+            ->whereIn('application_status', ['pending', 'approved'])
+            ->whereNull('locked_at')
             ->count();
     }
 
@@ -107,7 +77,7 @@ Route::get('/dashboard', function () {
         ->orderBy('name')
         ->get();
 
-    return view('student.dashboard', compact('appliedScholarships', 'activeAcademicApplications', 'activeNonAcademicApplications', 'academicScholarshipIdMap', 'nonAcademicScholarshipIdMap', 'dynamicScholarships'));
+    return view('student.dashboard', compact('appliedScholarships', 'activeApplications', 'academicScholarshipIdMap', 'nonAcademicScholarshipIdMap', 'dynamicScholarships'));
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::get('/application-status', [StudentProfileController::class, 'applicationStatus'])
@@ -166,10 +136,6 @@ Route::post('/admin/applications/{id}/approve', [AdminController::class, 'approv
 
 // Reject application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/reject', [AdminController::class, 'reject'])->middleware(['auth', 'admin']);
-Route::post('/admin/applications/{id}/sections/{section}/approve', [AdminController::class, 'approveSection'])->middleware(['auth', 'admin']);
-Route::post('/admin/applications/{id}/sections/{section}/reject', [AdminController::class, 'rejectSection'])->middleware(['auth', 'admin']);
-Route::post('/admin/applications/{id}/documents/{group}/{index}/approve', [AdminController::class, 'approveDocument'])->whereNumber('id')->whereNumber('index')->middleware(['auth', 'admin']);
-Route::post('/admin/applications/{id}/documents/{group}/{index}/reject', [AdminController::class, 'rejectDocument'])->whereNumber('id')->whereNumber('index')->middleware(['auth', 'admin']);
 
 // Update application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/update', [AdminController::class, 'update'])->middleware(['auth', 'admin']);

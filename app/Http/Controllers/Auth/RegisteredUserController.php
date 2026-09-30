@@ -7,6 +7,7 @@ use App\Mail\EmailVerificationCodeMail;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules;
@@ -31,11 +32,12 @@ class RegisteredUserController extends Controller
     {
         $request->validate([
             'email' => ['required', 'string', 'email', 'max:255'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'password' => ['required', 'string', 'confirmed', Rules\Password::min(8)->letters()->mixedCase()->numbers()->symbols()],
         ], [
             'email.required' => 'Email address is required',
             'email.email' => 'Please enter a valid email address',
             'password.confirmed' => 'Passwords do not match',
+            'password' => 'Password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a special character.',
         ]);
 
         $existingUser = User::withTrashed()->where('email', $request->email)->first();
@@ -136,12 +138,11 @@ class RegisteredUserController extends Controller
             'email_verification_attempts' => 0,
         ]);
 
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
         $request->session()->forget(['verification_user_id', 'verification_email']);
 
-        return redirect()->route('login')->with(
-            'verification_success',
-            'Email verified Successfully you can now login'
-        );
+        return redirect()->intended(route('dashboard', absolute: false));
     }
 
     public function resendCode(Request $request): RedirectResponse

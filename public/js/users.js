@@ -544,11 +544,12 @@ function prepareReapplication(title, modalType, scholarshipId) {
 
     const studentFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'student_id_number', 'id_number', 'course', 'college_department', 'year_level', 'program'];
     const personalFields = ['birthdate', 'birthplace', 'sex', 'status', 'religion', 'contact_number', 'home_address'];
+    const isWholeApplicationReopen = profile.application_status === 'rejected';
     const sectionStatus = {
-        student: profile.student_information_status,
-        personal: profile.personal_information_status,
-        requirements: profile.scholarship_requirements_status,
-        family: profile.family_background_status,
+        student: isWholeApplicationReopen ? 'rejected' : profile.student_information_status,
+        personal: isWholeApplicationReopen ? 'rejected' : profile.personal_information_status,
+        requirements: isWholeApplicationReopen ? 'rejected' : profile.scholarship_requirements_status,
+        family: isWholeApplicationReopen ? 'rejected' : profile.family_background_status,
     };
     const reviews = profile.document_review || profile.document_reviews || {};
     const rejectedGroups = new Set(Object.entries(reviews)
@@ -652,7 +653,8 @@ function prepareReapplication(title, modalType, scholarshipId) {
             : group === 'certificate_of_enrollment'
                 ? ['certificate_of_enrollment', 'enrollment']
                 : [group];
-        const visible = sectionStatus.requirements === 'rejected' && aliases.some(alias => rejectedGroups.has(alias));
+        const visible = isWholeApplicationReopen
+            || (sectionStatus.requirements === 'rejected' && aliases.some(alias => rejectedGroups.has(alias)));
         wrapper.dataset.reapplicationHidden = visible ? 'false' : 'true';
         wrapper.hidden = !visible;
         wrapper.querySelectorAll('input[type="file"]').forEach(input => {

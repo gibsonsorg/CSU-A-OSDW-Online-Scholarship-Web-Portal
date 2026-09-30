@@ -205,12 +205,9 @@ class AdminUserApprovalTest extends TestCase
 
         $response->assertOk()
             ->assertViewHas('stats', function ($stats) {
-                return $stats['total_grants'] === 2
-                    && $stats['grants_added_this_month'] === 1
+                return $stats['total_grants'] === 1
                     && $stats['total_applications'] === 3
-                    && $stats['applications_this_week'] >= 1
-                    && $stats['approved'] === 1
-                    && $stats['approval_rate'] === 33
+                    && $stats['pending_applications'] === 1
                     && $stats['registered_users'] === 2
                     && $stats['new_registered_this_month'] === 1;
             });

@@ -29,8 +29,8 @@ class RegistrationTest extends TestCase
 
         $response = $this->post('/register', [
             'email' => 'test.user@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'StrongP@ssword9',
+            'password_confirmation' => 'StrongP@ssword9',
         ]);
 
         $this->assertDatabaseHas('users', [
@@ -49,8 +49,8 @@ class RegistrationTest extends TestCase
 
         $response = $this->post('/register', [
             'email' => 'temporary.user@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'StrongP@ssword9',
+            'password_confirmation' => 'StrongP@ssword9',
         ]);
 
         $response->assertRedirect(route('login'));
@@ -66,17 +66,29 @@ class RegistrationTest extends TestCase
 
         $loginResponse = $this->post('/login', [
             'login_identifier' => 'temporary.user@example.com',
-            'password' => 'password',
+            'password' => 'StrongP@ssword9',
         ]);
 
         $loginResponse->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_registration_requires_a_strong_password(): void
+    {
+        $response = $this->post('/register', [
+            'email' => 'weak.password@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertSessionHasErrors(['password']);
+        $this->assertDatabaseMissing('users', ['email' => 'weak.password@example.com']);
     }
 
     public function test_registration_validation_is_preserved(): void
     {
         $response = $this->post('/register', [
             'email' => 'not-an-email',
-            'password' => 'password',
+            'password' => 'StrongP@ssword9',
             'password_confirmation' => 'different-password',
         ]);
 
@@ -93,8 +105,8 @@ class RegistrationTest extends TestCase
 
         $response = $this->post('/register', [
             'email' => 'approved.user@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'StrongP@ssword9',
+            'password_confirmation' => 'StrongP@ssword9',
         ]);
 
         $response->assertRedirect();
@@ -108,8 +120,8 @@ class RegistrationTest extends TestCase
 
         $this->post('/register', [
             'email' => 'test.user@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'StrongP@ssword9',
+            'password_confirmation' => 'StrongP@ssword9',
         ]);
 
         $mail = Mail::queued(EmailVerificationCodeMail::class)->first();
@@ -121,17 +133,12 @@ class RegistrationTest extends TestCase
             'verification_email' => $user->email,
         ])->post('/verify-code', ['verification_code' => $mail->code]);
 
-        $response->assertRedirect(route('login'));
-        $response->assertSessionHas('verification_success', 'Email verified Successfully you can now login');
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($user);
         $this->assertDatabaseHas('users', [
             'email' => 'test.user@example.com',
             'account_status' => 'approved',
         ]);
-
-        $this->withSession([
-            'verification_success' => 'Email verified Successfully you can now login',
-        ])->get('/login')
-            ->assertSee('Email verified Successfully you can now login');
     }
 
     public function test_verification_accepts_the_exact_code_and_preserves_a_leading_zero(): void
@@ -152,8 +159,8 @@ class RegistrationTest extends TestCase
         $response = $this->withSession(['verification_user_id' => $user->id, 'verification_email' => $user->email])
             ->post('/verify-code', ['verification_code' => '012345']);
 
-        $response->assertRedirect(route('login'));
-        $response->assertSessionHas('verification_success', 'Email verified Successfully you can now login');
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($user);
         $this->assertNotNull($user->fresh()->email_verified_at);
     }
 
@@ -175,8 +182,8 @@ class RegistrationTest extends TestCase
         $response = $this->withSession(['verification_user_id' => $user->id, 'verification_email' => $user->email])
             ->post(route('verification.submit'), ['verification_code' => '483921']);
 
-        $response->assertRedirect(route('login'));
-        $response->assertSessionHas('verification_success', 'Email verified Successfully you can now login');
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($user);
         $this->assertSame('approved', $user->fresh()->account_status);
     }
 

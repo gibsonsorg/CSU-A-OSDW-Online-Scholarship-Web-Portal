@@ -133,7 +133,7 @@ class ScholarshipApplicationLockTest extends TestCase
         $this->assertSame('rejected', $documentApplication->fresh()->status);
     }
 
-    public function test_locked_applications_count_toward_academic_and_non_academic_limits(): void
+    public function test_locked_applications_do_not_count_toward_the_combined_limit(): void
     {
         Mail::fake();
         Storage::fake('local');
@@ -154,11 +154,11 @@ class ScholarshipApplicationLockTest extends TestCase
                 ? $this->submitNewAcademic($student, $thirdScholarship)
                 : $this->submitNonAcademic($student, $thirdScholarship);
             $response->assertRedirect(route('dashboard', ['section' => $grantType === 'academic' ? 'acad' : 'non'], absolute: false))
-                ->assertSessionHas('error', "You already have two active applications in the {$grantType} category. Only two open applications per category are allowed.");
+                ->assertSessionDoesntHaveErrors();
 
             $dashboard = $this->actingAs($student)->get('/dashboard' . ($grantType === 'academic' ? '' : '?section=non'))->assertOk();
-            $counterName = $grantType === 'academic' ? 'activeAcademicApplications' : 'activeNonAcademicApplications';
-            $dashboard->assertViewHas($counterName, 2);
+            $dashboard->assertViewHas('activeApplications', 2)
+                ->assertSee("You\\'ve reached the maximum number of applications for this scholarship.", false);
             $dashboard->assertViewHas('appliedScholarships', function (array $items) use ($lockedScholarship, $grantType): bool {
                 $locked = collect($items)->first(fn (array $item) =>
                     (int) $item['scholarship_id'] === $lockedScholarship->id
@@ -171,6 +171,66 @@ class ScholarshipApplicationLockTest extends TestCase
             $this->assertSame('rejected', $lockedApplication->fresh()->status);
             $this->assertNotNull($lockedProfile->fresh()->locked_at);
         }
+    }
+
+    public function test_one_locked_application_leaves_two_slots_for_new_applications(): void
+    {
+        Storage::fake('local');
+        [$student] = $this->makeUsers();
+        $lockedScholarship = $this->makeScholarship('Locked Slot Award', 'academic');
+        [, $lockedProfile] = $this->makeApplication($student, $lockedScholarship->name, 'academic', [
+            'application_status' => 'rejected',
+            'reapply_count' => 1,
+            'locked_at' => now(),
+        ], $lockedScholarship);
+        $firstNewScholarship = $this->makeScholarship('First Fresh Award', 'academic');
+        $secondNewScholarship = $this->makeScholarship('Second Fresh Award', 'non-academic');
+        $thirdNewScholarship = $this->makeScholarship('Third Fresh Award', 'non-academic');
+
+        $this->submitNewAcademic($student, $firstNewScholarship)->assertSessionDoesntHaveErrors();
+        $this->submitNonAcademic($student, $secondNewScholarship)->assertSessionDoesntHaveErrors();
+        $this->submitNonAcademic($student, $thirdNewScholarship)
+            ->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false))
+            ->assertSessionHas('error', 'You already have two active applications, so this scholarship is not available.');
+
+        $this->actingAs($student)->get('/dashboard?section=non')
+            ->assertOk()
+            ->assertViewHas('activeApplications', 2)
+            ->assertViewHas('appliedScholarships', function (array $items) use ($lockedScholarship): bool {
+                $locked = collect($items)->first(fn (array $item) => (int) $item['scholarship_id'] === $lockedScholarship->id);
+
+                return ($locked['locked'] ?? false) === true;
+            });
+
+        $this->assertNotNull($lockedProfile->fresh()->locked_at);
+    }
+
+    public function test_one_approved_and_one_locked_application_leave_one_slot(): void
+    {
+        Storage::fake('local');
+        [$student] = $this->makeUsers();
+        $approvedScholarship = $this->makeScholarship('Approved Slot Award', 'academic');
+        $lockedScholarship = $this->makeScholarship('Locked Slot Award Two', 'non-academic');
+        $this->makeApplication($student, $approvedScholarship->name, 'academic', [
+            'application_status' => 'approved',
+        ], $approvedScholarship);
+        [, $lockedProfile] = $this->makeApplication($student, $lockedScholarship->name, 'non-academic', [
+            'application_status' => 'rejected',
+            'reapply_count' => 1,
+            'locked_at' => now(),
+        ], $lockedScholarship);
+        $availableScholarship = $this->makeScholarship('Available Slot Award', 'non-academic');
+        $blockedScholarship = $this->makeScholarship('Blocked Slot Award', 'academic');
+
+        $this->submitNonAcademic($student, $availableScholarship)->assertSessionDoesntHaveErrors();
+        $this->submitNewAcademic($student, $blockedScholarship)
+            ->assertRedirect(route('dashboard', ['section' => 'acad'], absolute: false))
+            ->assertSessionHas('error', 'You already have two active applications, so this scholarship is not available.');
+
+        $this->actingAs($student)->get('/dashboard')
+            ->assertOk()
+            ->assertViewHas('activeApplications', 2);
+        $this->assertNotNull($lockedProfile->fresh()->locked_at);
     }
 
     public function test_admin_delete_removes_the_locked_application_and_allows_a_new_application(): void

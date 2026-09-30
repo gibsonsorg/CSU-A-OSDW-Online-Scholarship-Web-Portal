@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -50,29 +51,41 @@ class LoginRequest extends FormRequest
      */
     public function authenticate(): void
     {
-        $this->ensureIsNotRateLimited();
-
         $loginType = $this->input('login_type', 'student');
-        
+
+        if ($loginType === 'student') {
+            $this->ensureIsNotRateLimited();
+        }
+
         if ($loginType === 'admin') {
-            // Admin login using email
             if (! Auth::attempt(['email' => $this->input('email'), 'password' => $this->input('password')], $this->boolean('remember'))) {
-                RateLimiter::hit($this->throttleKey());
-
                 throw ValidationException::withMessages([
-                    'email' => 'Invalid email or password.',
+                    'email' => 'Your email or password is incorrect.',
                 ]);
             }
-        } else {
-            $identifier = $this->input('login_identifier') ?: ($this->input('email') ?: $this->input('student_id'));
-            $credentialField = str_contains($identifier, '@') ? 'email' : 'student_id';
-            if (! Auth::attempt([$credentialField => $identifier, 'password' => $this->input('password')], $this->boolean('remember'))) {
-                RateLimiter::hit($this->throttleKey());
 
+            return;
+        }
+
+        $identifier = $this->input('login_identifier') ?: ($this->input('email') ?: $this->input('student_id'));
+        $credentialField = str_contains((string) $identifier, '@') ? 'email' : 'student_id';
+
+        if (! Auth::attempt([$credentialField => $identifier, 'password' => $this->input('password')], $this->boolean('remember'))) {
+            RateLimiter::hit($this->throttleKey(), 600);
+
+            if (RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
                 throw ValidationException::withMessages([
-                    $credentialField => 'Invalid email or password.',
+                    'login_identifier' => $this->formatLockoutMessage(),
                 ]);
             }
+
+            $attemptCount = RateLimiter::attempts($this->throttleKey());
+            $message = $this->studentFailureMessage($identifier, $credentialField, $attemptCount);
+            $field = $this->studentFailureField($identifier, $credentialField);
+
+            throw ValidationException::withMessages([
+                $field => $message,
+            ]);
         }
 
         RateLimiter::clear($this->throttleKey());
@@ -85,20 +98,57 @@ class LoginRequest extends FormRequest
      */
     public function ensureIsNotRateLimited(): void
     {
+        if ($this->input('login_type', 'student') !== 'student') {
+            return;
+        }
+
         if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
             return;
         }
 
         event(new Lockout($this));
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
-
         throw ValidationException::withMessages([
-            'student_id' => trans('auth.throttle', [
-                'seconds' => $seconds,
-                'minutes' => ceil($seconds / 60),
-            ]),
+            'login_identifier' => $this->formatLockoutMessage(),
         ]);
+    }
+
+    protected function formatLockoutMessage(): string
+    {
+        $seconds = RateLimiter::availableIn($this->throttleKey());
+        $minutes = (int) ceil($seconds / 60);
+
+        if ($minutes >= 1) {
+            return sprintf('Too many failed login attempts. Please try again in %s minute%s.', $minutes, $minutes === 1 ? '' : 's');
+        }
+
+        return sprintf('Too many failed login attempts. Please try again in %s seconds.', $seconds);
+    }
+
+    protected function studentFailureField(string $identifier, string $credentialField): string
+    {
+        $user = User::where($credentialField, $identifier)->first();
+
+        if ($user) {
+            return 'password';
+        }
+
+        return 'login_identifier';
+    }
+
+    protected function studentFailureMessage(string $identifier, string $credentialField, int $attemptCount): string
+    {
+        $user = User::where($credentialField, $identifier)->first();
+        $message = $user ? 'The password you entered is incorrect.' : 'The email you entered is incorrect.';
+
+        if ($attemptCount < 3 || $attemptCount >= 5) {
+            return $message;
+        }
+
+        $remaining = 5 - $attemptCount;
+        $attemptLabel = $remaining === 1 ? 'attempt' : 'attempts';
+
+        return $message . ' You have ' . $remaining . ' ' . $attemptLabel . ' remaining before your account is temporarily locked.';
     }
 
     /**
@@ -106,7 +156,9 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->input('login_identifier', $this->input('email', $this->input('student_id', '')))).'|'.$this->ip());
+        $identifier = trim((string) ($this->input('login_identifier') ?: ($this->input('email') ?: $this->input('student_id', ''))));
+
+        return Str::transliterate(Str::lower($identifier)).'|'.$this->ip();
     }
 }
 

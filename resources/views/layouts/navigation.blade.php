@@ -35,7 +35,6 @@
     <span class="hamburger-icon"></span>
     <span class="hamburger-icon"></span>
     <span class="hamburger-icon"></span>
-    <img class="arrow-icon" src="{{ asset('images/arrow.svg') }}" alt="Arrow icon">
 </button>
 
 <style>
@@ -191,7 +190,7 @@
         align-items: center;
         gap: 4px;
         padding: 0;
-        color: var(--maroon-dark, #4a0a12);
+        color: #fff;
         transition: all 0.3s ease;
         z-index: 400;
     }
@@ -208,20 +207,14 @@
 
     .sidebar-toggle.active {
         left: 18px;
-    }
-
-    .sidebar-toggle .arrow-icon {
-        display: none;
-        width: 20px;
-        height: 20px;
-        transition: all 0.3s ease;
+        color: #000;
     }
 
     .sidebar-toggle.active .hamburger-icon {
-        display: none;
+        background-color: #000;
     }
 
-    .sidebar-toggle.active .arrow-icon {
+    .sidebar-toggle .hamburger-icon {
         display: block;
     }
 

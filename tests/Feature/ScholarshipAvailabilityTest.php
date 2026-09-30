@@ -72,7 +72,7 @@ class ScholarshipAvailabilityTest extends TestCase
 
         $thirdSubmission = $this->submit($student, $thirdScholarship);
         $thirdSubmission->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false))
-            ->assertSessionHas('error', 'You already have two active applications in the non-academic category. Only two open applications per category are allowed.');
+            ->assertSessionHas('error', 'You already have two active applications, so this scholarship is not available.');
 
         $this->actingAs($admin)->postJson("/admin/applications/{$firstProfile->id}/sections/student-information/reject", [
             'reason' => 'Please correct the submitted information.',
@@ -103,7 +103,7 @@ class ScholarshipAvailabilityTest extends TestCase
 
         $this->submit($student, $thirdScholarship)
             ->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false))
-            ->assertSessionHas('error', 'You already have two active applications in the non-academic category. Only two open applications per category are allowed.');
+            ->assertSessionHas('error', 'You already have two active applications, so this scholarship is not available.');
     }
 
     public function test_academic_limit_and_duplicate_scholarship_names_remain_scoped_by_id_and_grant_type(): void
@@ -139,7 +139,7 @@ class ScholarshipAvailabilityTest extends TestCase
             ->assertSessionDoesntHaveErrors();
 
         $dashboard = $this->actingAs($student)->get('/dashboard')->assertOk();
-        $dashboard->assertViewHas('activeAcademicApplications', 2);
+        $dashboard->assertViewHas('activeApplications', 2);
         $dashboard->assertViewHas('appliedScholarships', function (array $applications) use ($academicTulongDunong, $nonAcademicTulongDunong, $secondAcademicScholarship): bool {
             $academicApplication = collect($applications)->first(fn (array $item) =>
                 (int) $item['scholarship_id'] === $academicTulongDunong->id
@@ -164,13 +164,74 @@ class ScholarshipAvailabilityTest extends TestCase
 
         $this->submitAcademic($student, $thirdAcademicScholarship)
             ->assertRedirect(route('dashboard', ['section' => 'acad'], absolute: false))
-            ->assertSessionHas('error', 'You already have two active applications in the academic category. Only two open applications per category are allowed.');
+            ->assertSessionHas('error', 'You already have two active applications, so this scholarship is not available.');
+    }
+
+    public function test_active_application_limit_is_shared_across_categories_and_rejection_frees_a_slot(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+        $student = User::factory()->approved()->create(['student_id' => '23-12003']);
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $academicScholarship = Scholarship::create([
+            'name' => 'Academic Active Grant',
+            'type' => 'academic',
+            'status' => 'active',
+        ]);
+        $anotherAcademicScholarship = Scholarship::create([
+            'name' => 'Another Academic Grant',
+            'type' => 'academic',
+            'status' => 'active',
+        ]);
+        $nonAcademicScholarship = Scholarship::create([
+            'name' => 'Non-Academic Active Grant',
+            'type' => 'non-academic',
+            'status' => 'active',
+        ]);
+        $anotherNonAcademicScholarship = Scholarship::create([
+            'name' => 'Another Non-Academic Grant',
+            'type' => 'non-academic',
+            'status' => 'active',
+        ]);
+
+        $this->submitAcademic($student, $academicScholarship)->assertSessionDoesntHaveErrors();
+        $this->submit($student, $nonAcademicScholarship)->assertSessionDoesntHaveErrors();
+
+        foreach (['/dashboard', '/dashboard?section=non'] as $dashboardPath) {
+            $this->actingAs($student)->get($dashboardPath)
+                ->assertOk()
+                ->assertViewHas('activeApplications', 2)
+                ->assertSee('You already have two active applications, so this scholarship is not available.', false);
+        }
+
+        $this->submitAcademic($student, $anotherAcademicScholarship)
+            ->assertRedirect(route('dashboard', ['section' => 'acad'], absolute: false))
+            ->assertSessionHas('error', 'You already have two active applications, so this scholarship is not available.');
+
+        $academicApplication = Application::where('user_id', $student->id)
+            ->where('scholarship_id', $academicScholarship->id)
+            ->firstOrFail();
+        $academicProfile = StudentProfile::where('user_id', $student->id)
+            ->where('application_id', $academicApplication->id)
+            ->firstOrFail();
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$academicProfile->id}/sections/student-information/reject", [
+            'reason' => 'Please correct the submitted information.',
+        ])->assertOk();
+
+        $this->actingAs($student)->get('/dashboard?section=non')
+            ->assertOk()
+            ->assertViewHas('activeApplications', 1);
+
+        $this->submit($student, $anotherNonAcademicScholarship)
+            ->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false))
+            ->assertSessionDoesntHaveErrors();
     }
 
     private function assertDashboardState(User $student, int $activeCount, array $statuses, array $scholarshipIds): void
     {
         $response = $this->actingAs($student)->get('/dashboard?section=non')->assertOk();
-        $response->assertViewHas('activeNonAcademicApplications', $activeCount);
+        $response->assertViewHas('activeApplications', $activeCount);
         $response->assertViewHas('nonAcademicScholarshipIdMap', function (array $idMap) use ($scholarshipIds): bool {
             foreach ($scholarshipIds as $name => $id) {
                 if ((int) ($idMap[$name] ?? 0) !== (int) $id) {
@@ -194,7 +255,7 @@ class ScholarshipAvailabilityTest extends TestCase
             return true;
         });
         $response->assertSee('const cardScholarshipId = String(card.dataset.scholarshipId || scholarshipIdMap?.[scholarshipTitle] || \'\');', false);
-        $response->assertSee('You already have two active applications in this category, so this scholarship is not available.', false);
+        $response->assertSee('You already have two active applications, so this scholarship is not available.', false);
     }
 
     private function submit(User $student, Scholarship $scholarship, ?StudentProfile $previousProfile = null)

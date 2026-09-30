@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Services\AdminDashboardStats;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\View;
+use Illuminate\View\View as ViewInstance;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +22,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        View::composer('admin.welcome', function (ViewInstance $view): void {
+            $view->with('stats', app(AdminDashboardStats::class)->get());
+        });
     }
 }

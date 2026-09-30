@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
     <style>
         .topbar-right .btn { margin-right: 4px; }
-        #admin-table-container .old-grants-pagination svg { width: 1rem; height: 1rem; }
         .old-grants-toolbar {
             display: flex;
             align-items: flex-end;
@@ -56,19 +55,19 @@
             <div class="stat-icon"></div>
             <div class="stat-val">{{ $stats['total_grants'] ?? 0 }}</div>
             <div class="stat-label">Total Grants</div>
-            <div class="stat-change up">↑ {{ $stats['grants_added_this_month'] ?? 0 }} added this month</div>
+            <div class="stat-change up">Approved scholarship grants</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon"></div>
             <div class="stat-val">{{ $stats['total_applications'] ?? 0 }}</div>
             <div class="stat-label">Total Applications</div>
-            <div class="stat-change up">↑ {{ $stats['applications_this_week'] ?? 0 }} this week</div>
+            <div class="stat-change up">All submitted applications</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon"></div>
-            <div class="stat-val">{{ $stats['approved'] ?? 0 }}</div>
-            <div class="stat-label">Approved</div>
-            <div class="stat-change up">{{ $stats['approval_rate'] ?? 0 }}% approval rate</div>
+            <div class="stat-val">{{ $stats['pending_applications'] ?? 0 }}</div>
+            <div class="stat-label">Pending Applications</div>
+            <div class="stat-change up">Awaiting review</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon"> </div>
@@ -152,9 +151,7 @@
         </tbody>
         </table>
         @if(method_exists($oldRecords, 'links'))
-            <div class="old-grants-pagination">
-                {{ $oldRecords->links() }}
-            </div>
+            {{ $oldRecords->links('vendor.pagination.admin') }}
         @endif
         @else
         {{-- The Summary of Reports is approved-only, so Amount is always visible there. --}}
@@ -244,7 +241,7 @@
         </tbody>
         </table>
         @if(method_exists($recentApplications, 'links'))
-            {{ $recentApplications->links() }}
+            {{ $recentApplications->links('vendor.pagination.admin') }}
         @endif
         @endif
     </div>

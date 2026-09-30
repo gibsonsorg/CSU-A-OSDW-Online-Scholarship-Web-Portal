@@ -60,3 +60,5 @@
  
     </div>
 </div>
+
+@include('layouts.inactivity-logout')

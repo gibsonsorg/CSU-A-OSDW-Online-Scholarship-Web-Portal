@@ -923,10 +923,13 @@ More info: https://unifaast.gov.ph/tes.html"
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
                         Swal.fire({
+                            toast: true,
+                            position: 'top-end',
                             icon: 'success',
-                            title: 'SUCCESS',
-                            text: @json(session('success')),
-                            confirmButtonColor: '#16a34a'
+                            title: @json(session('success')),
+                            showConfirmButton: false,
+                            timer: 3000,
+                            timerProgressBar: true
                         });
                     });
                 </script>
@@ -1562,16 +1565,13 @@ More info: https://unifaast.gov.ph/tes.html"
     // Close popup when clicking outside
 
     (function () {
-      const section = @json($section ?? 'acad');
       const appliedScholarships = @json($appliedScholarships ?? []);
             window.appliedScholarships = appliedScholarships;
             window.reapplicationProfiles = Object.fromEntries(appliedScholarships
                 .filter(item => item.reopen && item.profile && item.scholarship_id)
                 .map(item => [`${item.grant_type}|${item.scholarship_id}`, item.profile]));
-      const activeAcademicApplications = @json($activeAcademicApplications ?? 0);
-      const activeNonAcademicApplications = @json($activeNonAcademicApplications ?? 0);
+    const activeApplications = @json($activeApplications ?? 0);
       const maxApplications = 2;
-      const currentActiveApplications = section === 'non' ? activeNonAcademicApplications : activeAcademicApplications;
 
       const cards = document.querySelectorAll('.s-card');
 
@@ -1606,7 +1606,9 @@ More info: https://unifaast.gov.ph/tes.html"
                     if (cardFoot) {
                         const message = document.createElement('div');
                         message.className = 'unavailable-text';
-                        message.textContent = 'You\'ve reached the maximum number of applications for this scholarship.';
+                        message.textContent = application.rejection_reason === 'Does not meet the eligibility requirements'
+                            ? application.rejection_reason
+                            : 'You\'ve reached the maximum number of applications for this scholarship.';
                         cardFoot.prepend(message);
                     }
 
@@ -1616,6 +1618,50 @@ More info: https://unifaast.gov.ph/tes.html"
                         applyButton.setAttribute('aria-disabled', 'true');
                         applyButton.setAttribute('href', 'javascript:void(0);');
                         applyButton.tabIndex = -1;
+                    }
+                    return;
+                }
+
+                if (isApplied) {
+                    card.classList.add('card-applied');
+                    if (cardFoot) {
+                        const message = document.createElement('div');
+                        message.className = 'applied-text';
+                        const isApproved = application.status === 'approved';
+                        message.innerHTML = isApproved
+                            ? '<div class="applied-label status-approved">APPROVED</div><div>Your application for this scholarship is approved</div>'
+                            : '<div class="applied-label">PENDING</div><div class="Applied-text">Your application for this scholarship is being processed.</div>';
+                        cardFoot.prepend(message);
+                    }
+
+                    const applyButton = card.querySelector('.btn-apply');
+                    if (applyButton) {
+                        applyButton.textContent = 'APPLIED';
+                        applyButton.setAttribute('aria-disabled', 'true');
+                        applyButton.setAttribute('href', 'javascript:void(0);');
+                        applyButton.classList.add('btn-applied');
+                    }
+                    return;
+                }
+
+                const activeApplicationsForCard = activeApplications - (
+                    canReopen && ['pending', 'approved'].includes(application?.status) ? 1 : 0
+                );
+
+                if (activeApplicationsForCard >= maxApplications) {
+                    card.classList.add('card-unavailable');
+                    if (cardFoot) {
+                        const message = document.createElement('div');
+                        message.className = 'unavailable-text';
+                        message.textContent = 'You already have two active applications, so this scholarship is not available.';
+                        cardFoot.prepend(message);
+                    }
+
+                    const applyButton = card.querySelector('.btn-apply');
+                    if (applyButton) {
+                        applyButton.textContent = 'UNAVAILABLE';
+                        applyButton.setAttribute('aria-disabled', 'true');
+                        applyButton.setAttribute('href', 'javascript:void(0);');
                     }
                     return;
                 }
@@ -1655,45 +1701,6 @@ More info: https://unifaast.gov.ph/tes.html"
                     }
                     return;
                 }
-
-                if (isApplied) {
-                    card.classList.add('card-applied');
-                    if (cardFoot) {
-                        const message = document.createElement('div');
-                        message.className = 'applied-text';
-                        const isApproved = application.status === 'approved';
-                        message.innerHTML = isApproved
-                            ? '<div class="applied-label status-approved">APPROVED</div><div>Your application for this scholarship is approved</div>'
-                            : '<div class="applied-label">PENDING</div><div class="Applied-text">Your application for this scholarship is being processed.</div>';
-                        cardFoot.prepend(message);
-                    }
-
-                    const applyButton = card.querySelector('.btn-apply');
-                    if (applyButton) {
-                        applyButton.textContent = 'APPLIED';
-                        applyButton.setAttribute('aria-disabled', 'true');
-                        applyButton.setAttribute('href', 'javascript:void(0);');
-                        applyButton.classList.add('btn-applied');
-                    }
-                    return;
-                }
-
-        if (currentActiveApplications >= maxApplications) {
-          card.classList.add('card-unavailable');
-                    if (cardFoot) {
-                        const message = document.createElement('div');
-                        message.className = 'unavailable-text';
-                        message.textContent = 'You already have two active applications in this category, so this scholarship is not available.';
-                        cardFoot.prepend(message);
-                    }
-
-          const applyButton = card.querySelector('.btn-apply');
-          if (applyButton) {
-            applyButton.textContent = 'UNAVAILABLE';
-            applyButton.setAttribute('aria-disabled', 'true');
-            applyButton.setAttribute('href', 'javascript:void(0);');
-          }
-        }
       });
     })();
   </script>

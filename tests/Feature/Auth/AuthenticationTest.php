@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -30,14 +31,75 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('dashboard', absolute: false));
     }
 
-    public function test_users_can_not_authenticate_with_invalid_password(): void
+    public function test_students_receive_generic_error_for_invalid_credentials(): void
     {
         $user = User::factory()->approved()->create();
 
-        $this->post('/login', [
-            'email' => $user->email,
+        $response = $this->from('/login')->post('/login', [
+            'login_identifier' => $user->email,
             'password' => 'wrong-password',
         ]);
+
+        $response->assertSessionHasErrors(['login_identifier']);
+        $response->assertSessionHas('errors', function ($errors) {
+            $message = $errors->get('login_identifier')[0] ?? null;
+            return $message === 'Your email or password is incorrect.';
+        });
+        $this->assertGuest();
+    }
+
+    public function test_student_login_is_locked_after_five_failed_attempts(): void
+    {
+        $user = User::factory()->approved()->create();
+
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $response = $this->from('/login')->post('/login', [
+                'login_identifier' => $user->email,
+                'password' => 'wrong-password',
+            ]);
+
+            if ($attempt < 5) {
+                $response->assertSessionHasErrors(['login_identifier']);
+                continue;
+            }
+
+            $response->assertSessionHasErrors(['login_identifier']);
+            $this->assertStringContainsString('Too many failed login attempts', $response->getSession()->get('errors')->get('login_identifier')[0]);
+        }
+
+        $response = $this->from('/login')->post('/login', [
+            'login_identifier' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $response->assertSessionHasErrors(['login_identifier']);
+        $this->assertStringContainsString('Too many failed login attempts', $response->getSession()->get('errors')->get('login_identifier')[0]);
+        $this->assertGuest();
+    }
+
+    public function test_admin_login_shows_generic_error_without_lockout(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'admin@example.com',
+            'password' => Hash::make('StrongP@ss123'),
+            'role' => 0,
+            'account_status' => 'approved',
+            'email_verified_at' => now(),
+        ]);
+
+        for ($attempt = 1; $attempt <= 6; $attempt++) {
+            $response = $this->from('/login')->post('/login', [
+                'login_type' => 'admin',
+                'email' => $user->email,
+                'password' => 'wrong-password',
+            ]);
+
+            $response->assertSessionHasErrors(['email']);
+            $response->assertSessionHas('errors', function ($errors) {
+                $message = $errors->get('email')[0] ?? null;
+                return $message === 'Your email or password is incorrect.';
+            });
+        }
 
         $this->assertGuest();
     }

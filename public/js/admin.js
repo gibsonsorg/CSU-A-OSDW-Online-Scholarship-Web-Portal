@@ -37,35 +37,15 @@
         return age >= 0 ? age : '';
     }
 
-    function reviewArea(section, status, reason) {
-        const safeStatus = status || 'pending';
-        return `<div class="review-section" data-section="${section}">
-            <div><span class="review-status ${safeStatus}">Status: ${escapeHtml(safeStatus)}</span>${reason ? `<span>Reason: ${escapeHtml(reason)}</span>` : ''}</div>
-            <div class="review-actions">
-                
-                <button type="button" class="review-approve" data-action="approve">✓ Approve</button>
-                <button type="button" class="review-reject" data-action="reject">✕ Reject</button>
-                <button type="button" class="review-delete" data-action="delete">Delete</button>
-            </div>
-        </div>`;
-    }
-
     function documentGroup(label, files, group, reviews) {
         if (!Array.isArray(files) || !files.length) return '';
         return files.map((file, index) => {
-            const key = `${group}.${index}`;
-            const review = reviews?.[key] || {};
-            const status = review.status || 'pending';
             const url = `/admin/applications/${encodeURIComponent(currentAppId)}/document/${encodeURIComponent(group)}/${index}`;
             return `<div class="document-review full">
                 <label>${escapeHtml(label)}${files.length > 1 ? ` ${index + 1}` : ''}</label>
                 <div class="document-actions">
                     <a class="document-view" href="${url}" target="_blank" rel="noopener noreferrer">View File</a>
-                    <span class="review-status ${status}">Status: ${escapeHtml(status)}</span>
-                    <button type="button" class="document-approve" data-document-group="${escapeHtml(group)}" data-document-index="${index}">Approve</button>
-                    <button type="button" class="document-reject" data-document-group="${escapeHtml(group)}" data-document-index="${index}">Reject</button>
                 </div>
-                ${review.reason ? `<div>Reason: ${escapeHtml(review.reason)}</div>` : ''}
             </div>`;
         }).join('');
     }
@@ -99,7 +79,7 @@
             field('College or Department', app.college_department, 'college_department'), field('Year Level', app.year_level, 'year_level')
         ];
         if (!isNonAcademic) step1Fields.push(field('Program', app.program, 'program'));
-        const step1 = step1Fields.join('') + reviewArea('student-information', app.student_information_status, app.student_information_reason);
+        const step1 = step1Fields.join('');
         const step2Fields = isNonAcademic ? [
             field('Sex', app.sex, 'sex'), field('Status', app.status, 'status'),
             field('Contact Number', app.contact_number, 'contact_number'),
@@ -112,7 +92,7 @@
                 field('Status', app.status, 'status'), field('Religion', app.religion, 'religion'),
                 field('Contact Number', app.contact_number, 'contact_number'), field('Home Address', app.home_address, 'home_address')
             ];
-        const step2 = step2Fields.join('') + reviewArea('personal-information', app.personal_information_status, app.personal_information_reason);
+        const step2 = step2Fields.join('');
         const documents = [
             documentGroup('Certificate of Grades', uploads.certificate_of_grades || uploads.grades, uploads.certificate_of_grades ? 'certificate_of_grades' : 'grades', app.document_review || app.document_reviews),
             documentGroup('Certificate of Enrollment', uploads.certificate_of_enrollment || uploads.enrollment, uploads.certificate_of_enrollment ? 'certificate_of_enrollment' : 'enrollment', app.document_review || app.document_reviews),
@@ -122,7 +102,11 @@
         ].join('');
         const scholarshipStep = field('Name of Scholarship / Sponsor', app.scholarship_name, 'scholarship_name') +
             field('Types of Scholarship', app.scholarship_type, 'scholarship_type') +
-            `<div class="full"><label>Uploaded documents</label>${documents || '<div class="input">No files uploaded.</div>'}</div>`;
+            `<div class="full"><label>Uploaded documents</label>${documents || '<div class="input">No files uploaded.</div>'}</div>` +
+            `<div class="review-actions application-decision-actions full">
+                <button type="button" class="review-approve" data-action="approve-app">Approve Application</button>
+                <button type="button" class="review-reject" data-action="reject-app">Reject Application</button>
+            </div>`;
         const family = app.family_background || {};
         const familyValue = value => value === null || value === undefined || String(value).trim() === '' ? 'N/A' : value;
         const dateValue = value => value ? String(value).split('T')[0] : '';
@@ -174,7 +158,6 @@
                 <div class="family-background-substep-shell">
                     <div class="family-background-substep-title">Parents / Guardian & Family Details</div>
                     <div class="family-background-review-grid">${familySharedFields}${siblingsTable}</div>
-                    <div class="family-background-action-bar">${reviewArea('family-background', app.family_background_status, app.family_background_reason)}</div>
                 </div>
             </div>`;
         const familyStep = isNonAcademic ? `
@@ -214,11 +197,41 @@
         renderProfile(await response.json());
     }
 
-    async function rejectWithReason(title, url) {
-        const result = await Swal.fire({ title, input: 'textarea', inputLabel: 'Reason', inputPlaceholder: 'Enter rejection reason...', showCancelButton: true, confirmButtonText: 'Reject', confirmButtonColor: '#b91c1c', inputValidator: value => !value.trim() ? 'A reason is required.' : undefined });
+    async function finishApplicationAction(title, text) {
+        const modal = document.getElementById('profileModal');
+        modal?.classList.remove('open');
+        modal?.setAttribute('aria-hidden', 'true');
+        await Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title,
+            text,
+            timer: 3000,
+            timerProgressBar: true,
+            showConfirmButton: false,
+        });
+        window.location.reload();
+    }
+
+    async function rejectApplication() {
+        const reasons = [
+            'Does not meet the eligibility requirements',
+            'Wrong uploaded documents or incomplete form',
+        ];
+        const result = await Swal.fire({
+            title: 'Reject Application',
+            input: 'select',
+            inputOptions: Object.fromEntries(reasons.map(reason => [reason, reason])),
+            inputPlaceholder: 'Select a reason',
+            showCancelButton: true,
+            confirmButtonText: 'Reject',
+            confirmButtonColor: '#b91c1c',
+            inputValidator: value => reasons.includes(value) ? undefined : 'Select a rejection reason.',
+        });
         if (!result.isConfirmed) return;
-        await postJson(url, { reason: result.value.trim() });
-        await loadProfile(currentAppId);
+        await postJson(`/admin/applications/${currentAppId}/reject`, { reason: result.value });
+        await finishApplicationAction('Rejected successfully', 'The application was rejected successfully.');
     }
 
     // CHANGE: Open the approved-applicant bulk amount editor from the filter bar.
@@ -321,46 +334,36 @@
     document.getElementById('profilePrevious')?.addEventListener('click', handleProfilePrevious);
     document.getElementById('profilePreviousTop')?.addEventListener('click', handleProfilePrevious);
     document.getElementById('profileNext')?.addEventListener('click', handleProfileNext);
-    document.getElementById('closeProfile')?.addEventListener('click', () => document.getElementById('profileModal').classList.remove('open'));
+    document.getElementById('closeProfile')?.addEventListener('click', () => {
+        const modal = document.getElementById('profileModal');
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+    });
 
     document.getElementById('profileBody')?.addEventListener('click', async event => {
-        const documentButton = event.target.closest('[data-document-group]');
-        const reviewSection = event.target.closest('.review-section');
         const actionTarget = event.target.closest('[data-action]');
         try {
-            if (documentButton) {
-                const group = documentButton.dataset.documentGroup;
-                const index = documentButton.dataset.documentIndex;
-                const url = `/admin/applications/${currentAppId}/documents/${encodeURIComponent(group)}/${index}`;
-                if (documentButton.classList.contains('document-reject')) await rejectWithReason('Reject Document', `${url}/reject`);
-                else { await postJson(`${url}/approve`); await loadProfile(currentAppId); }
-                return;
-            }
             if (actionTarget && actionTarget.dataset.action === 'approve-app') {
                 await postJson(`/admin/applications/${currentAppId}/approve`);
-                await loadProfile(currentAppId);
+                await finishApplicationAction('Approved successfully', 'The application was approved successfully.');
                 return;
             }
             if (actionTarget && actionTarget.dataset.action === 'reject-app') {
-                await rejectWithReason('Reject Application', `/admin/applications/${currentAppId}/reject`);
+                await rejectApplication();
                 return;
             }
-            if (!reviewSection) return;
-            const action = event.target.dataset.action;
-            const section = reviewSection.dataset.section;
-            if (action === 'approve') { await postJson(`/admin/applications/${currentAppId}/sections/${section}/approve`); await loadProfile(currentAppId); }
-            if (action === 'reject') await rejectWithReason(`Reject ${section.replaceAll('-', ' ')}`, `/admin/applications/${currentAppId}/sections/${section}/reject`);
-            if (action === 'delete') {
-                const result = await Swal.fire({ title: 'Delete application?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#b91c1c', confirmButtonText: 'Delete' });
-                if (result.isConfirmed) { await postJson(`/admin/applications/${currentAppId}/delete`); location.reload(); }
-            }
-            if (action === 'edit') {
-                const panel = reviewSection.closest('.academic-review-step');
-                panel.querySelectorAll('[data-field]').forEach(input => { input.readOnly = false; input.style.background = '#fff'; });
-                event.target.textContent = 'Save'; event.target.dataset.action = 'save';
-            } else if (action === 'save') {
-                const data = {}; reviewSection.closest('.academic-review-step').querySelectorAll('[data-field]').forEach(input => { data[input.dataset.field] = input.value === 'N/A' ? '' : input.value; });
-                await postJson(`/admin/applications/${currentAppId}/update`, data); await loadProfile(currentAppId);
+            if (actionTarget && actionTarget.dataset.action === 'remove-app') {
+                const result = await Swal.fire({
+                    title: 'Remove application?',
+                    text: 'This application will be permanently removed.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#b91c1c',
+                    confirmButtonText: 'Remove Application',
+                });
+                if (!result.isConfirmed) return;
+                await postJson(`/admin/applications/${currentAppId}/delete`);
+                await finishApplicationAction('Deleted successfully', 'The application was deleted successfully.');
             }
         } catch (error) { Swal.fire({ icon: 'error', title: 'Action failed', text: error.message }); }
     });

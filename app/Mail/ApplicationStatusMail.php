@@ -16,12 +16,14 @@ class ApplicationStatusMail extends Mailable implements ShouldQueue
     public string $userName;
     public string $scholarshipName;
     public string $status;
+    public ?string $rejectionReason;
 
-    public function __construct(string $userName, string $scholarshipName, string $status)
+    public function __construct(string $userName, string $scholarshipName, string $status, ?string $rejectionReason = null)
     {
         $this->userName = $userName;
         $this->scholarshipName = $scholarshipName;
         $this->status = strtolower($status);
+        $this->rejectionReason = $rejectionReason;
     }
 
     public function build(): self
@@ -36,6 +38,7 @@ class ApplicationStatusMail extends Mailable implements ShouldQueue
                 'userName' => $this->userName,
                 'scholarshipName' => $this->scholarshipName,
                 'status' => $this->status,
+                'rejectionReason' => $this->rejectionReason,
             ]);
     }
 
