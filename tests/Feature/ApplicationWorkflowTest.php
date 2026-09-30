@@ -1402,6 +1402,74 @@ class ApplicationWorkflowTest extends TestCase
         $this->assertSame(1, Application::where('user_id', $student->id)->where('scholarship_id', $scholarship->id)->count());
     }
 
+    public function test_cross_scholarship_prefill_uses_latest_valid_profile_for_shared_student_information(): void
+    {
+        $student = User::factory()->approved()->create([
+            'student_id' => '23-21010',
+            'email' => 'student@example.com',
+        ]);
+
+        $olderAcademic = StudentProfile::create([
+            'user_id' => $student->id,
+            'first_name' => 'Older',
+            'middle_name' => 'Academic',
+            'last_name' => 'Student',
+            'sex' => 'Male',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => '23-21010',
+            'course' => 'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY',
+            'year_level' => '2nd Year',
+            'program' => 'Information Technology',
+            'birthdate' => '2001-01-15',
+            'birthplace' => 'Aparri',
+            'religion' => 'Roman Catholic',
+            'contact_number' => '+63 9123456789',
+            'home_address' => 'Old Academic Address',
+            'scholarship_name' => 'Academic Foundation Award',
+            'scholarship_type' => 'Academic Excellence',
+            'grant_type' => 'academic',
+            'application_status' => 'approved',
+        ]);
+        $olderAcademic->forceFill(['created_at' => now()->subDays(3), 'updated_at' => now()->subDays(3)])->saveQuietly();
+
+        $latestNonAcademic = StudentProfile::create([
+            'user_id' => $student->id,
+            'first_name' => 'Latest',
+            'middle_name' => 'Non',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Married',
+            'email' => $student->email,
+            'student_id_number' => '23-21010',
+            'course' => 'BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT',
+            'year_level' => '3rd Year',
+            'birthdate' => '2000-05-20',
+            'birthplace' => 'Lasam',
+            'contact_number' => '+63 9876543210',
+            'home_address' => 'Latest Non-Academic Address',
+            'scholarship_name' => 'Community Support Scholarship',
+            'scholarship_type' => 'Community Support Grant',
+            'grant_type' => 'non-academic',
+            'application_status' => 'approved',
+        ]);
+        $latestNonAcademic->forceFill(['created_at' => now()->subDay(), 'updated_at' => now()->subDay()])->saveQuietly();
+
+        $academicResponse = $this->actingAs($student)->getJson(route('student.application-prefill', ['grant_type' => 'academic']));
+        $academicResponse->assertOk();
+        $academicResponse->assertJsonPath('data.first_name', 'Latest');
+        $academicResponse->assertJsonPath('data.last_name', 'Student');
+        $academicResponse->assertJsonMissingPath('data.family_background');
+
+        $nonAcademicResponse = $this->actingAs($student)->getJson(route('student.application-prefill', ['grant_type' => 'non-academic']));
+        $nonAcademicResponse->assertOk();
+        $nonAcademicResponse->assertJsonPath('data.first_name', 'Latest');
+        $nonAcademicResponse->assertJsonPath('data.home_address', 'Latest Non-Academic Address');
+        $nonAcademicResponse->assertJsonMissingPath('data.family_background');
+
+        $this->assertTrue($latestNonAcademic->created_at->greaterThan($olderAcademic->created_at));
+    }
+
     public function test_static_academic_card_uses_existing_scholarship_id(): void
     {
         $student = User::factory()->approved()->create([

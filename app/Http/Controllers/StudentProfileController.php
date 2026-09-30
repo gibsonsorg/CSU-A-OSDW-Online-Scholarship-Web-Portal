@@ -268,19 +268,20 @@ class StudentProfileController extends Controller
             return response()->json(['data' => null]);
         }
 
-        $profile = StudentProfile::where('user_id', $user->id)
-            ->where('grant_type', $grantType)
+        $requestedScholarshipId = trim((string) $request->query('scholarship_id', ''));
+        $requestedScholarshipName = trim((string) $request->query('scholarship_name', ''));
+
+        $query = StudentProfile::where('user_id', $user->id)
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->with(['familyBackground', 'application:id,scholarship_id'])
-            ->first();
+            ->with('application:id,scholarship_id');
+
+        $profile = $query->first();
 
         if (!$profile) {
             return response()->json(['data' => null]);
         }
 
-        $requestedScholarshipId = trim((string) $request->query('scholarship_id', ''));
-        $requestedScholarshipName = trim((string) $request->query('scholarship_name', ''));
         if ($requestedScholarshipId !== '' || $requestedScholarshipName !== '') {
             $previousScholarshipId = (string) ($profile->application?->scholarship_id ?? '');
             $sameScholarship = $requestedScholarshipId !== '' && $previousScholarshipId !== ''
@@ -333,7 +334,7 @@ class StudentProfileController extends Controller
         $data = [];
 
         foreach ($allowedFields as $field) {
-            if ($profile->getAttribute($field) === null) {
+            if ($profile->getAttribute($field) === null || $profile->getAttribute($field) === '') {
                 continue;
             }
 
@@ -343,39 +344,6 @@ class StudentProfileController extends Controller
             }
 
             $data[$field] = $value;
-        }
-
-        if ($grantType === 'non-academic') {
-            $familyBackground = $profile->familyBackground?->only([
-                'mother_status',
-                'mother_name',
-                'mother_age',
-                'mother_birthdate',
-                'mother_address',
-                'mother_occupation',
-                'mother_office_address',
-                'mother_education',
-                'father_status',
-                'father_name',
-                'father_age',
-                'father_birthdate',
-                'father_address',
-                'father_occupation',
-                'father_office_address',
-                'father_education',
-                'parent_contact_number',
-                'parent_email',
-                'monthly_income',
-                'has_differently_abled_member',
-                'disability_details',
-                'siblings',
-            ]);
-            foreach (['mother_birthdate', 'father_birthdate'] as $birthdateField) {
-                if (($familyBackground[$birthdateField] ?? null) instanceof \DateTimeInterface) {
-                    $familyBackground[$birthdateField] = $familyBackground[$birthdateField]->format('Y-m-d');
-                }
-            }
-            $data['family_background'] = $familyBackground;
         }
 
         return response()->json([
