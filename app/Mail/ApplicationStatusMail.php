@@ -28,11 +28,7 @@ class ApplicationStatusMail extends Mailable implements ShouldQueue
 
     public function build(): self
     {
-        $subject = $this->status === 'approved'
-            ? 'Scholarship Application Approved'
-            : 'Scholarship Application Update';
-
-        return $this->subject($subject)
+        return $this->subject($this->notificationSubject())
             ->view('emails.application-status')
             ->with([
                 'userName' => $this->userName,
@@ -40,6 +36,28 @@ class ApplicationStatusMail extends Mailable implements ShouldQueue
                 'status' => $this->status,
                 'rejectionReason' => $this->rejectionReason,
             ]);
+    }
+
+    public function notificationSubject(): string
+    {
+        return $this->status === 'approved'
+            ? 'Scholarship Application Approved'
+            : 'Scholarship Application Update';
+    }
+
+    public function notificationBody(): string
+    {
+        if ($this->status === 'approved') {
+            $message = 'Congratulations! Your application for the "' . $this->scholarshipName . '" has been APPROVED.'
+                . "\n\nYou may now proceed with the next steps or wait for further instructions.";
+        } elseif ($this->rejectionReason === 'Does not meet the eligibility requirements') {
+            $message = 'This is to inform you that your application for ' . $this->scholarshipName
+                . ' did not meet certain eligibility requirements. You are welcome to apply for another scholarship offered by the government. If you have any questions, feel free to visit the OSDW office in Aparri.';
+        } else {
+            $message = "We regret to inform you that your application for '{$this->scholarshipName}' has been REJECTED. Please ensure your submitted documents are clear and complete and that you fill out the application form correctly. You may check your application status for more details and reapply once all requirements are met.";
+        }
+
+        return 'Dear ' . $this->userName . ",\n\n" . $message . "\n\nBest regards,\nScholarship Office";
     }
 
     public function failed(Throwable $exception): void

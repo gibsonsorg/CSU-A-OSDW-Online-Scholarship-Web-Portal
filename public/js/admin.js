@@ -4,6 +4,7 @@
     let currentStep = 1;
     let currentFamilyPage = 1;
     let profileStepCount = 3;
+    let currentApplication = null;
 
     const escapeHtml = value => String(value ?? '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -52,6 +53,9 @@
 
     function renderProfile(app) {
         const body = document.getElementById('profileBody');
+        currentApplication = app;
+        const canDecideApplication = app.application_status === 'pending' && !app.locked_at;
+        const decisionDisabledAttribute = canDecideApplication ? '' : 'disabled aria-disabled="true"';
         const isNonAcademic = app.grant_type === 'non-academic';
         const familyProgress = document.querySelector('[data-profile-family-progress]');
         const familyProgressLine = document.querySelector('[data-profile-family-progress-line]');
@@ -104,8 +108,8 @@
             field('Types of Scholarship', app.scholarship_type, 'scholarship_type') +
             `<div class="full"><label>Uploaded documents</label>${documents || '<div class="input">No files uploaded.</div>'}</div>` +
             `<div class="review-actions application-decision-actions full">
-                <button type="button" class="review-approve" data-action="approve-app">Approve Application</button>
-                <button type="button" class="review-reject" data-action="reject-app">Reject Application</button>
+                <button type="button" class="review-approve" data-action="approve-app" ${decisionDisabledAttribute}>Approve Application</button>
+                <button type="button" class="review-reject" data-action="reject-app" ${decisionDisabledAttribute}>Reject Application</button>
             </div>`;
         const family = app.family_background || {};
         const familyValue = value => value === null || value === undefined || String(value).trim() === '' ? 'N/A' : value;
@@ -230,8 +234,17 @@
             inputValidator: value => reasons.includes(value) ? undefined : 'Select a rejection reason.',
         });
         if (!result.isConfirmed) return;
+        setDecisionButtonsDisabled(true);
         await postJson(`/admin/applications/${currentAppId}/reject`, { reason: result.value });
         await finishApplicationAction('Rejected successfully', 'The application was rejected successfully.');
+    }
+
+    function setDecisionButtonsDisabled(disabled) {
+        document.querySelectorAll('#profileBody [data-action="approve-app"], #profileBody [data-action="reject-app"]')
+            .forEach(button => {
+                button.disabled = disabled;
+                button.setAttribute('aria-disabled', String(disabled));
+            });
     }
 
     // CHANGE: Open the approved-applicant bulk amount editor from the filter bar.
@@ -342,8 +355,10 @@
 
     document.getElementById('profileBody')?.addEventListener('click', async event => {
         const actionTarget = event.target.closest('[data-action]');
+        if (actionTarget?.disabled) return;
         try {
             if (actionTarget && actionTarget.dataset.action === 'approve-app') {
+            setDecisionButtonsDisabled(true);
                 await postJson(`/admin/applications/${currentAppId}/approve`);
                 await finishApplicationAction('Approved successfully', 'The application was approved successfully.');
                 return;
@@ -365,7 +380,14 @@
                 await postJson(`/admin/applications/${currentAppId}/delete`);
                 await finishApplicationAction('Deleted successfully', 'The application was deleted successfully.');
             }
-        } catch (error) { Swal.fire({ icon: 'error', title: 'Action failed', text: error.message }); }
+        } catch (error) {
+            try {
+                await loadProfile(currentAppId);
+            } catch (_) {
+                setDecisionButtonsDisabled(true);
+            }
+            Swal.fire({ icon: 'error', title: 'Action failed', text: error.message });
+        }
     });
 
     // CHANGE: Bind the approved-filter-only Add Amount button.

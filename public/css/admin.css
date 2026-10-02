@@ -1102,6 +1102,20 @@ tr:hover td {
     color: #fff;
 }
 
+#profileModal .application-decision-actions button:disabled,
+#profileModal .application-decision-actions button:disabled:hover,
+#profileModal .application-decision-actions button:disabled:active,
+#profileModal .application-decision-actions button:disabled:focus {
+    background: #9ca3af;
+    color: #f3f4f6;
+    opacity: 0.5;
+    filter: grayscale(1);
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+    transition: none;
+}
+
 #profileModal .review-edit {
     background: #6b0f1a;
     color: #fff;

@@ -1420,11 +1420,13 @@ More info: https://unifaast.gov.ph/tes.html"
                         <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
                             <div style="flex:1 1 320px; min-width:260px; max-width:420px;">
                                 <label style="display:block; margin-bottom:8px;">Certificate of Grades</label>
+                                <small id="academicGradesSubtitle" style="display:none; margin:-4px 0 8px; color:#777; font-size:0.8rem;">(Present semester)</small>
                                 <input type="file" id="academicFileInput" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
                                 <div id="academicFileNames" style="margin-top:8px; font-size:13px; color:#666;"></div>
                             </div>
                             <div id="academicEnrollmentSection" data-reapplication-document-group="certificate_of_enrollment" style="flex:1 1 320px; min-width:260px; max-width:420px; display:none;">
                                 <label style="display:block; margin-bottom:8px;">Certificate of Enrollment</label>
+                                <small id="academicEnrollmentSubtitle" style="display:none; margin:-4px 0 8px; color:#777; font-size:0.8rem;">(Present semester)</small>
                                 <input type="file" id="academicEnrollmentFileInput" name="certificate_of_enrollment" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
                                 <div id="academicEnrollmentFileNames" style="margin-top:8px; font-size:13px; color:#666;"></div>
                             </div>

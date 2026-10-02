@@ -9,6 +9,7 @@ use App\Models\StudentProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -228,6 +229,95 @@ class ScholarshipAvailabilityTest extends TestCase
             ->assertSessionDoesntHaveErrors();
     }
 
+    public function test_orphan_application_does_not_block_reapplication_after_direct_profile_delete(): void
+    {
+        Storage::fake('local');
+        $scholarship = Scholarship::create([
+            'name' => 'Athletic Scholarship',
+            'type' => 'non-academic',
+            'status' => 'active',
+        ]);
+
+        foreach (['approved', 'pending'] as $status) {
+            $student = User::factory()->approved()->create([
+                'student_id' => $status === 'approved' ? '23-12010' : '23-12013',
+            ]);
+            $orphan = Application::create([
+                'user_id' => $student->id,
+                'scholarship_id' => $scholarship->id,
+                'status' => $status,
+            ]);
+            $profile = $this->createLinkedProfile($student, $scholarship, $orphan);
+
+            DB::table('student_profiles')->where('id', $profile->id)->delete();
+            $this->assertDatabaseHas('applications', ['id' => $orphan->id, 'status' => $status]);
+
+            $this->submit($student, $scholarship)
+                ->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false))
+                ->assertSessionDoesntHaveErrors()
+                ->assertSessionMissing('error');
+
+            $newApplication = Application::where('user_id', $student->id)
+                ->where('scholarship_id', $scholarship->id)
+                ->where('id', '!=', $orphan->id)
+                ->latest('id')
+                ->firstOrFail();
+            $this->assertDatabaseHas('student_profiles', [
+                'user_id' => $student->id,
+                'application_id' => $newApplication->id,
+            ]);
+            $this->assertDatabaseHas('applications', ['id' => $orphan->id, 'status' => $status]);
+        }
+    }
+
+    public function test_stale_application_id_from_another_scholarship_does_not_trigger_duplicate(): void
+    {
+        Storage::fake('local');
+        $student = User::factory()->approved()->create(['student_id' => '23-12011']);
+        $firstScholarship = Scholarship::create(['name' => 'First Non-Academic Award', 'type' => 'non-academic', 'status' => 'active']);
+        $selectedScholarship = Scholarship::create(['name' => 'Selected Non-Academic Award', 'type' => 'non-academic', 'status' => 'active']);
+        $staleApplication = Application::create([
+            'user_id' => $student->id,
+            'scholarship_id' => $firstScholarship->id,
+            'status' => 'pending',
+        ]);
+        $this->createLinkedProfile($student, $firstScholarship, $staleApplication);
+
+        $this->submit($student, $selectedScholarship, null, $staleApplication->id)
+            ->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false))
+            ->assertSessionDoesntHaveErrors()
+            ->assertSessionMissing('error');
+
+        $this->assertDatabaseHas('applications', [
+            'user_id' => $student->id,
+            'scholarship_id' => $firstScholarship->id,
+            'status' => 'pending',
+        ]);
+        $this->assertDatabaseHas('applications', [
+            'user_id' => $student->id,
+            'scholarship_id' => $selectedScholarship->id,
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_active_application_with_linked_profile_still_blocks_same_scholarship(): void
+    {
+        Storage::fake('local');
+        $student = User::factory()->approved()->create(['student_id' => '23-12012']);
+        $scholarship = Scholarship::create(['name' => 'Active Linked Award', 'type' => 'non-academic', 'status' => 'active']);
+        $application = Application::create([
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+            'status' => 'pending',
+        ]);
+        $this->createLinkedProfile($student, $scholarship, $application);
+
+        $this->submit($student, $scholarship)
+            ->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false))
+            ->assertSessionHas('error', 'You have already applied for the Active Linked Award scholarship. Only one application per scholarship is allowed.');
+        $this->assertSame(1, Application::where('user_id', $student->id)->where('scholarship_id', $scholarship->id)->count());
+    }
+
     private function assertDashboardState(User $student, int $activeCount, array $statuses, array $scholarshipIds): void
     {
         $response = $this->actingAs($student)->get('/dashboard?section=non')->assertOk();
@@ -258,11 +348,11 @@ class ScholarshipAvailabilityTest extends TestCase
         $response->assertSee('You already have two active applications, so this scholarship is not available.', false);
     }
 
-    private function submit(User $student, Scholarship $scholarship, ?StudentProfile $previousProfile = null)
+    private function submit(User $student, Scholarship $scholarship, ?StudentProfile $previousProfile = null, ?int $applicationIdOverride = null)
     {
         return $this->actingAs($student)->from('/dashboard?section=non')->post('/student-profiles', array_filter([
             'student_profile_id' => $previousProfile?->id,
-            'application_id' => $previousProfile?->application_id,
+            'application_id' => $applicationIdOverride ?? $previousProfile?->application_id,
             'first_name' => 'Availability',
             'last_name' => 'Student',
             'sex' => 'Female',
@@ -279,7 +369,29 @@ class ScholarshipAvailabilityTest extends TestCase
             'scholarship_name' => $scholarship->name,
             'scholarship_type' => 'Non-Academic',
             'uploads' => [UploadedFile::fake()->create('supporting-document.pdf', 10, 'application/pdf')],
+            'certificate_of_adviser' => $scholarship->name === 'Athletic Scholarship'
+                ? UploadedFile::fake()->create('adviser-certificate.pdf', 10, 'application/pdf')
+                : null,
         ], fn ($value) => $value !== null));
+    }
+
+    private function createLinkedProfile(User $student, Scholarship $scholarship, Application $application): StudentProfile
+    {
+        return StudentProfile::create([
+            'user_id' => $student->id,
+            'application_id' => $application->id,
+            'first_name' => 'Availability',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'course' => 'BSIT',
+            'year_level' => '1st Year',
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => $scholarship->type,
+            'grant_type' => $scholarship->type,
+            'application_status' => $application->status,
+        ]);
     }
 
     private function submitAcademic(User $student, Scholarship $scholarship)

@@ -1,11 +1,5 @@
 @php
-    $statusSummary = $application->section_status_summary;
-    $applicationStatus = strtolower($application->application_status);
-    $statusSummaryText = match ($applicationStatus) {
-        'approved' => "Approved — {$statusSummary['approved_count']} of {$statusSummary['total_count']} sections approved",
-        'rejected' => "Rejected — {$statusSummary['rejected_count']} of {$statusSummary['total_count']} sections need attention",
-        default => "Pending — {$statusSummary['reviewed_count']} of {$statusSummary['total_count']} sections reviewed",
-    };
+    $notificationSummary = $application->last_notification_subject ?: 'Notification content not recorded';
 @endphp
 
 <article
@@ -19,7 +13,7 @@
         <h3 class="app-name">{{ $application->scholarship_name }}</h3>
         <div class="app-meta">
             <span>Applied {{ $application->created_at->format('M d, Y') }}</span>
-            <span class="view-reason-hint">{{ $statusSummaryText }} · View details &rarr;</span>
+            <span class="view-reason-hint">{{ $notificationSummary }} · View details &rarr;</span>
         </div>
     </div>
     <div class="app-item-status">

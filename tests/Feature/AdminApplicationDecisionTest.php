@@ -171,6 +171,79 @@ class AdminApplicationDecisionTest extends TestCase
         Mail::assertNothingOutgoing();
     }
 
+    public function test_approved_and_eligibility_locked_applications_reject_later_decisions(): void
+    {
+        Mail::fake();
+        [$admin] = $this->makeUsers();
+        [, , $approvedProfile] = $this->makeApplication('academic');
+        [, , $eligibilityProfile] = $this->makeApplication('non-academic');
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$approvedProfile->id}/approve")
+            ->assertOk();
+        $this->postJson("/admin/applications/{$approvedProfile->id}/approve")
+            ->assertStatus(409)
+            ->assertJsonPath('status', 'error');
+        $this->postJson("/admin/applications/{$approvedProfile->id}/reject", [
+            'reason' => 'Wrong uploaded documents or incomplete form',
+        ])->assertStatus(409);
+        $this->assertSame('approved', $approvedProfile->fresh()->application_status);
+
+        $this->postJson("/admin/applications/{$eligibilityProfile->id}/reject", [
+            'reason' => 'Does not meet the eligibility requirements',
+        ])->assertOk()->assertJsonPath('locked', true);
+        $this->postJson("/admin/applications/{$eligibilityProfile->id}/approve")
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'This application is locked and can no longer be approved or rejected.');
+        $this->postJson("/admin/applications/{$eligibilityProfile->id}/reject", [
+            'reason' => 'Does not meet the eligibility requirements',
+        ])->assertStatus(409);
+        $this->assertSame('rejected', $eligibilityProfile->fresh()->application_status);
+        $this->assertNotNull($eligibilityProfile->fresh()->locked_at);
+    }
+
+    public function test_document_rejection_stays_disabled_until_resubmission_and_locks_after_second_rejection(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+        [$admin] = $this->makeUsers();
+        [$student, $application, $profile, $scholarship] = $this->makeApplication('non-academic', withFamily: true);
+        Storage::disk('local')->put('student_profiles/old-document.pdf', 'old document');
+        $profile->forceFill(['uploads' => ['uploads' => ['student_profiles/old-document.pdf']]])->save();
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/reject", [
+            'reason' => 'Wrong uploaded documents or incomplete form',
+        ])->assertOk()->assertJsonPath('locked', false);
+        $this->assertNull($profile->fresh()->locked_at);
+        $this->postJson("/admin/applications/{$profile->id}/approve")
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'This application is awaiting student resubmission before another decision can be made.');
+        $this->postJson("/admin/applications/{$profile->id}/reject", [
+            'reason' => 'Wrong uploaded documents or incomplete form',
+        ])->assertStatus(409);
+        $this->assertSame('rejected', $profile->fresh()->application_status);
+
+        $payload = $this->resubmissionPayload($student, $scholarship, $application, $profile);
+        $payload['uploads'] = [UploadedFile::fake()->create('corrected-document.pdf', 10, 'application/pdf')];
+        $this->actingAs($student)->from('/dashboard?section=non')->post('/student-profiles', $payload)
+            ->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false))
+            ->assertSessionDoesntHaveErrors();
+
+        $resubmitted = $profile->fresh();
+        $this->assertSame('pending', $resubmitted->application_status);
+        $this->assertSame(1, (int) $resubmitted->reapply_count);
+        $this->assertNull($resubmitted->locked_at);
+        $this->assertSame('pending', $application->fresh()->status);
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/reject", [
+            'reason' => 'Wrong uploaded documents or incomplete form',
+        ])->assertOk()->assertJsonPath('locked', true);
+        $this->assertNotNull($profile->fresh()->locked_at);
+        $this->postJson("/admin/applications/{$profile->id}/approve")->assertStatus(409);
+        $this->postJson("/admin/applications/{$profile->id}/reject", [
+            'reason' => 'Does not meet the eligibility requirements',
+        ])->assertStatus(409);
+    }
+
     private function makeUsers(): array
     {
         return [

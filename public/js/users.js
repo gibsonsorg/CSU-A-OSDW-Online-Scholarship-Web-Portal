@@ -798,6 +798,12 @@ function openScholarshipDetailsModal(title, description, modalType = 'non', card
         if (documentsEl) {
             let documents = [];
             try { documents = JSON.parse(card?.dataset.requiredDocuments || '[]'); } catch (error) { documents = []; }
+            if (modalType === 'academic') {
+                documents = [
+                    'Certificate of Grades (present semester)',
+                    'Certificate of Enrollment (present semester)',
+                ];
+            }
             documentsEl.innerHTML = '';
             (documents.length ? documents : ['No specific documents are listed for this scholarship yet.']).forEach(item => {
                 const li = document.createElement('li');
@@ -1257,15 +1263,13 @@ document.addEventListener('DOMContentLoaded', function(){
         const form = hiddenIdField?.form;
         if (form) form.dataset.requiredDocuments = card?.dataset.requiredDocuments || '[]';
         if (form) form.dataset.requiredDocumentGroups = JSON.stringify(
-            (map === academicScholarshipMap && selectedName === 'University Based Scholarship')
+            (map === academicScholarshipMap)
                 ? ['certificate_of_grades', 'certificate_of_enrollment']
-                : (map === academicScholarshipMap
-                    ? ['certificate_of_grades']
-                    : (selectedName === 'Athletic Scholarship'
+                : (selectedName === 'Athletic Scholarship'
                                 ? ['certificate_of_sports_coordinator', 'certificate_of_adviser']
                                 : (['Socio-Cultural Scholarship', 'Differently Abled Persons', 'Open Heart Scholarship', 'Talamayan Scholarship', 'Campus Student Publication', 'CSU Aparri Alumni Association'].includes(selectedName)
                                     ? ['uploads']
-                                    : [])))
+                                    : []))
         );
 
         const athleticFieldGroup = document.querySelector('.athletic-only-fields');
@@ -1573,8 +1577,13 @@ document.addEventListener('DOMContentLoaded', function(){
 
             const enrollmentSection = document.getElementById('academicEnrollmentSection');
             if (enrollmentSection) {
-                enrollmentSection.style.display = title === 'University Based Scholarship' ? 'block' : 'none';
+                enrollmentSection.style.display = 'block';
             }
+            const showPresentSemester = title !== 'University Based Scholarship';
+            ['academicGradesSubtitle', 'academicEnrollmentSubtitle'].forEach(id => {
+                const subtitle = document.getElementById(id);
+                if (subtitle) subtitle.style.display = showPresentSemester ? 'block' : 'none';
+            });
 
             if (title) {
                 const form = document.getElementById('academicApplyForm');

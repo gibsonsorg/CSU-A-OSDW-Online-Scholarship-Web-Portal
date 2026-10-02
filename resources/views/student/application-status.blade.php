@@ -338,6 +338,12 @@
             margin: 0 0 0.6rem;
         }
 
+        .notification-subject {
+            margin: 0 0 0.75rem;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+
         .rejection-message-box {
             background: #f8fafc;
             border: 1px solid #dbe2ea;
@@ -347,6 +353,7 @@
             font-size: 0.92rem;
             line-height: 1.65;
             word-break: break-word;
+            white-space: pre-wrap;
         }
 
         .rejection-message-box.is-rejected {
@@ -556,11 +563,11 @@
                 </div>
             </div>
             <div class="detail-modal-body">
-                <p class="detail-section-label">Message from Administrator</p>
+                <p class="detail-section-label">Latest email notification</p>
+                <p id="rejectionDetailSubject" class="notification-subject"></p>
                 <div id="rejectionDetailMessage" class="rejection-message-box"></div>
 
                 <div class="detail-help-box">
-                    <p id="rejectionDetailGuidance">You may review the feedback above, update your documents if needed, and apply for other available scholarships.</p>
                     <div class="detail-help-actions">
                         <a href="{{ route('dashboard', ['section' => 'acad']) }}" class="detail-btn detail-btn-primary" id="rejectionBrowseLink">Browse Scholarships</a>
                         <button type="button" class="detail-btn detail-btn-secondary" id="rejectionDetailCloseBtn">Close</button>
@@ -581,7 +588,8 @@
                     'application_status' => $application->application_status,
                     'applied_at' => $application->created_at->format('M d, Y'),
                     'updated_at' => $application->updated_at->format('M d, Y'),
-                    'section_status_summary' => $application->section_status_summary,
+                    'last_notification_subject' => $application->last_notification_subject,
+                    'last_notification_body' => $application->last_notification_body,
                 ];
             })
             ->values();
@@ -596,8 +604,8 @@
             const typeEl = document.getElementById('rejectionDetailType');
             const appliedEl = document.getElementById('rejectionDetailApplied');
             const updatedEl = document.getElementById('rejectionDetailUpdated');
+            const subjectEl = document.getElementById('rejectionDetailSubject');
             const messageEl = document.getElementById('rejectionDetailMessage');
-            const guidanceEl = document.getElementById('rejectionDetailGuidance');
             const browseLink = document.getElementById('rejectionBrowseLink');
             const applications = JSON.parse(
                 document.getElementById('applicationsStatusData').textContent || '[]'
@@ -618,39 +626,8 @@
                 typeEl.textContent = application.scholarship_type ? 'Type: ' + application.scholarship_type : '';
                 appliedEl.textContent = application.applied_at ? 'Applied: ' + application.applied_at : '';
                 updatedEl.textContent = application.updated_at ? 'Updated: ' + application.updated_at : '';
-
-                const summary = application.section_status_summary;
-                const sectionsList = document.createElement('ul');
-                sectionsList.className = 'section-status-list';
-                summary.sections.forEach(function (section) {
-                    const item = document.createElement('li');
-                    const label = document.createElement('strong');
-                    label.textContent = section.label + ': ';
-                    item.append(label, document.createTextNode(section.status));
-
-                    if (section.status === 'Rejected') {
-                        const reason = (section.reason || '').trim()
-                            || 'No specific reason was provided. Please contact the scholarship office for more information.';
-                        item.append(document.createElement('br'), document.createTextNode('Reason: ' + reason));
-                    }
-
-                    sectionsList.appendChild(item);
-                });
-                messageEl.replaceChildren(sectionsList);
-
-                const summaryLine = document.createElement('p');
-                summaryLine.className = 'section-status-overall';
-                if (application.application_status === 'rejected') {
-                    summaryLine.textContent = 'Overall Status: Rejected (' + summary.rejected_count + ' of ' + summary.total_count + ' sections need your attention).';
-                    guidanceEl.textContent = 'You may review the feedback above, update your documents if needed, and apply for other available scholarships.';
-                } else if (application.application_status === 'approved') {
-                    summaryLine.textContent = 'Overall Status: Approved — all sections approved.';
-                    guidanceEl.textContent = 'Your application has been approved. Check your dashboard for updates and next steps.';
-                } else {
-                    summaryLine.textContent = 'Overall Status: Pending — ' + summary.pending_count + ' of ' + summary.total_count + ' sections still under review.';
-                    guidanceEl.textContent = 'Your application is still being reviewed. Check back for updates or browse other available scholarships.';
-                }
-                messageEl.appendChild(summaryLine);
+                subjectEl.textContent = application.last_notification_subject || 'Notification content not recorded';
+                messageEl.textContent = application.last_notification_body || 'No notification content is stored for this application.';
                 messageEl.classList.toggle('is-rejected', application.application_status === 'rejected');
                 messageEl.classList.toggle('is-approved', application.application_status === 'approved');
 

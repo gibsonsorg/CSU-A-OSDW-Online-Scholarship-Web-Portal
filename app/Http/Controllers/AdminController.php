@@ -299,6 +299,10 @@ class AdminController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
         }
 
+        if ($message = $this->applicationDecisionUnavailableMessage($application)) {
+            return response()->json(['status' => 'error', 'message' => $message], 409);
+        }
+
         $transitionedToApproved = $application->application_status !== 'approved';
         $statuses = [
             'student_information_status' => 'approved',
@@ -364,6 +368,10 @@ class AdminController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
         }
 
+        if ($message = $this->applicationDecisionUnavailableMessage($application)) {
+            return response()->json(['status' => 'error', 'message' => $message], 409);
+        }
+
         $reason = $request->validate([
             'reason' => ['required', Rule::in([
                 'Does not meet the eligibility requirements',
@@ -399,12 +407,14 @@ class AdminController extends Controller
             try {
                 $user = $application->user;
                 if ($user?->email) {
-                    Mail::to($user->email)->queue(new ApplicationStatusMail(
+                    $mail = new ApplicationStatusMail(
                         $user->name ?? trim($application->first_name . ' ' . $application->last_name),
                         $application->scholarship_name ?? 'Scholarship',
                         'rejected',
                         $reason,
-                    ));
+                    );
+                    Mail::to($user->email)->queue($mail);
+                    $application->recordNotification($mail->notificationSubject(), $mail->notificationBody());
                 }
             } catch (\Throwable $e) {
                 Log::error('Application rejection notification failed', [
@@ -436,11 +446,13 @@ class AdminController extends Controller
                 return;
             }
 
-            Mail::to($user->email)->queue(new ApplicationStatusMail(
+            $mail = new ApplicationStatusMail(
                 $user->name ?? trim($application->first_name . ' ' . $application->last_name),
                 $application->scholarship_name ?? 'Scholarship',
                 'approved'
-            ));
+            );
+            Mail::to($user->email)->queue($mail);
+            $application->recordNotification($mail->notificationSubject(), $mail->notificationBody());
         } catch (\Throwable $e) {
             Log::error('Application approval notification failed', [
                 'application_id' => $application->id,
@@ -592,6 +604,27 @@ class AdminController extends Controller
 
         Application::whereKey($profile->application_id)
             ->update(['status' => $status]);
+    }
+
+    private function applicationDecisionUnavailableMessage(StudentProfile $application): ?string
+    {
+        if ($application->locked_at) {
+            return 'This application is locked and can no longer be approved or rejected.';
+        }
+
+        if ($application->application_status === 'approved') {
+            return 'This application has already been approved.';
+        }
+
+        if ($application->application_status === 'rejected') {
+            return 'This application is awaiting student resubmission before another decision can be made.';
+        }
+
+        if ($application->application_status !== 'pending') {
+            return 'This application is not awaiting a decision.';
+        }
+
+        return null;
     }
 
     /**
