@@ -10,7 +10,7 @@ class StudentProfile extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'user_id','application_id','source','student_id_number','first_name','middle_name','last_name','suffix','sex','status','email','home_address','contact_number','course','college_department','campus','year_level','program','id_number','birthdate','birthplace','religion','scholarship_name','scholarship_type','amount','uploads','application_status','grant_type','rejection_reason','student_information_status','student_information_reason','personal_information_status','personal_information_reason','scholarship_requirements_status','scholarship_requirements_reason','family_background_status','family_background_reason','document_review','document_reviews','reapply_count','locked_at','last_notification_subject','last_notification_body'
+        'user_id','application_id','source','student_id_number','first_name','middle_name','last_name','suffix','sex','status','email','home_address','contact_number','course','college_department','campus','year_level','program','id_number','birthdate','birthplace','religion','scholarship_name','scholarship_type','amount','uploads','application_status','grant_type','rejection_reason','rejection_remark','resubmission_deadline','student_information_status','student_information_reason','personal_information_status','personal_information_reason','scholarship_requirements_status','scholarship_requirements_reason','family_background_status','family_background_reason','document_review','document_reviews','reapply_count','locked_at','last_notification_subject','last_notification_body'
     ];
 
     protected $casts = [
@@ -20,7 +20,32 @@ class StudentProfile extends Model
         'birthdate' => 'date',
         'amount' => 'decimal:2',
         'locked_at' => 'datetime',
+        'resubmission_deadline' => 'datetime',
     ];
+
+    public function expireResubmissionIfDue(): bool
+    {
+        if (
+            $this->application_status !== 'rejected'
+            || !$this->resubmission_deadline
+            || $this->locked_at
+            || $this->resubmission_deadline->isFuture()
+        ) {
+            return false;
+        }
+
+        $this->forceFill(['locked_at' => now()])->save();
+
+        return true;
+    }
+
+    public function isResubmissionExpired(): bool
+    {
+        return $this->application_status === 'rejected'
+            && $this->resubmission_deadline !== null
+            && $this->locked_at !== null
+            && $this->resubmission_deadline->lessThanOrEqualTo(now());
+    }
 
     public function user()
     {

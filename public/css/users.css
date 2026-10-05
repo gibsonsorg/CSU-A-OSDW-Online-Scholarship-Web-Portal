@@ -294,8 +294,19 @@ body {
 
 .card-meta-row {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: .8rem;
     flex-wrap: wrap;
+}
+
+.card-meta-row .slot-count {
+    display: inline-block;
+    flex: 0 1 auto;
+    max-width: 58%;
+    margin: 0 0 0 auto;
+    text-align: right;
+    overflow-wrap: anywhere;
 }
 
 .meta-chip {

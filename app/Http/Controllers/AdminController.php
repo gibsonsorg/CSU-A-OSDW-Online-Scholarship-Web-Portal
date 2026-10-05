@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ApprovedGranteesExport;
+use App\Mail\ApplicationClosureMail;
+use App\Mail\ApplicationCorrectionMail;
 use App\Mail\ApplicationStatusMail;
 use App\Mail\ApprovalMail;
 use App\Mail\RejectionMail;
 use App\Models\Application;
 use App\Models\Scholarship;
+use App\Models\StudentNotification;
 use App\Models\StudentProfile;
 use App\Models\User;
 use App\Support\CourseCollegeDepartment;
@@ -149,6 +152,10 @@ class AdminController extends Controller
 
         $query = StudentProfile::where('grant_type', $grantType)
             ->whereNull('deleted_at')
+            ->where(function ($query) {
+                $query->whereNull('student_profiles.source')
+                    ->orWhere('student_profiles.source', '!=', 'manual');
+            })
             ->when($dateFrom !== '', function ($query) use ($dateFrom) {
                 $query->whereDate(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'), '>=', $dateFrom);
             })
@@ -372,15 +379,30 @@ class AdminController extends Controller
             return response()->json(['status' => 'error', 'message' => $message], 409);
         }
 
-        $reason = $request->validate([
+        $correctionReasons = ['Wrong Uploaded Documents', 'Wrong Form'];
+        $validated = $request->validate([
             'reason' => ['required', Rule::in([
                 'Does not meet the eligibility requirements',
-                'Wrong uploaded documents or incomplete form',
+                ...$correctionReasons,
             ])],
-        ])['reason'];
+            'rejection_remark' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $reason = $validated['reason'];
+        $isCorrectionRejection = in_array($reason, $correctionReasons, true);
+        $rejectionRemark = trim((string) ($validated['rejection_remark'] ?? ''));
+        if ($isCorrectionRejection && $rejectionRemark === '') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Enter a remark describing what needs to be corrected.',
+            ], 422);
+        }
         $eligibilityRejection = $reason === 'Does not meet the eligibility requirements';
         $shouldLock = $application->source !== 'manual'
             && ($eligibilityRejection || (int) $application->reapply_count >= 1);
+        $hasResubmissionWindow = $isCorrectionRejection && !$shouldLock && $application->source !== 'manual';
+        $resubmissionDeadline = $hasResubmissionWindow
+            ? now()->addDay()
+            : null;
         $transitionedToRejected = $application->application_status !== 'rejected';
         $statuses = [
             'student_information_status' => 'rejected',
@@ -391,6 +413,8 @@ class AdminController extends Controller
             'scholarship_requirements_reason' => $reason,
             'application_status' => 'rejected',
             'rejection_reason' => $reason,
+            'rejection_remark' => $isCorrectionRejection ? $rejectionRemark : null,
+            'resubmission_deadline' => $resubmissionDeadline,
         ];
         if ($application->grant_type === 'non-academic') {
             $statuses['family_background_status'] = 'rejected';
@@ -407,14 +431,25 @@ class AdminController extends Controller
             try {
                 $user = $application->user;
                 if ($user?->email) {
-                    $mail = new ApplicationStatusMail(
-                        $user->name ?? trim($application->first_name . ' ' . $application->last_name),
-                        $application->scholarship_name ?? 'Scholarship',
-                        'rejected',
-                        $reason,
-                    );
+                    $studentName = $user->name ?? trim($application->first_name . ' ' . $application->last_name);
+                    $scholarshipName = $application->scholarship_name ?? 'Scholarship';
+                    $mail = $isCorrectionRejection && $shouldLock
+                        ? new ApplicationClosureMail($studentName, $scholarshipName, $rejectionRemark)
+                        : ($hasResubmissionWindow
+                            ? new ApplicationCorrectionMail($studentName, $scholarshipName, $rejectionRemark, $resubmissionDeadline)
+                            : new ApplicationStatusMail(
+                            $studentName,
+                            $scholarshipName,
+                            'rejected',
+                            $reason,
+                            $isCorrectionRejection ? $rejectionRemark : null,
+                            ));
                     Mail::to($user->email)->queue($mail);
                     $application->recordNotification($mail->notificationSubject(), $mail->notificationBody());
+
+                    if ($transitionedToRejected) {
+                        $this->createStudentDecisionNotification($user, $application, 'rejected', $reason, $rejectionRemark);
+                    }
                 }
             } catch (\Throwable $e) {
                 Log::error('Application rejection notification failed', [
@@ -453,12 +488,44 @@ class AdminController extends Controller
             );
             Mail::to($user->email)->queue($mail);
             $application->recordNotification($mail->notificationSubject(), $mail->notificationBody());
+
+            $this->createStudentDecisionNotification($user, $application, 'approved');
         } catch (\Throwable $e) {
             Log::error('Application approval notification failed', [
                 'application_id' => $application->id,
                 'exception' => $e,
             ]);
         }
+    }
+
+    private function createStudentDecisionNotification(User $user, StudentProfile $application, string $decision, ?string $reason = null, ?string $remark = null): void
+    {
+        $scholarshipName = $application->scholarship_name ?? 'Scholarship';
+
+        if ($decision === 'approved') {
+            $title = 'Scholarship Application Approved';
+            $message = 'Congratulations! Your application for ' . $scholarshipName . ' has been approved by the Scholarship Administrator. Please check your Application Status page for further information.';
+        } else {
+            $isCorrection = in_array($reason, ['Wrong Uploaded Documents', 'Wrong Form'], true);
+            $title = $isCorrection
+                ? 'Scholarship Application Requires Correction'
+                : 'Scholarship Application Rejected';
+            $message = $isCorrection
+                ? ($application->resubmission_deadline
+                    ? 'Your application for ' . $scholarshipName . ' needs corrections. What to fix: ' . $remark
+                        . ' Deadline: ' . $application->resubmission_deadline->format('F j, Y g:i A') . '.'
+                    : 'Your application for ' . $scholarshipName . ' has been closed after its final resubmission. Reason for closure: ' . $remark)
+                : 'Your application for ' . $scholarshipName . ' has been rejected by the Scholarship Administrator. Please review the rejection reason and any instructions provided in your Application Status page.';
+        }
+
+        StudentNotification::createForApplication(
+            $user,
+            (int) $application->id,
+            $scholarshipName,
+            $decision,
+            $message,
+            $reason
+        );
     }
 
     /**
@@ -659,6 +726,7 @@ class AdminController extends Controller
             'last_name' => ['required', 'string', 'max:255'],
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
+            'suffix' => ['nullable', 'string', 'max:50'],
             'sex' => ['required', 'in:Male,Female'],
             'course' => ['required', 'string', 'max:255'],
             'year_level' => ['required', 'in:1st Year,2nd Year,3rd Year,4th Year'],
@@ -678,10 +746,12 @@ class AdminController extends Controller
             'last_name' => $validated['last_name'],
             'first_name' => $validated['first_name'],
             'middle_name' => $validated['middle_name'] ?? null,
+            'suffix' => $validated['suffix'] ?? null,
             'sex' => $validated['sex'],
             'status' => 'Single',
             'email' => 'manual-' . Str::uuid() . '@local.invalid',
             'course' => $validated['course'],
+            'college_department' => CourseCollegeDepartment::forCourse($validated['course']),
             'campus' => 'Aparri',
             'year_level' => $validated['year_level'],
             'scholarship_name' => $validated['scholarship_name'],
@@ -802,6 +872,7 @@ class AdminController extends Controller
             'last_name' => ['required', 'string', 'max:255'],
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
+            'suffix' => ['nullable', 'string', 'max:50'],
             'sex' => ['required', 'in:Male,Female'],
             'course' => ['required', 'string', 'max:255'],
             'year_level' => ['required', 'in:1st Year,2nd Year,3rd Year,4th Year'],
@@ -820,8 +891,10 @@ class AdminController extends Controller
             'last_name' => $validated['last_name'],
             'first_name' => $validated['first_name'],
             'middle_name' => $validated['middle_name'] ?? null,
+            'suffix' => $validated['suffix'] ?? null,
             'sex' => $validated['sex'],
             'course' => $validated['course'],
+            'college_department' => CourseCollegeDepartment::forCourse($validated['course']),
             'campus' => 'Aparri',
             'year_level' => $validated['year_level'],
             'scholarship_name' => $validated['scholarship_name'],

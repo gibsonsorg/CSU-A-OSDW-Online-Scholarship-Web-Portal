@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Application;
 use App\Models\Scholarship;
+use App\Models\StudentNotification;
 use App\Models\StudentProfile;
 use App\Models\User;
 use App\Mail\ApplicationReceivedMail;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\QueryException;
+use Illuminate\Validation\ValidationException;
 
 class StudentProfileController extends Controller
 {
@@ -26,8 +28,8 @@ class StudentProfileController extends Controller
     {
         return [
             'document' => [
-                'extensions' => ['pdf', 'docx', 'doc'],
-                'mimes' => ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'],
+                'extensions' => ['pdf', 'docx'],
+                'mimes' => ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
                 'maxSize' => 2048, // 2MB in KB
                 'displaySize' => '2MB'
             ],
@@ -65,7 +67,7 @@ class StudentProfileController extends Controller
     /**
      * Validate individual file based on type
      */
-    private function validateFile($file)
+    private function validateFile($file, bool $allowImages = false)
     {
         $category = $this->getFileTypeCategory($file);
         $rules = $this->getFileValidationRules();
@@ -73,7 +75,14 @@ class StudentProfileController extends Controller
         if (!$category) {
             return [
                 'valid' => false,
-                'error' => "File '{$file->getClientOriginalName()}' has an unsupported format. Allowed formats: PDF, DOCX, JPG, PNG"
+                'error' => "File '{$file->getClientOriginalName()}' has an unsupported format. Allowed formats: PDF, DOCX"
+            ];
+        }
+
+        if ($category === 'image' && !$allowImages) {
+            return [
+                'valid' => false,
+                'error' => "File '{$file->getClientOriginalName()}' has an unsupported format. Allowed formats: PDF, DOCX"
             ];
         }
 
@@ -260,6 +269,27 @@ class StudentProfileController extends Controller
         })->first();
     }
 
+    private function scholarshipAvailabilityError(?Scholarship $scholarship, ?StudentProfile $resubmissionProfile = null): ?string
+    {
+        if (!$scholarship) {
+            return null;
+        }
+
+        $activeApplications = null;
+        if (
+            $resubmissionProfile
+            && $resubmissionProfile->application_status === 'rejected'
+            && !$resubmissionProfile->locked_at
+            && $resubmissionProfile->resubmission_deadline?->isFuture()
+            && in_array($resubmissionProfile->rejection_reason, ['Wrong Uploaded Documents', 'Wrong Form'], true)
+            && $resubmissionProfile->application()->where('scholarship_id', $scholarship->id)->exists()
+        ) {
+            $activeApplications = max(0, $scholarship->activeApplicationsCount() - 1);
+        }
+
+        return $scholarship->availabilityMessage($activeApplications);
+    }
+
     public function applicationPrefill(Request $request)
     {
         $user = Auth::user();
@@ -366,6 +396,9 @@ class StudentProfileController extends Controller
                 $legacyAliases[] = 'uploads';
                 $legacyAliases[] = 'grades';
             }
+            if ($group === 'supporting_document') {
+                $legacyAliases[] = 'uploads';
+            }
             $legacyAliases = array_values(array_unique($legacyAliases));
 
             foreach ((array) $files as $index => $file) {
@@ -388,39 +421,20 @@ class StudentProfileController extends Controller
 
     private function requiredDocumentRules(?Scholarship $scholarship, bool $isAcademic, string $scholarshipName): array
     {
-        if ($isAcademic && $scholarshipName !== 'University Based Scholarship') {
-            return [
-                'groups' => ['certificate_of_grades', 'certificate_of_enrollment'],
-                'count' => 0,
-                'labels' => [],
-            ];
-        }
-
         $configuredDocuments = $scholarship?->required_documents ?? [];
-        if (is_array($configuredDocuments) && count(array_filter($configuredDocuments)) > 0) {
-            return ['groups' => [], 'count' => count(array_filter($configuredDocuments)), 'labels' => array_values(array_filter($configuredDocuments))];
-        }
-
         if ($isAcademic) {
+            if (is_array($configuredDocuments) && count(array_filter($configuredDocuments)) > 0) {
+                return ['groups' => [], 'count' => count(array_filter($configuredDocuments)), 'labels' => array_values(array_filter($configuredDocuments))];
+            }
+
             return [
-                'groups' => $scholarshipName === 'University Based Scholarship'
-                    ? ['certificate_of_grades', 'certificate_of_enrollment']
-                    : ['certificate_of_grades'],
+                'groups' => ['supporting_document'],
                 'count' => 0,
                 'labels' => [],
             ];
         }
 
-        $groups = match ($scholarshipName) {
-            'Athletic Scholarship' => ['certificate_of_sports_coordinator', 'certificate_of_adviser'],
-            'Socio-Cultural Scholarship' => ['uploads'],
-            'Differently Abled Persons', 'Open Heart Scholarship', 'Talamayan Scholarship' => ['uploads'],
-            'Campus Student Publication' => ['uploads'],
-            'CSU Aparri Alumni Association' => ['uploads'],
-            default => [],
-        };
-
-        return ['groups' => $groups, 'count' => 0, 'labels' => []];
+        return ['groups' => ['supporting_document'], 'count' => 0, 'labels' => []];
     }
 
     public function store(Request $request)
@@ -433,6 +447,22 @@ class StudentProfileController extends Controller
                 is_scalar($scholarshipIdInput) ? (string) $scholarshipIdInput : null,
                 is_scalar($scholarshipNameInput) ? (string) $scholarshipNameInput : null
             );
+            $reapplicationProfileInput = $request->input('student_profile_id') ?: $request->input('profile_id');
+            $preflightResubmissionProfile = is_scalar($reapplicationProfileInput)
+                ? StudentProfile::where('user_id', Auth::id())->find((int) $reapplicationProfileInput)
+                : null;
+            if (!$preflightResubmissionProfile && is_scalar($request->input('application_id'))) {
+                $preflightResubmissionProfile = StudentProfile::where('user_id', Auth::id())
+                    ->where('application_id', (int) $request->input('application_id'))
+                    ->first();
+            }
+            $availabilityError = $this->scholarshipAvailabilityError($selectedScholarship, $preflightResubmissionProfile);
+            if ($availabilityError !== null) {
+                return redirect()->route('dashboard', [
+                    'section' => $selectedScholarship->type === 'non-academic' ? 'non' : 'acad',
+                ])->with('error', $availabilityError);
+            }
+
             $isAcademic = $selectedScholarship
                 ? $selectedScholarship->type === 'academic'
                 : $request->has('program');
@@ -572,7 +602,15 @@ class StudentProfileController extends Controller
                 $previousProfile = $previousProfileQuery->firstWhere('application_id', (int) $requestApplicationId);
             }
             $previousProfile ??= $previousProfileQuery->first();
+            $previousProfile?->expireResubmissionIfDue();
+            $previousProfile?->refresh();
+            if ($previousProfile?->isResubmissionExpired()) {
+                return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
+                    ->with('error', 'The resubmission deadline has passed. This application is closed and cannot be resubmitted.');
+            }
             $applicationWasRejected = ($previousProfile?->application_status ?? null) === 'rejected';
+            $preserveDocumentsForWrongForm = $applicationWasRejected
+                && $previousProfile?->rejection_reason === 'Wrong Form';
 
             $lockedProfileQuery = StudentProfile::where('user_id', $user->id)
                 ->where('grant_type', $isAcademic ? 'academic' : 'non-academic')
@@ -613,18 +651,15 @@ class StudentProfileController extends Controller
             $uploaded = [];
             $uploadErrors = [];
 
-            $uploadGroups = [
-                'certificate_of_grades' => $this->collectFilesFromRequest($request, 'uploads'),
-                'certificate_of_enrollment' => $this->collectFilesFromRequest($request, 'certificate_of_enrollment'),
-            ];
+            $uploadGroups = [];
 
-            if ($request->input('scholarship_name') === 'Athletic Scholarship' || $selectedScholarship?->name === 'Athletic Scholarship') {
-                $allFiles = $request->allFiles();
-                $uploadGroups = [
-                    'certificate_of_sports_coordinator' => $this->collectFilesFromRequest($request, 'uploads') ?: ($allFiles['uploads'] ?? []),
-                    'certificate_of_adviser' => $this->collectFilesFromRequest($request, 'certificate_of_adviser') ?: ($allFiles['certificate_of_adviser'] ?? []),
-                ];
+            $academicSupportingDocument = $this->collectFilesFromRequest($request, 'supporting_document');
+            if (empty($academicSupportingDocument)) {
+                $academicSupportingDocument = $this->collectFilesFromRequest($request, 'uploads');
             }
+            $uploadGroups = $preserveDocumentsForWrongForm
+                ? []
+                : ['supporting_document' => $academicSupportingDocument];
 
             if ($previousProfile && !$applicationWasRejected) {
                 $reviewColumn = Schema::hasColumn('student_profiles', 'document_review') ? 'document_review' : 'document_reviews';
@@ -636,9 +671,11 @@ class StudentProfileController extends Controller
                     ->unique();
 
                 foreach ($rejectedGroups as $group) {
-                    $candidateGroups = in_array($group, ['uploads', 'grades'], true)
-                        ? ['certificate_of_grades', 'uploads', 'grades']
-                        : [$group];
+                    $candidateGroups = $isAcademic
+                        ? (in_array($group, ['uploads', 'grades'], true)
+                            ? ['certificate_of_grades', 'uploads', 'grades']
+                            : [$group])
+                        : [$group, 'supporting_document'];
 
                     $hasReplacement = collect($candidateGroups)->contains(fn ($candidateGroup) => !empty($uploadGroups[$candidateGroup]));
 
@@ -655,18 +692,26 @@ class StudentProfileController extends Controller
                     continue;
                 }
 
-                foreach ($files as $file) {
+                foreach ($files as $index => $file) {
                     if (!$file || !$file->isValid()) {
                         $uploadErrors[] = "File upload failed. Please try again.";
                         continue;
                     }
 
                     // Validate file
-                    $validation = $this->validateFile($file);
+                    $validation = $this->validateFile($file, false);
 
                     if (!$validation['valid']) {
-                        $uploadErrors[] = $validation['error'];
-                        continue;
+                        $fieldName = match ($groupKey) {
+                            'certificate_of_grades' => 'uploads',
+                            'certificate_of_enrollment' => 'certificate_of_enrollment',
+                            'supporting_document' => 'supporting_document',
+                            default => $groupKey,
+                        };
+
+                        throw ValidationException::withMessages([
+                            $fieldName . '.' . $index => [$validation['error']],
+                        ]);
                     }
 
                     // Store the file
@@ -760,9 +805,23 @@ class StudentProfileController extends Controller
                 $mergedUploads = [];
                 $mergedReviews = [];
 
-                if ($applicationWasRejected) {
+                if ($preserveDocumentsForWrongForm) {
+                    $data['uploads'] = $previousProfile->uploads;
+                    $data[$reviewColumn] = $previousProfile->{$reviewColumn};
+                } elseif ($applicationWasRejected) {
                     $oldRejectedFiles = collect($previousUploads)->flatten()->filter(fn ($path) => is_string($path))->unique()->values()->all();
                     $data[$reviewColumn] = null;
+                } elseif (!$isAcademic && $requirementsRejected && !empty($newUploads['supporting_document'])) {
+                    $oldRejectedFiles = collect($previousUploads)->flatten()->filter(fn ($path) => is_string($path))->unique()->values()->all();
+                    $mergedUploads['supporting_document'] = array_values($newUploads['supporting_document']);
+                    foreach ($mergedUploads['supporting_document'] as $index => $path) {
+                        $mergedReviews['supporting_document.' . $index] = [
+                            'status' => 'pending',
+                            'reason' => null,
+                        ];
+                    }
+                    $data['uploads'] = $mergedUploads;
+                    $data[$reviewColumn] = $mergedReviews;
                 } else {
                     foreach ($previousUploads as $group => $files) {
                         if (!is_array($files)) {
@@ -877,6 +936,7 @@ class StudentProfileController extends Controller
                 $missingLabels = array_map(fn ($group) => match ($group) {
                     'certificate_of_grades' => 'Certificate of Grades',
                     'certificate_of_enrollment' => 'Certificate of Enrollment',
+                    'supporting_document' => 'Supporting Document',
                     'certificate_of_sports_coordinator' => 'Certificate from Sports Coordinator',
                     'certificate_of_adviser' => 'Certificate of Adviser',
                     'uploads' => 'Required scholarship upload',
@@ -897,6 +957,16 @@ class StudentProfileController extends Controller
                 DB::beginTransaction();
 
                 $scholarship = $this->findSelectedScholarship($selectedScholarshipId, $data['scholarship_name'] ?? null);
+
+                if ($scholarship) {
+                    $scholarship = Scholarship::whereKey($scholarship->id)->lockForUpdate()->firstOrFail();
+                    $availabilityError = $this->scholarshipAvailabilityError($scholarship, $previousProfile);
+                    if ($availabilityError !== null) {
+                        DB::rollBack();
+                        return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
+                            ->with('error', $availabilityError);
+                    }
+                }
 
                 $isLegacyScholarship = !$scholarship && !$isAcademic;
 
@@ -919,6 +989,16 @@ class StudentProfileController extends Controller
 
                 // Serialize application checks per user so concurrent submissions cannot bypass limits.
                 User::whereKey($user->id)->lockForUpdate()->first();
+
+                if ($previousProfile) {
+                    $previousProfile = StudentProfile::whereKey($previousProfile->id)->lockForUpdate()->first();
+                    $previousProfile?->expireResubmissionIfDue();
+                    if ($previousProfile?->isResubmissionExpired()) {
+                        DB::commit();
+                        return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
+                            ->with('error', 'The resubmission deadline has passed. This application is closed and cannot be resubmitted.');
+                    }
+                }
 
                 $isAcademicScholarship = $scholarship?->type === 'academic';
 
@@ -1013,6 +1093,8 @@ class StudentProfileController extends Controller
                     $previousProfile->reapply_count = (int) $previousProfile->reapply_count + 1;
                     $previousProfile->application_status = 'pending';
                     $previousProfile->rejection_reason = null;
+                    $previousProfile->rejection_remark = null;
+                    $previousProfile->resubmission_deadline = null;
                     $previousProfile->save();
                     $profile = $previousProfile;
                 } else {
@@ -1174,9 +1256,14 @@ class StudentProfileController extends Controller
             $uploadErrors = [];
             $newUploads = [];
 
+            $uploadGroups = [];
+
+            $academicSupportingDocument = $this->collectFilesFromRequest($request, 'supporting_document');
+            if (empty($academicSupportingDocument)) {
+                $academicSupportingDocument = $this->collectFilesFromRequest($request, 'uploads');
+            }
             $uploadGroups = [
-                'certificate_of_grades' => $this->collectFilesFromRequest($request, 'uploads'),
-                'certificate_of_enrollment' => $this->collectFilesFromRequest($request, 'certificate_of_enrollment'),
+                'supporting_document' => $academicSupportingDocument,
             ];
 
             foreach ($uploadGroups as $groupKey => $files) {
@@ -1184,17 +1271,25 @@ class StudentProfileController extends Controller
                     continue;
                 }
 
-                foreach ($files as $file) {
+                foreach ($files as $index => $file) {
                     if (!$file || !$file->isValid()) {
                         $uploadErrors[] = "File upload failed. Please try again.";
                         continue;
                     }
 
-                    $validation = $this->validateFile($file);
+                    $validation = $this->validateFile($file, false);
 
                     if (!$validation['valid']) {
-                        $uploadErrors[] = $validation['error'];
-                        continue;
+                        $fieldName = match ($groupKey) {
+                            'certificate_of_grades' => 'uploads',
+                            'certificate_of_enrollment' => 'certificate_of_enrollment',
+                            'supporting_document' => 'supporting_document',
+                            default => $groupKey,
+                        };
+
+                        throw ValidationException::withMessages([
+                            $fieldName . '.' . $index => [$validation['error']],
+                        ]);
                     }
 
                     try {
@@ -1269,5 +1364,59 @@ class StudentProfileController extends Controller
             'academicApplications',
             'nonAcademicApplications'
         ));
+    }
+
+    public function notifications()
+    {
+        $notifications = auth()->user()
+            ->studentNotifications()
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function (StudentNotification $notification) {
+                return [
+                    'id' => $notification->id,
+                    'application_id' => $notification->application_id,
+                    'scholarship_name' => $notification->scholarship_name,
+                    'type' => $notification->type,
+                    'title' => $notification->getTitleAttribute(),
+                    'message' => $notification->message,
+                    'decision_reason' => $notification->decision_reason,
+                    'read_at' => $notification->read_at ? $notification->read_at->toISOString() : null,
+                    'created_at' => $notification->created_at ? $notification->created_at->toISOString() : null,
+                ];
+            });
+
+        return response()->json([
+            'notifications' => $notifications,
+            'unread_count' => $notifications->whereNull('read_at')->count(),
+        ]);
+    }
+
+    public function markNotificationRead(StudentNotification $notification)
+    {
+        if ((int) $notification->user_id !== (int) auth()->id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $notification->markAsRead();
+
+        return response()->json([
+            'status' => 'ok',
+            'unread_count' => auth()->user()->studentNotifications()->whereNull('read_at')->count(),
+        ]);
+    }
+
+    public function markAllNotificationsRead()
+    {
+        auth()->user()
+            ->studentNotifications()
+            ->whereNull('read_at')
+            ->get()
+            ->each(fn (StudentNotification $notification) => $notification->markAsRead());
+
+        return response()->json([
+            'status' => 'ok',
+            'unread_count' => 0,
+        ]);
     }
 }

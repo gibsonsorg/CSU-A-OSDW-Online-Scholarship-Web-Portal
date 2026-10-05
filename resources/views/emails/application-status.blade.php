@@ -14,6 +14,9 @@
             <p>You may now proceed with the next steps or wait for further instructions.</p>
         @elseif ($rejectionReason === 'Does not meet the eligibility requirements')
             <p>This is to inform you that your application for {{ $scholarshipName }} did not meet certain eligibility requirements. You are welcome to apply for another scholarship offered by the government. If you have any questions, feel free to visit the OSDW office in Aparri.</p>
+        @elseif (!empty($rejectionRemark))
+            <p>Your application for {{ $scholarshipName }} has been closed after its final resubmission.</p>
+            <p><strong>What to fix:</strong> {{ $rejectionRemark }}</p>
         @else
             <p>We regret to inform you that your application for '{{ $scholarshipName }}' has been REJECTED. Please ensure your submitted documents are clear and complete and that you fill out the application form correctly. You may check your application status for more details and reapply once all requirements are met.</p>
         @endif

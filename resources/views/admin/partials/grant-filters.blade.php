@@ -26,9 +26,6 @@
         </select>
     </div>
     <button class="grant-filter-button" type="submit">Filter</button>
-    @if(in_array($filterType ?? null, ['academic', 'non-academic'], true))
-        <button id="add-applicant-button" class="grant-filter-button" type="button" data-action="add-applicant" data-grant-type="{{ $filterType }}">Add Applicant</button>
-    @endif
     <p class="grant-filter-error" id="grant-filter-error" role="alert" hidden>Date From must be before or equal to Date To.</p>
 </form>
 

@@ -17,13 +17,15 @@ class ApplicationStatusMail extends Mailable implements ShouldQueue
     public string $scholarshipName;
     public string $status;
     public ?string $rejectionReason;
+    public ?string $rejectionRemark;
 
-    public function __construct(string $userName, string $scholarshipName, string $status, ?string $rejectionReason = null)
+    public function __construct(string $userName, string $scholarshipName, string $status, ?string $rejectionReason = null, ?string $rejectionRemark = null)
     {
         $this->userName = $userName;
         $this->scholarshipName = $scholarshipName;
         $this->status = strtolower($status);
         $this->rejectionReason = $rejectionReason;
+        $this->rejectionRemark = $rejectionRemark;
     }
 
     public function build(): self
@@ -35,6 +37,7 @@ class ApplicationStatusMail extends Mailable implements ShouldQueue
                 'scholarshipName' => $this->scholarshipName,
                 'status' => $this->status,
                 'rejectionReason' => $this->rejectionReason,
+                'rejectionRemark' => $this->rejectionRemark,
             ]);
     }
 
@@ -53,6 +56,9 @@ class ApplicationStatusMail extends Mailable implements ShouldQueue
         } elseif ($this->rejectionReason === 'Does not meet the eligibility requirements') {
             $message = 'This is to inform you that your application for ' . $this->scholarshipName
                 . ' did not meet certain eligibility requirements. You are welcome to apply for another scholarship offered by the government. If you have any questions, feel free to visit the OSDW office in Aparri.';
+        } elseif ($this->rejectionRemark) {
+            $message = 'Your application for ' . $this->scholarshipName
+                . ' has been closed after its final resubmission. What to fix: ' . $this->rejectionRemark;
         } else {
             $message = "We regret to inform you that your application for '{$this->scholarshipName}' has been REJECTED. Please ensure your submitted documents are clear and complete and that you fill out the application form correctly. You may check your application status for more details and reapply once all requirements are met.";
         }

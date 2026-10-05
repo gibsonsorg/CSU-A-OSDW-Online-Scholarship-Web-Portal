@@ -671,6 +671,14 @@
                     closeRejectionDetail();
                 }
             });
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const requestedApplicationId = urlParams.get('application_id');
+            if (requestedApplicationId && applicationsById[String(requestedApplicationId)]) {
+                setTimeout(function () {
+                    openApplicationDetail(requestedApplicationId);
+                }, 100);
+            }
         })();
     </script>
 </x-app-layout>

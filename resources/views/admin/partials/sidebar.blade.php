@@ -42,6 +42,9 @@
           <a href="{{ route('admin.scholarships.create') }}" class="nav-item {{ request()->routeIs('admin.scholarships.create') ? 'active' : '' }}">
             <span class="nav-icon"></span> Add Scholarship
         </a>
+                <a href="{{ route('admin.scholarships.availability') }}" class="nav-item {{ request()->routeIs('admin.scholarships.availability') ? 'active' : '' }}">
+                        <span class="nav-icon"></span> Manage Availability
+                </a>
         <a href="{{ route('admin.users') }}" class="nav-item {{ request()->routeIs('admin.users') ? 'active' : '' }}">
             <span class="nav-icon"></span> Users
         </a>

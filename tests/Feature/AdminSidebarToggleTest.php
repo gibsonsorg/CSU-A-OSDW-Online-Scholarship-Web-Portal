@@ -52,4 +52,23 @@ class AdminSidebarToggleTest extends TestCase
         $this->assertStringContainsString('id="sidebarToggle"', $scholarships);
         $this->assertStringContainsString('toggle.addEventListener', $scholarships);
     }
+
+    public function test_manage_availability_loads_the_shared_sidebar_toggle_script(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 0,
+            'email_verified_at' => now(),
+            'account_status' => 'approved',
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.scholarships.availability'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('id="sidebarToggle"', $html);
+        $this->assertStringContainsString('id="adminSidebar"', $html);
+        $this->assertStringContainsString('id="adminMain"', $html);
+        $this->assertStringContainsString('/js/admin-sidebar.js', $html);
+    }
 }

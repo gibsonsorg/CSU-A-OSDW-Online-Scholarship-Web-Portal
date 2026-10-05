@@ -102,7 +102,7 @@
 
                     <div class="form-group">
                         <label for="studentIdentifier">EMAIL ADDRESS </label>
-                        <input type="text" id="studentIdentifier" name="login_identifier" placeholder="Enter your email or Student ID" value="{{ old('login_identifier') }}" required>
+                        <input type="text" id="studentIdentifier" name="login_identifier" placeholder="Enter your email address" value="{{ old('login_identifier') }}" required>
                         @error('login_identifier')
                             <div class="error-message">{{ $message }}</div>
                         @enderror

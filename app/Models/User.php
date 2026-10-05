@@ -57,4 +57,9 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function studentNotifications()
+    {
+        return $this->hasMany(StudentNotification::class, 'user_id');
+    }
 }

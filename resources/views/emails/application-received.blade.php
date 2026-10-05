@@ -7,7 +7,7 @@
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
     <div style="max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px;">
-        <p>{{ $notificationBody }}</p>
+        <p>{!! nl2br(e($notificationBody)) !!}</p>
     </div>
 </body>
 </html>

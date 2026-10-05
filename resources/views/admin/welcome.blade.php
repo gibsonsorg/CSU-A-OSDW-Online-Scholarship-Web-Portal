@@ -82,12 +82,12 @@
     <div class="card-title">
         @if($filterType === 'old-academic')
             <div class="old-grants-toolbar">
-                @include('admin.partials.grant-filters', ['filterType' => $filterType, 'scholarshipNames' => $scholarshipNames ?? collect()])
+                @include('admin.partials.old-grant-filters', ['filterType' => $filterType, 'scholarshipNames' => $scholarshipNames ?? collect(), 'yearLevels' => $yearLevels ?? collect(), 'courses' => $courses ?? collect()])
                 <button class="btn small" onclick="openOldGrantUploadModal()">Upload Old Data</button>
             </div>
         @elseif($filterType === 'old-non-academic')
             <div class="old-grants-toolbar">
-                @include('admin.partials.grant-filters', ['filterType' => $filterType, 'scholarshipNames' => $scholarshipNames ?? collect()])
+                @include('admin.partials.old-grant-filters', ['filterType' => $filterType, 'scholarshipNames' => $scholarshipNames ?? collect(), 'yearLevels' => $yearLevels ?? collect(), 'courses' => $courses ?? collect()])
                 <button class="btn small" onclick="openOldGrantUploadModal()">Upload Old Data</button>
             </div>
         @elseif($filterType === 'users')
@@ -111,7 +111,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Sequence No.</th>
+                    <th>Row No.</th>
                     <th>Last Name</th>
                     <th>First Name</th>
                     <th>Middle Name</th>
@@ -129,7 +129,7 @@
             @if($oldRecords->count() > 0)
                 @foreach($oldRecords as $record)
                     <tr>
-                        <td>{{ $record->sequence_no ?? '' }}</td>
+                        <td>{{ ($oldRecords->currentPage() - 1) * $oldRecords->perPage() + $loop->iteration }}</td>
                         <td>{{ $record->last_name ?? '' }}</td>
                         <td>{{ $record->first_name }}</td>
                         <td>{{ $record->middle_name }}</td>
@@ -155,81 +155,141 @@
         @endif
         @else
         {{-- The Summary of Reports is approved-only, so Amount is always visible there. --}}
-        @php($showAmountColumn = $filterType === 'all' || request('status') === 'approved')
-        <table id="admin-applications-table" data-grant-type="{{ $filterType }}" data-show-amount="{{ $showAmountColumn ? '1' : '0' }}" @if($filterType === 'academic') data-today="{{ now()->format('Y-m-d') }}" data-college-lookup-url="{{ route('admin.academic.manual_applicants.college_department') }}" data-manual-store-url="{{ route('admin.academic.manual_applicants.store') }}" data-manual-update-url-template="{{ route('admin.academic.manual_applicants.update', ['id' => '__ID__']) }}" data-academic-scholarships='@json($academicScholarshipCatalog ?? [])' @elseif($filterType === 'non-academic') data-today="{{ now()->format('Y-m-d') }}" data-college-lookup-url="{{ route('admin.academic.manual_applicants.college_department') }}" data-manual-store-url="{{ route('admin.non_academic.manual_applicants.store') }}" data-manual-update-url-template="{{ route('admin.non_academic.manual_applicants.update', ['id' => '__ID__']) }}" data-non-academic-scholarships='@json($nonAcademicScholarshipCatalog ?? [])' @endif>
+        @php
+            $showAmountColumn = $filterType === 'all' || request('status') === 'approved';
+        @endphp
+        <table id="admin-applications-table" data-grant-type="{{ $filterType }}" data-show-amount="{{ $showAmountColumn ? '1' : '0' }}" @if($filterType === 'academic') data-today="{{ now()->format('Y-m-d') }}" data-college-lookup-url="{{ route('admin.academic.manual_applicants.college_department') }}" data-manual-store-url="{{ route('admin.academic.manual_applicants.store') }}" data-manual-update-url-template="{{ route('admin.academic.manual_applicants.update', ['id' => '__ID__']) }}" data-academic-scholarships='@json($academicScholarshipCatalog ?? [])' data-academic-store-url="{{ route('admin.academic.manual_applicants.store') }}" data-non-academic-store-url="{{ route('admin.non_academic.manual_applicants.store') }}" @elseif($filterType === 'non-academic') data-today="{{ now()->format('Y-m-d') }}" data-college-lookup-url="{{ route('admin.academic.manual_applicants.college_department') }}" data-manual-store-url="{{ route('admin.non_academic.manual_applicants.store') }}" data-manual-update-url-template="{{ route('admin.non_academic.manual_applicants.update', ['id' => '__ID__']) }}" data-non-academic-scholarships='@json($nonAcademicScholarshipCatalog ?? [])' data-academic-store-url="{{ route('admin.academic.manual_applicants.store') }}" data-non-academic-store-url="{{ route('admin.non_academic.manual_applicants.store') }}" @else data-today="{{ now()->format('Y-m-d') }}" data-manual-update-url-template="{{ url('/admin/manual-applicants/__ID__') }}" data-college-lookup-url="{{ route('admin.academic.manual_applicants.college_department') }}" data-academic-scholarships='@json($academicScholarshipCatalog ?? [])' data-non-academic-scholarships='@json($nonAcademicScholarshipCatalog ?? [])' data-academic-store-url="{{ route('admin.academic.manual_applicants.store') }}" data-non-academic-store-url="{{ route('admin.non_academic.manual_applicants.store') }}" @endif>
             <thead>
                 <tr>
-                    <th>Last Name</th>
-                    <th>First Name</th>
-                    <th>Middle Name</th>
-                    <th>Suffix</th>
-                    <th>Sex</th>
-                    <th>Course</th>
-                    <th>College or Department</th>
-                    <th>Year Level</th>
-                    <th>Type of Scholarship</th>
-                    <th>Name of Scholarship</th>
-                    @if($filterType === 'all' || in_array($filterType, ['academic', 'non-academic'], true))
-                        <th>Funding</th>
-                        <th>Campus</th>
+                    @if(in_array($filterType, ['academic', 'non-academic'], true))
+                        <th>Full Name</th>
+                        <th>Sex</th>
+                        <th>Course</th>
+                        <th>Year Level</th>
+                        <th>Name of Scholarship</th>
+                        <th>Date</th>
+                        @if($showAmountColumn)
+                            <th>Amount</th>
+                        @endif
+                        <th>Status</th>
+                        <th>Actions</th>
+                    @else
+                        <th>Last Name</th>
+                        <th>First Name</th>
+                        <th>Middle Name</th>
+                        <th>Suffix</th>
+                        <th>Sex</th>
+                        <th>Course</th>
+                        <th>College or Department</th>
+                        <th>Year Level</th>
+                        <th>Type of Scholarship</th>
+                        <th>Name of Scholarship</th>
+                        @if($filterType === 'all' || in_array($filterType, ['academic', 'non-academic'], true))
+                            <th>Funding</th>
+                            <th>Campus</th>
+                        @endif
+                        <th>Date</th>
+                        @if($showAmountColumn)
+                            {{-- CHANGE: Display the saved applicant amount only in Approved view. --}}
+                            <th>Amount</th>
+                        @endif
+                        <th>Status</th>
+                        <th>Actions</th>
                     @endif
-                    <th>Date</th>
-                    @if($showAmountColumn)
-                        {{-- CHANGE: Display the saved applicant amount only in Approved view. --}}
-                        <th>Amount</th>
-                    @endif
-                    <th>Status</th>
-                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
             @if($recentApplications->count() > 0)
                 @foreach($recentApplications as $app)
+                    @php
+                        $fullNameParts = array_filter([
+                            $app->last_name ?? null,
+                            $app->middle_name ?? null,
+                            $app->first_name ?? null,
+                            $app->suffix ?? null,
+                        ], fn ($value) => !is_null($value) && trim((string) $value) !== '');
+                        $fullName = trim(implode(', ', $fullNameParts));
+                    @endphp
                     <tr data-source="{{ $app->source ?? 'application' }}" data-id="{{ $app->id }}">
-                        <td>{{ $app->last_name }}</td>
-                        <td>{{ $app->first_name }}</td>
-                        <td>{{ $app->middle_name }}</td>
-                        <td>{{ $app->suffix ?? '—' }}</td>
-                        <td>{{ $app->sex }}</td>
-                        <td>{{ $app->course }}</td>
-                        <td>{{ $app->college_department ?? '—' }}</td>
-                        <td>{{ $app->year_level }}</td>
-                        <td>{{ ($app->source ?? 'application') === 'manual' ? ($app->grant_type === 'academic' ? 'Academic' : 'Non-Academic') : (($app->scholarship_category_type ?? null) === 'academic' ? 'Academic' : ((($app->scholarship_category_type ?? null) === 'non-academic') ? 'Non-Academic' : 'Unknown')) }}</td>
-                        <td>{{ ($app->source ?? 'application') === 'manual' ? $app->scholarship_name : ($app->scholarship_name ?? '—') }}</td>
-                        @if($filterType === 'all' || in_array($filterType, ['academic', 'non-academic'], true))
-                            <td>{{ ($app->scholarship_funding_type ?? null) ?: '—' }}</td>
-                            <td>{{ $app->campus ?: 'Aparri' }}</td>
-                        @endif
-                        <td>{{ optional($app->created_at)->format('Y-m-d') }}</td>
-
-                        @if($showAmountColumn)
-                            {{-- CHANGE: Preserve approved-row amount formatting when the column is visible. --}}
+                        @if(in_array($filterType, ['academic', 'non-academic'], true))
+                            <td>{{ $fullName !== '' ? $fullName : '—' }}</td>
+                            <td>{{ $app->sex }}</td>
+                            <td>{{ $app->course }}</td>
+                            <td>{{ $app->year_level }}</td>
+                            <td>{{ ($app->source ?? 'application') === 'manual' ? $app->scholarship_name : ($app->scholarship_name ?? '—') }}</td>
+                            <td>{{ optional($app->created_at)->format('Y-m-d') }}</td>
+                            @if($showAmountColumn)
+                                <td>
+                                    @if($app->application_status === 'approved' && $app->amount !== null)
+                                        ₱{{ number_format((float) $app->amount, 2) }}
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            @endif
                             <td>
-                                @if($app->application_status === 'approved' && $app->amount !== null)
-                                    ₱{{ number_format((float) $app->amount, 2) }}
+                                @if(isset($app->application_status) && $app->application_status === 'approved')
+                                    <span class="badge approved">Approved</span>
+                                @elseif(isset($app->application_status) && $app->application_status === 'rejected')
+                                    <span class="badge rejected">Rejected</span>
                                 @else
-                                    —
+                                    <span class="badge pending">Pending</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if(($app->source ?? 'application') === 'manual')
+                                    <button class="btn small manual-edit-btn" data-id="{{ $app->id }}" type="button">Edit</button>
+                                    <button class="btn small manual-delete-btn" data-id="{{ $app->id }}" type="button">Delete</button>
+                                @else
+                                    <button class="btn small view-profile-btn" data-id="{{ $app->id }}">Applicant info</button>
+                                @endif
+                            </td>
+                        @else
+                            <td>{{ $app->last_name }}</td>
+                            <td>{{ $app->first_name }}</td>
+                            <td>{{ $app->middle_name }}</td>
+                            <td>{{ $app->suffix ?? '—' }}</td>
+                            <td>{{ $app->sex }}</td>
+                            <td>{{ $app->course }}</td>
+                            <td>{{ $app->college_department ?? '—' }}</td>
+                            <td>{{ $app->year_level }}</td>
+                            <td>{{ ($app->source ?? 'application') === 'manual' ? ($app->grant_type === 'academic' ? 'Academic' : 'Non-Academic') : (($app->scholarship_category_type ?? null) === 'academic' ? 'Academic' : ((($app->scholarship_category_type ?? null) === 'non-academic') ? 'Non-Academic' : 'Unknown')) }}</td>
+                            <td>{{ ($app->source ?? 'application') === 'manual' ? $app->scholarship_name : ($app->scholarship_name ?? '—') }}</td>
+                            @if($filterType === 'all' || in_array($filterType, ['academic', 'non-academic'], true))
+                                <td>{{ ($app->scholarship_funding_type ?? null) ?: '—' }}</td>
+                                <td>{{ $app->campus ?: 'Aparri' }}</td>
+                            @endif
+                            <td>{{ optional($app->created_at)->format('Y-m-d') }}</td>
+
+                            @if($showAmountColumn)
+                                {{-- CHANGE: Preserve approved-row amount formatting when the column is visible. --}}
+                                <td>
+                                    @if($app->application_status === 'approved' && $app->amount !== null)
+                                        ₱{{ number_format((float) $app->amount, 2) }}
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            @endif
+
+                            <td>
+                                @if(isset($app->application_status) && $app->application_status === 'approved')
+                                    <span class="badge approved">Approved</span>
+                                @elseif(isset($app->application_status) && $app->application_status === 'rejected')
+                                    <span class="badge rejected">Rejected</span>
+                                @else
+                                    <span class="badge pending">Pending</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if(($app->source ?? 'application') === 'manual')
+                                    <button class="btn small manual-edit-btn" data-id="{{ $app->id }}" type="button">Edit</button>
+                                    <button class="btn small manual-delete-btn" data-id="{{ $app->id }}" type="button">Delete</button>
+                                @else
+                                    <button class="btn small view-profile-btn" data-id="{{ $app->id }}">Applicant info</button>
                                 @endif
                             </td>
                         @endif
-
-                        <td>
-                            @if(isset($app->application_status) && $app->application_status === 'approved')
-                                <span class="badge approved">Approved</span>
-                            @elseif(isset($app->application_status) && $app->application_status === 'rejected')
-                                <span class="badge rejected">Rejected</span>
-                            @else
-                                <span class="badge pending">Pending</span>
-                            @endif
-                        </td>
-                        <td>
-                            @if(($app->source ?? 'application') === 'manual')
-                                <button class="btn small manual-edit-btn" data-id="{{ $app->id }}" type="button">Edit</button>
-                                <button class="btn small manual-delete-btn" data-id="{{ $app->id }}" type="button">Delete</button>
-                            @else
-                                <button class="btn small view-profile-btn" data-id="{{ $app->id }}">Applicant info</button>
-                            @endif
-                        </td>
                     </tr>
                 @endforeach
             @else
@@ -274,6 +334,16 @@
             </div>
         </div>
     </div>
+
+<div id="documentPreviewModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;">
+    <div class="modal-content" style="max-width:1100px;width:92%;background:white;border-radius:8px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,0.3);position:relative;">
+        <button id="closeDocumentPreviewModal" class="modal-close-btn" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:24px;cursor:pointer;">✕</button>
+        <h2 id="documentPreviewTitle" style="margin-top:0;">Document Preview</h2>
+        <div style="padding:10px 0; height:75vh; min-height:480px;">
+            <iframe id="documentPreviewFrame" src="" style="width:100%;height:100%;border:1px solid #ddd;border-radius:6px;background:#fff;" title="Document preview"></iframe>
+        </div>
+    </div>
+</div>
 
 <!-- confirmation modal -->
 <div id="confirmActionModal" class="modal">

@@ -33,6 +33,7 @@
     <button class="grant-filter-button" type="submit">Filter</button>
     <button class="grant-filter-button" type="submit" formaction="{{ route('admin.dashboard.export') }}">Download</button>
     <button class="grant-filter-button add-amount-button" type="button" data-action="add-amount" data-grant-type="all">Add Amount</button>
+    <button id="summary-add-applicant-button" class="grant-filter-button" type="button" data-action="add-applicant" data-grant-type="all">Add Applicant</button>
     <p class="grant-filter-error" id="summary-filter-error" role="alert" hidden>Date From must be before or equal to Date To.</p>
 </form>
 

@@ -35,9 +35,42 @@ class ApplicationNotificationStatusTest extends TestCase
 
         $this->submit($student, $scholarship)
             ->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false))
-            ->assertSessionDoesntHaveErrors();
+            ->assertSessionDoesntHaveErrors()
+            ->assertSessionHas('success', 'Application submitted successfully for Receipt Status Award');
 
         $profile = StudentProfile::where('user_id', $student->id)->firstOrFail();
+        $application = Application::where('user_id', $student->id)
+            ->where('scholarship_id', $scholarship->id)
+            ->sole();
+        $this->assertSame('non-academic', $profile->grant_type);
+        $this->assertSame('pending', $profile->application_status);
+        $this->assertSame($student->id, $application->user_id);
+        $this->assertSame($scholarship->id, $application->scholarship_id);
+        $this->assertSame('pending', $application->status);
+        $this->assertSame(1, StudentProfile::where('user_id', $student->id)->where('application_id', $application->id)->count());
+
+        $dashboard = $this->actingAs($student)->get('/dashboard?section=non')->assertOk();
+        $dashboard->assertViewHas('appliedScholarships', fn (array $items) => collect($items)->contains(fn (array $item) =>
+            (int) $item['scholarship_id'] === $scholarship->id
+            && $item['grant_type'] === 'non-academic'
+            && $item['status'] === 'pending'
+        ));
+
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        $adminList = $this->actingAs($admin)->get('/admin/non-academic?status=pending')->assertOk();
+        $adminList->assertViewHas('recentApplications', fn ($applications) => $applications->getCollection()->contains(fn (StudentProfile $item) =>
+            $item->id === $profile->id
+            && $item->grant_type === 'non-academic'
+            && $item->application_status === 'pending'
+        ));
+
+        $this->submit($student, $scholarship)
+            ->assertRedirect(route('dashboard', ['section' => 'non'], absolute: false))
+            ->assertSessionHas('error', 'You have already applied for the Receipt Status Award scholarship. Only one application per scholarship is allowed.')
+            ->assertSessionMissing('success');
+        $this->assertSame(1, Application::where('user_id', $student->id)->where('scholarship_id', $scholarship->id)->count());
+        $this->assertSame(1, StudentProfile::where('user_id', $student->id)->where('application_id', $application->id)->count());
+
         $mail = Mail::queued(ApplicationReceivedMail::class)->sole();
         $this->assertSame('Your Scholarship Application Has Been Received', $mail->notificationSubject());
         $this->assertSame(
@@ -50,9 +83,56 @@ class ApplicationNotificationStatusTest extends TestCase
 
         $statusPage = $this->actingAs($student)->get('/application-status')->assertOk();
         $statusPage->assertSee($mail->notificationSubject(), false)
+            ->assertSee('Receipt Status Award')
+            ->assertSee('status-pending')
             ->assertSee('Latest email notification', false)
             ->assertDontSee('sections reviewed', false);
         $this->assertStatusPageNotification($statusPage, $mail->notificationSubject(), $mail->notificationBody());
+    }
+
+    public function test_invalid_non_academic_submission_shows_error_feedback_without_success_or_saved_records(): void
+    {
+        $student = User::factory()->approved()->create([
+            'student_id' => '23-13003',
+        ]);
+        $scholarship = Scholarship::create([
+            'name' => 'Invalid Receipt Award',
+            'type' => 'non-academic',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($student)->from('/dashboard?section=non')->post('/student-profiles', [
+            'first_name' => 'Receipt',
+            'last_name' => 'Student',
+            'sex' => 'Invalid',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => $student->student_id,
+            'home_address' => 'Aparri',
+            'contact_number' => '123456789',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
+            'course' => 'BSIT',
+            'year_level' => '1st Year',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Non-Academic',
+        ])->assertRedirect('/dashboard?section=non')
+            ->assertSessionHasErrors('sex')
+            ->assertSessionMissing('success');
+
+        $dashboard = $this->actingAs($student)->get('/dashboard?section=non')->assertOk();
+        $dashboard->assertSee('Application could not be submitted')
+            ->assertDontSee('Application submitted successfully');
+
+        $this->assertDatabaseMissing('applications', [
+            'user_id' => $student->id,
+            'scholarship_id' => $scholarship->id,
+        ]);
+        $this->assertDatabaseMissing('student_profiles', [
+            'user_id' => $student->id,
+            'scholarship_name' => $scholarship->name,
+        ]);
     }
 
     public function test_approval_and_both_rejection_emails_are_saved_and_shown_verbatim(): void

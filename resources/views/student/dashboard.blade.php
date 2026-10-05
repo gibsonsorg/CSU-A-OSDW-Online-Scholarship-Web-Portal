@@ -96,12 +96,21 @@
             font-size: 0.95rem;
             font-weight: 500;
         }
-        .card-unavailable .btn-apply {
-            pointer-events: none;
-            opacity: 0.45;
-            background: #f0eded;
-            color: #7f7f7f;
-            border: 1px solid #d9d2d2;
+        .slot-count {
+            display: block;
+            margin-top: 4px;
+            color: #59636e;
+            font-size: 0.78rem;
+            line-height: 1.25;
+        }
+        .availability-modal-message {
+            margin: 0;
+            color: #7a2525;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        #detailsApplyBtn:disabled {
+            opacity: 0.55;
             cursor: not-allowed;
         }
         .Applied-text
@@ -111,6 +120,9 @@
 
         .details-actions {
             display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
             justify-content: center;
             margin-top: 1rem;
         }
@@ -493,6 +505,35 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
                 </div>
             </div>
         @endforeach
+        <div class="s-card" data-name="tertiary education subsidy tes unifast government locally funded" data-description="The Tertiary Education Subsidy offers financial aid to qualified students under the UniFAST program to help cover school-related expenses each academic year.
+
+
+More info: https://unifaast.gov.ph/tes.html
+
+Eligibility Requirements
+Students from 4Ps beneficiary households
+Children of solo parents or student applicants who are solo parents
+Students from municipalities without accessible colleges or higher education institutions"
+     
+        ">
+            <div class="card-head">
+                <div class="card-icon">
+<img src="{{ asset('images/tes logo.png') }}" alt="TES logo"></div>
+                <div class="card-names">
+                    <h3>Tertiary Education Subsidy</h3>
+                    <p class="prog">UniFAST – TES Program</p>
+                    <span class="type-tag tag-govt">Government Based</span>
+                </div>
+            </div>
+            
+            <div class="card-meta-row">
+                <span class="meta-chip"><span class="dot"></span>Locally Funded</span>
+            </div>
+            <p class="card-desc">Grant-in-aid of Php 40,000 for SUC/LUC grantees and Php 60,000 for Private HEI grantees per Academic Year.</p>
+            <div class="card-foot">
+                <a href="#" class="btn-apply">VIEW &amp; APPLY</a>
+            </div>
+        </div>
         <div class="s-card" data-name="athletic scholarship sports inhouse" data-description="The Athletic Scholarship recognizes student athletes who represent CSU Aparri in regional and national competitions and provides support for their studies and training.">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/athletic scholarship.logo.png') }}" alt="LGU lasam logo"></div>
@@ -596,6 +637,10 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
+    </div>
+
+    <!-- Non-Academic Page 2 -->
+    <div class="card-grid page-set" id="non-p2">
         <div class="s-card" data-name="university student council federation grant inhouse leadership" data-description="The Student Council Federation Grant assists student leaders who demonstrate exemplary service and leadership to the CSU Aparri student body.">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/campus stud.council.png') }}" alt="socio cultural csu-a logo"></div>
@@ -610,13 +655,9 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
             <p class="card-desc">Grant for student council officers demonstrating exemplary leadership and service to the CSU Aparri student body.</p>
             <div class="card-foot">
-                <a href="#" class="btn-apply">VIEW & APPLY</a>
+                <a href="#" class="btn-apply">VIEW &amp; APPLY</a>
             </div>
         </div>
-    </div>
-
-    <!-- Non-Academic Page 2 -->
-    <div class="card-grid page-set" id="non-p2">
         <div class="s-card" data-name="csu aparri alumni association inhouse" data-description="The CSU Aparri Alumni Association scholarship supports current students who embody the university values and need financial assistance to succeed academically.">
             <div class="card-head">
                 <div class="card-icon"><img src="{{ asset('images/csu alumni assoc.logo.jpg') }}" alt="CSU allumni assoc. logo"></div>
@@ -630,42 +671,6 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
                 <span class="meta-chip"><span class="dot"></span>Alumni Funded</span>
             </div>
             <p class="card-desc">Scholarship funded by CSU Aparri Alumni Association supporting current students who embody the university's values.</p>
-            <div class="card-foot">
-                <a href="#" class="btn-apply">VIEW & APPLY</a>
-            </div>
-        </div>
-
-        <div class="s-card" data-name="tertiary education subsidy tes unifast government locally funded" data-description="The Tertiary Education Subsidy offers financial aid to qualified students under the UniFAST program to help cover school-related expenses each academic year.
-        What TES Covers:
-• Tuition and Fees: Covers school and miscellaneous fees  
-• Living Costs: Books, supplies, board, and travel expenses  
-• Extra Grants: Support for students with disabilities and board exam assistance  
-
-Who it is for:
-Filipino undergraduate students prioritized by financial need (Listahanan, 4Ps, etc.) enrolled in public or private institutions.
-
-Basic Eligibility Requirements
-Citizenship: Must be a Filipino citizen
-Enrollment: Officially enrolled in an undergraduate program at a participating State University or College
-Degree Status: Must not hold any previous undergraduate degree
-Residency: Must meet the admission and retention policies of the school and not exceed maximum allowable residency/overstaying limits
-More info: https://unifaast.gov.ph/tes.html"
-     
-        ">
-            <div class="card-head">
-                <div class="card-icon">
-<img src="{{ asset('images/tes logo.png') }}" alt="TES logo"></div>
-                <div class="card-names">
-                    <h3>Tertiary Education Subsidy</h3>
-                    <p class="prog">UniFAST – TES Program</p>
-                    <span class="type-tag tag-govt">Government Based</span>
-                </div>
-            </div>
-            
-            <div class="card-meta-row">
-                <span class="meta-chip"><span class="dot"></span>Locally Funded</span>
-            </div>
-            <p class="card-desc">Grant-in-aid of Php 40,000 for SUC/LUC grantees and Php 60,000 for Private HEI grantees per Academic Year.</p>
             <div class="card-foot">
                 <a href="#" class="btn-apply">VIEW & APPLY</a>
             </div>
@@ -781,7 +786,9 @@ More info: https://unifaast.gov.ph/tes.html"
             </div>
 
             @php
-                $userApplications = \App\Models\StudentProfile::orderBy('created_at', 'desc')->get();
+                $userApplications = \App\Models\StudentProfile::where('user_id', auth()->id())
+                    ->orderBy('created_at', 'desc')
+                    ->get();
                 $latestApp = $userApplications->first();
             @endphp
 
@@ -851,6 +858,18 @@ More info: https://unifaast.gov.ph/tes.html"
                         <span class="detail-value">{{ $latestApp->rejection_reason }}</span>
                     </div>
                     @endif
+                    @if($latestApp->rejection_remark)
+                    <div class="detail-row">
+                        <span class="detail-label">What to fix:</span>
+                        <span class="detail-value">{{ $latestApp->rejection_remark }}</span>
+                    </div>
+                    @endif
+                    @if($latestApp->resubmission_deadline && $latestApp->resubmission_deadline->isFuture())
+                    <div class="detail-row">
+                        <span class="detail-label">Resubmission deadline:</span>
+                        <span class="detail-value">{{ $latestApp->resubmission_deadline->format('M j, Y g:i A') }}</span>
+                    </div>
+                    @endif
                 </div>
             @else
                 <div class="no-applications">
@@ -906,6 +925,7 @@ More info: https://unifaast.gov.ph/tes.html"
             </div>
 
             <div class="details-actions">
+                <p id="detailsAvailabilityMessage" class="availability-modal-message" role="status" hidden></p>
                 <button type="button" class="btn btn-primary" id="detailsApplyBtn">APPLY NOW</button>
             </div>
         </div>
@@ -946,6 +966,18 @@ More info: https://unifaast.gov.ph/tes.html"
                     });
                 </script>
             @endif
+            @if($errors->any())
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Application could not be submitted',
+                            text: @json($errors->first()),
+                            confirmButtonColor: '#dc2626'
+                        });
+                    });
+                </script>
+            @endif
             
             @php
                 $currentUser = auth()->user();
@@ -959,7 +991,7 @@ More info: https://unifaast.gov.ph/tes.html"
             @endphp
 
             <div class="academic-progress-wrapper">
-                <div class="academic-progress-header">Step <span id="nonAcademicStepCounter">1</span> of 4 <span id="nonAcademicStepLabel" hidden></span></div>
+                <div class="academic-progress-header">Step <span id="nonAcademicStepCounter">1</span> of <span data-step-total>4</span> <span id="nonAcademicStepLabel" hidden></span></div>
                 <div class="non-academic-mobile-progress" aria-hidden="true" hidden><span></span></div>
                 <div class="academic-progress-track" aria-live="polite">
                     <div class="academic-progress-step active" data-progress-step="1">
@@ -1174,72 +1206,14 @@ More info: https://unifaast.gov.ph/tes.html"
                     <div class="full">
                         <!-- CHANGE: Non-academic scholarship-specific upload requirements note. -->
                         <div id="nonAcademicRequirementsNote" style="display:none; margin-bottom:10px; padding:12px; border-radius:8px; background:#f9f9f9; border:1px solid #e5e5e5; color:#666; font-size:0.85rem; line-height:1.5;"></div>
-                        <label>Upload files</label>
                         <div style="background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:8px; border:1px solid #e5e5e5; font-size:0.85rem;">
                             <p style="margin:0 0 8px 0; font-weight:600; color:#333;">Supported file types & sizes:</p>
                             <ul style="margin:0; padding-left:20px; color:#666;">
                                 <li><strong>Documents:</strong> PDF, DOCX (max 2MB)</li>
-                                <li><strong>Images:</strong> JPG, PNG (max 1MB)</li>
                             </ul>
                         </div>
-
-                        <div id="nonAcademicIDLabel" style="display:none; font-weight:600; margin-bottom:8px; color:#333;">Front and Back School ID docs or PDF Format</div>
-
-                        <div class="tes-docs-label" style="display:none; margin-bottom:10px; padding:12px; border-radius:8px; background:#f9f9f9; border:1px solid #e5e5e5;">
-                            <p style="margin:0 0 8px 0; font-weight:600; color:#333; font-size:0.9rem;">Required Documents (PDF Format)</p>
-                            <ul style="margin:0; padding-left:18px; color:#666; font-size:0.85rem; line-height:1.5;">
-                                <li>Coe of the present semester</li>
-                                <li>Id back to back</li>
-                                <li>Atm proof of account number</li>
-                                <li>3 specimen signature</li>
-                            </ul>
-                        </div>
-
-                        <style>
-                            #applyForm:has(#scholarship_name option[value="Tertiary Education Subsidy"]:checked) .tes-docs-label {
-                                display: block !important;
-                            }
-
-                            #applyForm:has(#scholarship_name option[value="Differently Abled Persons"]:checked) #nonAcademicIDLabel,
-                            #applyForm:has(#scholarship_name option[value="Open Heart Scholarship"]:checked) #nonAcademicIDLabel,
-                            #applyForm:has(#scholarship_name option[value="Talamayan Scholarship"]:checked) #nonAcademicIDLabel {
-                                display: block !important;
-                            }
-
-                            #applyForm:has(#scholarship_name option[value="Athletic Scholarship"]:checked) .athletic-only-fields {
-                                display: flex !important;
-                            }
-
-                            #applyForm:has(#scholarship_name option[value="Campus Student Publication"]:checked) .campus-publication-label {
-                                display: block !important;
-                            }
-
-                            #applyForm:has(#scholarship_name option[value="CSU Aparri Alumni Association"]:checked) .alumni-label {
-                                display: block !important;
-                            }
-                        </style>
-
-                        <div class="athletic-only-fields" style="display:none; gap:16px; flex-wrap:wrap; align-items:flex-start; margin-top:10px;">
-                            <div data-reapplication-document-group="uploads" style="flex:1 1 320px; min-width:260px; max-width:420px;">
-                                <label style="display:block; margin-bottom:8px;">Certificate from the Sports Coordinator</label>
-                                <input type="file" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
-                            </div>
-                            <div data-reapplication-document-group="certificate_of_adviser" style="flex:1 1 320px; min-width:260px; max-width:420px;">
-                                <label style="display:block; margin-bottom:8px;">Certificate of Adviser</label>
-                                <input type="file" name="certificate_of_adviser" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
-                            </div>
-                        </div>
-
-                        <div class="campus-publication-label" style="display:none; font-weight:600; margin-top:10px; margin-bottom:8px; color:#333;">
-                            Certificate from the Adviser
-                        </div>
-
-                        <div class="alumni-label" style="display:none; font-weight:600; margin-top:10px; margin-bottom:8px; color:#333;">
-                            Certificate of Enrollment
-                        </div>
-
-                        <div data-reapplication-document-group="uploads" id="nonAcademicGenericUploadGroup">
-                            <input type="file" name="uploads[]" multiple id="nonAcademicUploadsInput" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png">
+                        <div data-reapplication-document-group="supporting_document" id="nonAcademicGenericUploadGroup">
+                            <input type="file" name="supporting_document" id="nonAcademicSupportingDocumentInput" accept=".pdf,.docx" required style="width:115px; overflow:hidden;">
                         </div>
                     </div>
                 </div>
@@ -1272,7 +1246,7 @@ More info: https://unifaast.gov.ph/tes.html"
 
             <!-- Progress Indicator (moved to top) -->
             <div class="academic-progress-wrapper">
-                <div class="academic-progress-header">Step <span id="academicStepCounter">1</span> of 3<span class="academic-progress-desktop-colon">:</span> <span id="academicStepLabel" hidden></span></div>
+                <div class="academic-progress-header">Step <span id="academicStepCounter">1</span> of <span data-step-total>3</span><span class="academic-progress-desktop-colon">:</span> <span id="academicStepLabel" hidden></span></div>
                 <div class="academic-mobile-progress" aria-hidden="true" hidden><span></span></div>
                 <div class="academic-progress-track" aria-live="polite">
                     <div class="academic-progress-step active" data-progress-step="1">
@@ -1409,27 +1383,15 @@ More info: https://unifaast.gov.ph/tes.html"
                         <input id="academic_scholarship_type" name="scholarship_type" class="input" type="text" value="" required readonly>
                     </div>
                     <div class="full">
-                        <label>Upload files</label>
                         <div style="background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:8px; border:1px solid #e5e5e5; font-size:0.85rem;">
                             <p style="margin:0 0 8px 0; font-weight:600; color:#333;">Supported file types & sizes:</p>
                             <ul style="margin:0; padding-left:20px; color:#666;">
                                 <li><strong>Documents:</strong> PDF, DOCX (max 2MB)</li>
-                                <li><strong>Images:</strong> JPG, PNG (max 1MB)</li>
                             </ul>
                         </div>
-                        <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
-                            <div style="flex:1 1 320px; min-width:260px; max-width:420px;">
-                                <label style="display:block; margin-bottom:8px;">Certificate of Grades</label>
-                                <small id="academicGradesSubtitle" style="display:none; margin:-4px 0 8px; color:#777; font-size:0.8rem;">(Present semester)</small>
-                                <input type="file" id="academicFileInput" name="uploads[]" multiple accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
-                                <div id="academicFileNames" style="margin-top:8px; font-size:13px; color:#666;"></div>
-                            </div>
-                            <div id="academicEnrollmentSection" data-reapplication-document-group="certificate_of_enrollment" style="flex:1 1 320px; min-width:260px; max-width:420px; display:none;">
-                                <label style="display:block; margin-bottom:8px;">Certificate of Enrollment</label>
-                                <small id="academicEnrollmentSubtitle" style="display:none; margin:-4px 0 8px; color:#777; font-size:0.8rem;">(Present semester)</small>
-                                <input type="file" id="academicEnrollmentFileInput" name="certificate_of_enrollment" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" style="width:115px; overflow:hidden;">
-                                <div id="academicEnrollmentFileNames" style="margin-top:8px; font-size:13px; color:#666;"></div>
-                            </div>
+                        <div id="academicCombinedDocumentSection" style="display:block;">
+                            <input type="file" id="academicCombinedDocumentInput" name="supporting_document" accept=".pdf,.docx" required style="width:115px; overflow:hidden;">
+                            <div id="academicCombinedDocumentNames" style="margin-top:8px; font-size:13px; color:#666;"></div>
                         </div>
                     </div>
                 </div>
@@ -1445,6 +1407,9 @@ More info: https://unifaast.gov.ph/tes.html"
   <script>
     window.academicScholarshipIdMap = @json($academicScholarshipIdMap ?? []);
     window.nonAcademicScholarshipIdMap = @json($nonAcademicScholarshipIdMap ?? []);
+    window.scholarshipAvailabilityMessages = @json($scholarshipAvailabilityMessages ?? ['id' => [], 'name' => []]);
+    window.scholarshipApplicationDateMessages = @json($scholarshipApplicationDateMessages ?? ['id' => [], 'name' => []]);
+    window.scholarshipSlotCounts = @json($scholarshipSlotCounts ?? ['id' => [], 'name' => []]);
     window.currentUserId = @json(Auth::id());
   </script>
   <script src="{{ asset('js/users.js') }}?v={{ time() }}"></script>
@@ -1512,7 +1477,8 @@ More info: https://unifaast.gov.ph/tes.html"
     }
 
     // Show file count when files are selected
-    document.querySelector('input[name="uploads[]"]').addEventListener('change', function(e) {
+    const nonAcademicSupportingDocumentInput = document.getElementById('nonAcademicSupportingDocumentInput');
+    if (nonAcademicSupportingDocumentInput) nonAcademicSupportingDocumentInput.addEventListener('change', function() {
       const fileCount = this.files.length;
       if (fileCount > 0) {
         let totalSize = 0;
@@ -1524,38 +1490,6 @@ More info: https://unifaast.gov.ph/tes.html"
       }
     });
 
-    // Display file names for academic grants
-    const academicFileInput = document.getElementById('academicFileInput');
-    if (academicFileInput) {
-      academicFileInput.addEventListener('change', function(e) {
-        const fileNames = document.getElementById('academicFileNames');
-        if (this.files.length > 0) {
-          let fileList = '';
-          for (let i = 0; i < this.files.length; i++) {
-            fileList += `<div> ${this.files[i].name}</div>`;
-          }
-          fileNames.innerHTML = fileList;
-        } else {
-          fileNames.innerHTML = '';
-        }
-      });
-    }
-
-    const academicEnrollmentFileInput = document.getElementById('academicEnrollmentFileInput');
-    if (academicEnrollmentFileInput) {
-      academicEnrollmentFileInput.addEventListener('change', function(e) {
-        const fileNames = document.getElementById('academicEnrollmentFileNames');
-        if (this.files.length > 0) {
-          let fileList = '';
-          for (let i = 0; i < this.files.length; i++) {
-            fileList += `<div> ${this.files[i].name}</div>`;
-          }
-          fileNames.innerHTML = fileList;
-        } else {
-          fileNames.innerHTML = '';
-        }
-      });
-    }
   </script>
 
   <!-- Error Popup Styles -->
@@ -1593,12 +1527,31 @@ More info: https://unifaast.gov.ph/tes.html"
                     ? window.nonAcademicScholarshipIdMap
                     : window.academicScholarshipIdMap;
                 const cardScholarshipId = String(card.dataset.scholarshipId || scholarshipIdMap?.[scholarshipTitle] || '');
+                const normalizedScholarshipTitle = scholarshipTitle.toLowerCase().replace(/\s+/g, ' ').trim();
+                const remainingSlots = window.scholarshipSlotCounts?.id?.[cardScholarshipId]
+                    ?? window.scholarshipSlotCounts?.name?.[normalizedScholarshipTitle];
+                if (remainingSlots !== undefined) {
+                    let slotCountLabel = card.querySelector('.slot-count');
+                    if (!slotCountLabel) {
+                        slotCountLabel = document.createElement('small');
+                        slotCountLabel.className = 'slot-count';
+                    }
+                    slotCountLabel.textContent = `${remainingSlots} slots available`;
+                    const metaRow = card.querySelector('.card-meta-row');
+                    if (metaRow && slotCountLabel.parentElement !== metaRow) {
+                        metaRow.appendChild(slotCountLabel);
+                    }
+                }
+
                 const application = appliedScholarships.find(item =>
                     cardScholarshipId
                     && String(item.scholarship_id) === cardScholarshipId
                     && item.grant_type === cardGrantType
                 );
-                const isLocked = Boolean(application?.locked);
+                const deadlinePassed = application?.correction_required
+                    && Date.parse(application.resubmission_deadline) <= Date.now();
+                const isExpired = Boolean(application?.expired || deadlinePassed);
+                const isLocked = Boolean(application?.locked || isExpired);
                 const canReopen = Boolean(application?.reopen);
                 const isApplied = Boolean(application && application.status !== 'rejected' && !canReopen);
                 const cardFoot = card.querySelector('.card-foot');
@@ -1608,18 +1561,21 @@ More info: https://unifaast.gov.ph/tes.html"
                     if (cardFoot) {
                         const message = document.createElement('div');
                         message.className = 'unavailable-text';
-                        message.textContent = application.rejection_reason === 'Does not meet the eligibility requirements'
-                            ? application.rejection_reason
-                            : 'You\'ve reached the maximum number of applications for this scholarship.';
+                        message.textContent = isExpired
+                            ? 'EXPIRED — This application was not resubmitted in time. The slot has been released. You may apply to another available scholarship.'
+                            : application.rejection_reason === 'Does not meet the eligibility requirements'
+                                ? application.rejection_reason
+                                : 'You\'ve reached the maximum number of applications for this scholarship.';
                         cardFoot.prepend(message);
                     }
 
                     const applyButton = card.querySelector('.btn-apply');
                     if (applyButton) {
-                        applyButton.textContent = 'UNAVAILABLE';
+                        applyButton.textContent = isExpired ? 'EXPIRED' : 'UNAVAILABLE';
                         applyButton.setAttribute('aria-disabled', 'true');
                         applyButton.setAttribute('href', 'javascript:void(0);');
                         applyButton.tabIndex = -1;
+                        applyButton.disabled = true;
                     }
                     return;
                 }
@@ -1673,15 +1629,21 @@ More info: https://unifaast.gov.ph/tes.html"
                     if (cardFoot) {
                         const message = document.createElement('div');
                         message.className = 'applied-text';
-                        message.innerHTML = '<div class="applied-label">REJECTED</div><div>Rejected. See Application Status for details.</div>';
+                        if (application.correction_required && !deadlinePassed) {
+                            message.textContent = 'ACTION REQUIRED — Your application needs corrections. See Application Status for details.';
+                        } else {
+                            message.innerHTML = '<div class="applied-label">REJECTED</div><div>Rejected. See Application Status for details.</div>';
+                        }
                         cardFoot.prepend(message);
                     }
                     const applyButton = card.querySelector('.btn-apply');
                     if (applyButton) {
-                        applyButton.textContent = 'APPLY' + ' NOW';
+                        applyButton.textContent = 'VIEW & APPLY';
                         applyButton.removeAttribute('aria-disabled');
                         applyButton.setAttribute('href', '#');
+                        applyButton.removeAttribute('tabindex');
                         applyButton.classList.remove('btn-applied');
+                        applyButton.disabled = false;
                     }
                     return;
                 }

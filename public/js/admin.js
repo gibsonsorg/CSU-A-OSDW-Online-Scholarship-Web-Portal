@@ -38,18 +38,79 @@
         return age >= 0 ? age : '';
     }
 
-    function documentGroup(label, files, group, reviews) {
+    function documentGroup(label, files, group, reviews, showLabel = true) {
         if (!Array.isArray(files) || !files.length) return '';
         return files.map((file, index) => {
             const url = `/admin/applications/${encodeURIComponent(currentAppId)}/document/${encodeURIComponent(group)}/${index}`;
+            const fileName = String(file || '').split('/').pop();
+            const isPdf = /\.pdf$/i.test(fileName || '');
+            const linkLabel = isPdf ? 'View File' : 'Download to View';
+            const labelMarkup = showLabel
+                ? `<label>${escapeHtml(label)}${files.length > 1 ? ` ${index + 1}` : ''}</label>`
+                : '';
             return `<div class="document-review full">
-                <label>${escapeHtml(label)}${files.length > 1 ? ` ${index + 1}` : ''}</label>
+                ${labelMarkup}
                 <div class="document-actions">
-                    <a class="document-view" href="${url}" target="_blank" rel="noopener noreferrer">View File</a>
+                    <a class="document-view" href="${url}" data-document-type="${isPdf ? 'pdf' : 'other'}" ${isPdf ? '' : 'target="_blank" rel="noopener noreferrer"'}>${linkLabel}</a>
                 </div>
             </div>`;
         }).join('');
     }
+
+    function openDocumentPreviewModal(url, title = 'Document Preview') {
+        const modal = document.getElementById('documentPreviewModal');
+        if (!modal) return;
+        const frame = document.getElementById('documentPreviewFrame');
+        const titleNode = document.getElementById('documentPreviewTitle');
+        if (frame) frame.src = url;
+        if (titleNode) titleNode.textContent = title;
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeDocumentPreviewModal() {
+        const modal = document.getElementById('documentPreviewModal');
+        if (!modal) return;
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+        const frame = document.getElementById('documentPreviewFrame');
+        if (frame) frame.src = '';
+        document.body.style.overflow = '';
+    }
+
+    document.addEventListener('click', function (event) {
+        const closeButton = event.target.closest('#closeDocumentPreviewModal');
+        if (closeButton) {
+            event.preventDefault();
+            closeDocumentPreviewModal();
+            return;
+        }
+
+        const trigger = event.target.closest('.document-view');
+        if (!trigger) {
+            const modal = document.getElementById('documentPreviewModal');
+            if (modal && event.target === modal) {
+                closeDocumentPreviewModal();
+            }
+            return;
+        }
+
+        const isPdf = trigger.dataset.documentType === 'pdf';
+        if (!isPdf) return;
+        event.preventDefault();
+        const linkLabel = trigger.textContent.trim() || 'Document';
+        openDocumentPreviewModal(trigger.getAttribute('href'), linkLabel);
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            const modal = document.getElementById('documentPreviewModal');
+            if (modal && modal.style.display === 'flex') {
+                closeDocumentPreviewModal();
+            }
+        }
+    });
 
     function renderProfile(app) {
         const body = document.getElementById('profileBody');
@@ -97,13 +158,51 @@
                 field('Contact Number', app.contact_number, 'contact_number'), field('Home Address', app.home_address, 'home_address')
             ];
         const step2 = step2Fields.join('');
-        const documents = [
-            documentGroup('Certificate of Grades', uploads.certificate_of_grades || uploads.grades, uploads.certificate_of_grades ? 'certificate_of_grades' : 'grades', app.document_review || app.document_reviews),
-            documentGroup('Certificate of Enrollment', uploads.certificate_of_enrollment || uploads.enrollment, uploads.certificate_of_enrollment ? 'certificate_of_enrollment' : 'enrollment', app.document_review || app.document_reviews),
-            documentGroup('Certificate from Sports Coordinator', uploads.certificate_of_sports_coordinator || uploads.uploads, 'certificate_of_sports_coordinator', app.document_review || app.document_reviews),
-            documentGroup('Uploaded Files', uploads.uploads, 'uploads', app.document_review || app.document_reviews),
-            documentGroup('Certificate of Adviser', uploads.certificate_of_adviser, 'certificate_of_adviser', app.document_review || app.document_reviews)
-        ].join('');
+        const documentReviews = app.document_review || app.document_reviews;
+        let documents;
+        if (isNonAcademic) {
+            if (Array.isArray(uploads.supporting_document) && uploads.supporting_document.length) {
+                documents = documentGroup('Supporting Document', uploads.supporting_document, 'supporting_document', documentReviews, false);
+            } else {
+                documents = [
+                    documentGroup('Supporting Document', uploads.supporting_document, 'supporting_document', documentReviews),
+                    documentGroup('Certificate of Grades', uploads.certificate_of_grades || uploads.grades, uploads.certificate_of_grades ? 'certificate_of_grades' : 'grades', documentReviews),
+                    documentGroup('Certificate of Enrollment', uploads.certificate_of_enrollment || uploads.enrollment, uploads.certificate_of_enrollment ? 'certificate_of_enrollment' : 'enrollment', documentReviews),
+                    documentGroup('Certificate from Sports Coordinator', uploads.certificate_of_sports_coordinator || uploads.uploads, 'certificate_of_sports_coordinator', documentReviews),
+                    documentGroup('Uploaded Files', uploads.uploads, 'uploads', documentReviews),
+                    documentGroup('Certificate of Adviser', uploads.certificate_of_adviser, 'certificate_of_adviser', documentReviews)
+                ].join('');
+            }
+        } else if (Array.isArray(uploads.supporting_document) && uploads.supporting_document.length) {
+            documents = documentGroup(
+                'Certificate of Grades / Certificate of Enrollment',
+                uploads.supporting_document,
+                'supporting_document',
+                documentReviews,
+                false
+            );
+        } else {
+            const gradesGroup = Array.isArray(uploads.certificate_of_grades) && uploads.certificate_of_grades.length
+                ? 'certificate_of_grades'
+                : Array.isArray(uploads.grades) && uploads.grades.length
+                    ? 'grades'
+                    : 'uploads';
+            const gradesFiles = gradesGroup === 'certificate_of_grades'
+                ? uploads.certificate_of_grades
+                : gradesGroup === 'grades'
+                    ? uploads.grades
+                    : uploads.uploads;
+            const enrollmentGroup = Array.isArray(uploads.certificate_of_enrollment) && uploads.certificate_of_enrollment.length
+                ? 'certificate_of_enrollment'
+                : 'enrollment';
+            const enrollmentFiles = enrollmentGroup === 'certificate_of_enrollment'
+                ? uploads.certificate_of_enrollment
+                : uploads.enrollment;
+            documents = [
+                documentGroup('Certificate of Grades', gradesFiles, gradesGroup, documentReviews),
+                documentGroup('Certificate of Enrollment', enrollmentFiles, enrollmentGroup, documentReviews)
+            ].join('');
+        }
         const scholarshipStep = field('Name of Scholarship / Sponsor', app.scholarship_name, 'scholarship_name') +
             field('Types of Scholarship', app.scholarship_type, 'scholarship_type') +
             `<div class="full"><label>Uploaded documents</label>${documents || '<div class="input">No files uploaded.</div>'}</div>` +
@@ -221,7 +320,8 @@
     async function rejectApplication() {
         const reasons = [
             'Does not meet the eligibility requirements',
-            'Wrong uploaded documents or incomplete form',
+            'Wrong Uploaded Documents',
+            'Wrong Form',
         ];
         const result = await Swal.fire({
             title: 'Reject Application',
@@ -234,8 +334,27 @@
             inputValidator: value => reasons.includes(value) ? undefined : 'Select a rejection reason.',
         });
         if (!result.isConfirmed) return;
+
+        let rejectionRemark = '';
+        if (result.value !== 'Does not meet the eligibility requirements') {
+            const remarkResult = await Swal.fire({
+                title: 'What needs to be corrected?',
+                input: 'textarea',
+                inputPlaceholder: 'Describe the document or form correction required.',
+                inputAttributes: { maxlength: '2000' },
+                showCancelButton: true,
+                confirmButtonText: 'Continue',
+                inputValidator: value => value?.trim() ? undefined : 'Enter a remark describing what needs to be corrected.',
+            });
+            if (!remarkResult.isConfirmed) return;
+            rejectionRemark = remarkResult.value.trim();
+        }
+
         setDecisionButtonsDisabled(true);
-        await postJson(`/admin/applications/${currentAppId}/reject`, { reason: result.value });
+        await postJson(`/admin/applications/${currentAppId}/reject`, {
+            reason: result.value,
+            rejection_remark: rejectionRemark,
+        });
         await finishApplicationAction('Rejected successfully', 'The application was rejected successfully.');
     }
 
@@ -408,34 +527,90 @@
     let openManualRow = null;
     let openManualEmptyRow = null;
 
-    function manualScholarshipOptions(selectedValue, grantType, table) {
-        const filterSelect = document.getElementById('grant-scholarship-name');
-        const canonicalOptions = [];
-
-        if (grantType === 'academic' || grantType === 'non-academic') {
-            let catalog = [];
-            const catalogKey = grantType === 'academic' ? 'academicScholarships' : 'nonAcademicScholarships';
-            try { catalog = JSON.parse(table.dataset[catalogKey] || '[]'); } catch {}
-            return `<select class="manual-row-input" data-field="scholarship_name" required><option value="">Select</option>${catalog.map(scholarship => `<option value="${escapeHtml(scholarship.name)}" data-funding-type="${escapeHtml(scholarship.funding_type || '')}" ${selectedValue === scholarship.name ? 'selected' : ''}>${escapeHtml(scholarship.name)}</option>`).join('')}</select>`;
+    function parseManualFullName(fullName) {
+        const normalized = String(fullName ?? '').trim();
+        if (!normalized || normalized === '—') {
+            return { last_name: '', first_name: '', middle_name: '', suffix: '' };
         }
 
-        if (filterSelect) {
-            Array.from(filterSelect.options).forEach(option => {
+        const parts = normalized.split(',').map(part => part.trim()).filter(Boolean);
+        if (parts.length >= 4) {
+            return {
+                last_name: parts[0] || '',
+                middle_name: parts[1] || '',
+                first_name: parts[2] || '',
+                suffix: parts[3] || '',
+            };
+        }
+        if (parts.length === 3) {
+            return {
+                last_name: parts[0] || '',
+                middle_name: parts[1] || '',
+                first_name: parts[2] || '',
+                suffix: '',
+            };
+        }
+        if (parts.length === 2) {
+            return {
+                last_name: parts[0] || '',
+                first_name: parts[1] || '',
+                middle_name: '',
+                suffix: '',
+            };
+        }
+        return {
+            last_name: '',
+            first_name: normalized,
+            middle_name: '',
+            suffix: '',
+        };
+    }
+
+    function manualScholarshipOptions(selectedValue, grantType, table) {
+        const grantTypeValues = grantType === 'all' ? ['academic', 'non-academic'] : [grantType];
+        const canonicalOptions = [];
+        const fallbackMap = new Map();
+
+        grantTypeValues.forEach(type => {
+            const catalogKey = type === 'academic' ? 'academicScholarships' : 'nonAcademicScholarships';
+            try {
+                JSON.parse(table?.dataset[catalogKey] || '[]').forEach(item => {
+                    if (item && item.name) {
+                        canonicalOptions.push(item.name);
+                        fallbackMap.set(item.name, item.funding_type || '');
+                    }
+                });
+            } catch (error) {
+                // Ignore catalog parse issues and fall back to the form options below.
+            }
+        });
+
+        const grantFilterSelect = document.getElementById('grant-scholarship-name');
+        if (grantFilterSelect) {
+            Array.from(grantFilterSelect.options).forEach(option => {
                 if (option.value) canonicalOptions.push(option.value);
             });
         }
 
-        const grantTypeMatches = grantType === 'academic' || grantType === 'non-academic';
-        if (!canonicalOptions.length && grantTypeMatches) {
-            const fallback = Array.from(document.querySelectorAll('#grant-scholarship-name option')).map(option => option.value).filter(Boolean);
-            canonicalOptions.push(...fallback);
+        if (!canonicalOptions.length) {
+            const summarySelect = document.getElementById('summary-scholarship-name');
+            if (summarySelect) {
+                Array.from(summarySelect.options).forEach(option => {
+                    if (option.value) canonicalOptions.push(option.value);
+                });
+            }
         }
 
         if (!canonicalOptions.length) {
             canonicalOptions.push(selectedValue || '');
         }
 
-        return `<select class="manual-row-input" data-field="scholarship_name"><option value="">Select</option>${canonicalOptions.map(option => `<option value="${escapeHtml(option)}" ${selectedValue === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`;
+        const uniqueOptions = [...new Set(canonicalOptions.filter(Boolean))];
+        const optionMarkup = uniqueOptions
+            .map(option => `<option value="${escapeHtml(option)}" data-funding-type="${escapeHtml(fallbackMap.get(option) || '')}" ${selectedValue === option ? 'selected' : ''}>${escapeHtml(option)}</option>`)
+            .join('');
+
+        return `<select class="manual-row-input" data-field="scholarship_name" required><option value="">Select</option>${optionMarkup}</select>`;
     }
 
     function manualField(value, fieldName, type = 'text', grantType = '') {
@@ -452,6 +627,40 @@
             return manualScholarshipOptions(value || '', grantType);
         }
         return `<input class="manual-row-input" data-field="${fieldName}" type="${type}" value="${escapeHtml(value)}"${fieldName === 'date' ? ' required' : ''}>`;
+    }
+
+    function summaryManualRowHtml(values, table, showAmount) {
+        const typeValue = values.grant_type || 'academic';
+        const catalogKey = typeValue === 'academic' ? 'academicScholarships' : 'nonAcademicScholarships';
+        const textField = (name, value, required = false) => `<input class="manual-row-input" data-field="${name}" type="text" value="${escapeHtml(value || '')}"${required ? ' required' : ''}>`;
+        const selectField = (name, value, options, required = false) => `<select class="manual-row-input" data-field="${name}"${required ? ' required' : ''}>${options.map(([optionValue, label]) => `<option value="${escapeHtml(optionValue)}" ${value === optionValue ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>`;
+        const scholarshipOptions = manualScholarshipOptions(values.scholarship_name || '', typeValue, table);
+        const selectedScholarship = (() => {
+            try {
+                return JSON.parse(table.dataset[catalogKey] || '[]').find(item => item.name === values.scholarship_name)?.funding_type || '—';
+            } catch {
+                return '—';
+            }
+        })();
+
+        return `<tr class="manual-applicant-row" data-grant-type="all" data-id="${values.id || ''}">
+            <td>${textField('last_name', values.last_name, true)}</td>
+            <td>${textField('first_name', values.first_name, true)}</td>
+            <td>${textField('middle_name', values.middle_name)}</td>
+            <td>${textField('suffix', values.suffix)}</td>
+            <td>${selectField('sex', values.sex || 'Male', [['Male', 'Male'], ['Female', 'Female']], true)}</td>
+            <td>${selectField('course', values.course || '', academicManualCourses.map(course => [course, course]), true)}</td>
+            <td><input class="manual-row-input" data-derived-field="college_department" type="text" value="${escapeHtml(values.college_department || '')}" readonly></td>
+            <td>${selectField('year_level', values.year_level || '1st Year', [['1st Year', '1st Year'], ['2nd Year', '2nd Year'], ['3rd Year', '3rd Year'], ['4th Year', '4th Year']], true)}</td>
+            <td>${selectField('grant_type', typeValue, [['academic', 'Academic'], ['non-academic', 'Non-Academic']], true)}</td>
+            <td>${scholarshipOptions}</td>
+            <td><input class="manual-row-input" data-derived-field="funding" type="text" value="${escapeHtml(selectedScholarship || '—')}" readonly></td>
+            <td><input class="manual-row-input" type="text" value="Aparri" readonly></td>
+            <td><input class="manual-row-input" data-field="date" type="date" value="${escapeHtml(values.date || table.dataset.today || '')}" required></td>
+            ${showAmount ? '<td>—</td>' : ''}
+            <td><select class="manual-row-input" data-field="application_status" required><option value="approved" selected>Approved</option></select></td>
+            <td><button class="btn small manual-save-btn" type="button">Save</button><button class="btn small manual-cancel-btn" type="button">Cancel</button></td>
+        </tr>`;
     }
 
     function structuredManualRowHtml(values, grantType, showAmount, table) {
@@ -490,6 +699,7 @@
     }
 
     function manualRowHtml(values, grantType, showAmount, table) {
+        if (grantType === 'all') return summaryManualRowHtml(values, table, showAmount);
         if (grantType === 'academic' || grantType === 'non-academic') return structuredManualRowHtml(values, grantType, showAmount, table);
         const typeLabel = grantType === 'academic' ? 'Academic' : 'Non-Academic';
         return `<tr class="manual-applicant-row" data-grant-type="${grantType}" data-id="${values.id || ''}">
@@ -520,20 +730,39 @@
         const cells = row.querySelectorAll('td');
         const showAmount = document.getElementById('admin-applications-table')?.dataset.showAmount === '1';
         const rowGrantType = row.dataset.grantType || document.getElementById('admin-applications-table')?.dataset.grantType;
-        if (rowGrantType === 'academic' || rowGrantType === 'non-academic') {
+        if (rowGrantType === 'all') {
+            const grantType = cells[8]?.textContent.trim().toLowerCase() === 'non-academic' ? 'non-academic' : 'academic';
+            const statusIndex = showAmount ? 14 : 13;
             return {
                 id: row.dataset.id,
                 last_name: cells[0]?.textContent.trim() || '',
                 first_name: cells[1]?.textContent.trim() || '',
                 middle_name: cells[2]?.textContent.trim() || '',
-                suffix: cells[3]?.textContent.trim() === '—' ? '' : (cells[3]?.textContent.trim() || ''),
+                suffix: cells[3]?.textContent.trim() || '',
                 sex: cells[4]?.textContent.trim() || '',
                 course: cells[5]?.textContent.trim() || '',
                 college_department: cells[6]?.textContent.trim() || '',
                 year_level: cells[7]?.textContent.trim() || '',
+                grant_type: grantType,
                 scholarship_name: cells[9]?.textContent.trim() || '',
                 date: cells[12]?.textContent.trim() || '',
-                application_status: cells[showAmount ? 14 : 13]?.textContent.trim().toLowerCase() || 'pending',
+                application_status: cells[statusIndex]?.textContent.trim().toLowerCase() || 'approved',
+            };
+        }
+        if (rowGrantType === 'academic' || rowGrantType === 'non-academic') {
+            const parsedName = parseManualFullName(cells[0]?.textContent.trim() || '');
+            return {
+                id: row.dataset.id,
+                last_name: parsedName.last_name,
+                first_name: parsedName.first_name,
+                middle_name: parsedName.middle_name,
+                suffix: parsedName.suffix,
+                sex: cells[1]?.textContent.trim() || '',
+                course: cells[2]?.textContent.trim() || '',
+                year_level: cells[3]?.textContent.trim() || '',
+                scholarship_name: cells[4]?.textContent.trim() || '',
+                date: cells[5]?.textContent.trim() || '',
+                application_status: cells[showAmount ? 7 : 6]?.textContent.trim().toLowerCase() || 'pending',
             };
         }
         const statusIndex = showAmount ? 10 : 9;
@@ -554,13 +783,24 @@
     function collectManualValues(row) {
         const values = {};
         row.querySelectorAll('[data-field]').forEach(input => { values[input.dataset.field] = input.value.trim(); });
-        values.grant_type = row.closest('table').dataset.grantType;
+        if (!values.grant_type && row.dataset.grantType === 'all') {
+            values.grant_type = row.querySelector('[data-field="grant_type"]')?.value || 'academic';
+        }
+        if (!values.grant_type) {
+            values.grant_type = row.closest('table').dataset.grantType;
+        }
         return values;
     }
 
     async function saveManualRow(row) {
         const values = collectManualValues(row);
-        const isStructuredGrant = row.dataset.grantType === 'academic' || row.dataset.grantType === 'non-academic';
+        const selectedGrantType = values.grant_type && ['academic', 'non-academic'].includes(values.grant_type)
+            ? values.grant_type
+            : (row.dataset.grantType === 'all' ? 'academic' : row.dataset.grantType);
+        values.grant_type = selectedGrantType;
+        values.application_status = values.application_status || 'approved';
+
+        const isStructuredGrant = selectedGrantType === 'academic' || selectedGrantType === 'non-academic';
         const requiredFields = isStructuredGrant
             ? structuredManualRequiredFields
             : manualApplicantFields.filter(field => field !== 'middle_name');
@@ -572,11 +812,15 @@
 
         const id = row.dataset.id;
         const table = row.closest('table');
+        const isSummaryTable = table.dataset.grantType === 'all';
         const url = isStructuredGrant
-            ? (id ? table.dataset.manualUpdateUrlTemplate.replace('__ID__', encodeURIComponent(id)) : table.dataset.manualStoreUrl)
+            ? (id ? table.dataset.manualUpdateUrlTemplate?.replace('__ID__', encodeURIComponent(id)) : (selectedGrantType === 'academic' ? table.dataset.academicStoreUrl : table.dataset.nonAcademicStoreUrl))
             : (id ? `/admin/manual-applicants/${encodeURIComponent(id)}` : '/admin/manual-applicants');
+        const requestUrl = id && isSummaryTable
+            ? table.dataset.manualUpdateUrlTemplate?.replace('__ID__', encodeURIComponent(id))
+            : url;
         try {
-            await fetch(url, {
+            await fetch(requestUrl, {
                 method: id ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
                 body: JSON.stringify(values),
@@ -601,7 +845,11 @@
             emptyRow.remove();
         }
         const row = document.createElement('tbody');
-        row.innerHTML = manualRowHtml({ application_status: 'pending', date: table.dataset.today }, table.dataset.grantType, table.dataset.showAmount === '1', table);
+        row.innerHTML = manualRowHtml({
+            application_status: 'approved',
+            date: table.dataset.today,
+            grant_type: table.dataset.grantType === 'all' ? 'academic' : table.dataset.grantType,
+        }, table.dataset.grantType, table.dataset.showAmount === '1', table);
         const newRow = row.firstElementChild;
         table.tBodies[0].prepend(newRow);
         openManualRow = newRow;
@@ -648,6 +896,8 @@
             if (grantType === 'academic' || grantType === 'non-academic') {
                 updateManualFunding(editRow);
                 updateManualCollege(editRow);
+            } else if (grantType === 'all') {
+                updateManualFunding(editRow);
             }
             return;
         }
@@ -691,10 +941,28 @@
     }
 
     document.getElementById('admin-applications-table')?.addEventListener('change', event => {
-        const row = event.target.closest('.manual-applicant-row[data-grant-type="academic"], .manual-applicant-row[data-grant-type="non-academic"]');
+        const row = event.target.closest('.manual-applicant-row');
         if (!row) return;
-        if (event.target.matches('[data-field="course"]')) updateManualCollege(row);
-        if (event.target.matches('[data-field="scholarship_name"]')) updateManualFunding(row);
+
+        if (event.target.matches('[data-field="grant_type"]')) {
+            const selectedType = event.target.value;
+            const scholarship = row.querySelector('[data-field="scholarship_name"]');
+            if (scholarship) {
+                scholarship.outerHTML = manualScholarshipOptions('', selectedType, row.closest('table'));
+            }
+            row.dataset.grantType = 'all';
+            updateManualFunding(row);
+            updateManualCollege(row);
+            return;
+        }
+
+        if (row.dataset.grantType === 'all') {
+            if (event.target.matches('[data-field="course"]')) updateManualCollege(row);
+            if (event.target.matches('[data-field="scholarship_name"]')) updateManualFunding(row);
+        } else if (row.dataset.grantType === 'academic' || row.dataset.grantType === 'non-academic') {
+            if (event.target.matches('[data-field="course"]')) updateManualCollege(row);
+            if (event.target.matches('[data-field="scholarship_name"]')) updateManualFunding(row);
+        }
     });
 
     document.querySelectorAll('.delete-user-btn').forEach(button => button.addEventListener('click', async () => {

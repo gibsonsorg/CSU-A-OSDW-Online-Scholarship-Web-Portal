@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Mail\ApplicationCorrectionMail;
+use App\Mail\ApplicationClosureMail;
 use App\Mail\ApplicationFinalRejectionMail;
 use App\Mail\ApplicationSectionStatusMail;
 use App\Mail\ApplicationStatusMail;
@@ -95,33 +97,55 @@ class AdminApplicationDecisionTest extends TestCase
         Mail::fake();
         Storage::fake('local');
         [$admin] = $this->makeUsers();
+        $now = now()->startOfSecond();
+        $this->travelTo($now);
+        config(['scholarships.slot_counting_starts_at' => $now->copy()->subDay()->toDateTimeString()]);
 
         foreach (['academic', 'non-academic'] as $grantType) {
             [$student, $application, $profile, $scholarship] = $this->makeApplication($grantType, withFamily: true);
+            $scholarship->forceFill(['max_slots' => 1])->save();
+            $this->assertSame(1, $scholarship->activeApplicationsCount());
+            $this->assertSame(0, $scholarship->availableSlotsCount());
+            $reason = $grantType === 'academic' ? 'Wrong Uploaded Documents' : 'Wrong Form';
+            $remark = 'Please correct the ' . $grantType . ' application details.';
+            $documentGroup = $grantType === 'academic' ? 'certificate_of_grades' : 'supporting_document';
             Storage::disk('local')->put('student_profiles/old-document.pdf', 'old');
-            $profile->forceFill([
-                'uploads' => ['certificate_of_grades' => ['student_profiles/old-document.pdf']],
-            ])->save();
+            $profile->forceFill(['uploads' => [$documentGroup => ['student_profiles/old-document.pdf']]])->save();
 
             $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/reject", [
-                'reason' => 'Wrong uploaded documents or incomplete form',
+                'reason' => $reason,
+                'rejection_remark' => $remark,
             ])->assertOk()->assertJsonPath('locked', false);
 
             $rejected = $profile->fresh();
             $this->assertNull($rejected->locked_at);
+            $this->assertSame($remark, $rejected->rejection_remark);
+            $this->assertTrue($rejected->resubmission_deadline->equalTo($now->copy()->addDay()));
+            $this->assertSame(1, $scholarship->fresh()->activeApplicationsCount());
+            $this->assertSame(0, $scholarship->fresh()->availableSlotsCount());
             $this->assertSame('rejected', $rejected->student_information_status);
             $this->assertSame('rejected', $rejected->personal_information_status);
             $this->assertSame('rejected', $rejected->scholarship_requirements_status);
+            $dashboard = $this->actingAs($student)->get('/dashboard')->assertOk()
+                ->assertViewHas('appliedScholarships', fn (array $items) => collect($items)->contains(fn (array $item) =>
+                    (int) $item['scholarship_id'] === $scholarship->id
+                    && $item['correction_required'] === true
+                    && $item['reopen'] === true
+                    && $item['rejection_remark'] === $remark
+                ));
+            $dashboard->assertSee('ACTION REQUIRED — Your application needs corrections. See Application Status for details.', false);
+            $dashboard->assertDontSee('day left to resubmit');
             if ($grantType === 'non-academic') {
                 $this->assertSame('rejected', $rejected->family_background_status);
             }
 
             $payload = $this->resubmissionPayload($student, $scholarship, $application, $profile);
-            $this->actingAs($student)->from('/dashboard')->post('/student-profiles', $payload)
-                ->assertRedirect()
-                ->assertSessionHas('error');
-
-            $payload['uploads'] = [UploadedFile::fake()->create('fresh-document.pdf', 10, 'application/pdf')];
+            if ($reason === 'Wrong Uploaded Documents') {
+                $this->actingAs($student)->from('/dashboard')->post('/student-profiles', $payload)
+                    ->assertRedirect()
+                    ->assertSessionHas('error');
+                $payload['uploads'] = [UploadedFile::fake()->create('fresh-document.pdf', 10, 'application/pdf')];
+            }
             $this->actingAs($student)->from('/dashboard')->post('/student-profiles', $payload)
                 ->assertRedirect(route('dashboard', ['section' => $grantType === 'academic' ? 'acad' : 'non'], absolute: false))
                 ->assertSessionDoesntHaveErrors();
@@ -129,32 +153,96 @@ class AdminApplicationDecisionTest extends TestCase
             $resubmitted = $profile->fresh();
             $this->assertSame(1, (int) $resubmitted->reapply_count);
             $this->assertSame('pending', $resubmitted->application_status);
+            $this->assertNull($resubmitted->resubmission_deadline);
+            $this->assertNull($resubmitted->rejection_remark);
             $this->assertSame('Updated', $resubmitted->first_name);
             if ($grantType === 'non-academic') {
                 $this->assertSame('Prior Mother', $resubmitted->familyBackground?->mother_name);
             }
-            $this->assertCount(1, $resubmitted->uploads['certificate_of_grades']);
-            $this->assertNotSame('student_profiles/old-document.pdf', $resubmitted->uploads['certificate_of_grades'][0]);
-            $this->assertFalse(Storage::disk('local')->exists('student_profiles/old-document.pdf'));
+            if ($reason === 'Wrong Uploaded Documents') {
+                $uploadedPaths = collect($resubmitted->uploads)->flatten()->all();
+                $this->assertCount(1, $uploadedPaths);
+                $this->assertNotContains('student_profiles/old-document.pdf', $uploadedPaths);
+                $this->assertFalse(Storage::disk('local')->exists('student_profiles/old-document.pdf'));
+            } else {
+                $this->assertSame(['student_profiles/old-document.pdf'], $resubmitted->uploads[$documentGroup]);
+                $this->assertTrue(Storage::disk('local')->exists('student_profiles/old-document.pdf'));
+            }
 
-            $secondReason = $grantType === 'academic'
-                ? 'Wrong uploaded documents or incomplete form'
-                : 'Does not meet the eligibility requirements';
-            $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/reject", [
-                'reason' => $secondReason,
-            ])->assertOk()->assertJsonPath('locked', true);
+            $secondReason = $grantType === 'academic' ? 'Wrong Form' : 'Does not meet the eligibility requirements';
+            $secondRejection = ['reason' => $secondReason];
+            if ($secondReason === 'Wrong Form') {
+                $secondRejection['rejection_remark'] = 'The form still needs correction.';
+            }
+            $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/reject", $secondRejection)
+                ->assertOk()->assertJsonPath('locked', true);
             $this->assertNotNull($profile->fresh()->locked_at);
+            $this->assertSame(0, $scholarship->fresh()->activeApplicationsCount());
+            $this->assertSame(1, $scholarship->fresh()->availableSlotsCount());
         }
 
-        $this->assertCount(4, Mail::queued(ApplicationStatusMail::class));
-        $documentsMail = Mail::queued(ApplicationStatusMail::class)
-            ->first(fn (ApplicationStatusMail $mail) => $mail->rejectionReason === 'Wrong uploaded documents or incomplete form');
-        $this->assertStringContainsString(
-            "We regret to inform you that your application for 'Decision academic Award' has been REJECTED. Please ensure your submitted documents are clear and complete and that you fill out the application form correctly. You may check your application status for more details and reapply once all requirements are met.",
-            $documentsMail->render()
+        $this->assertCount(2, Mail::queued(ApplicationCorrectionMail::class));
+        $this->assertCount(1, Mail::queued(ApplicationStatusMail::class));
+        $this->assertCount(1, Mail::queued(ApplicationClosureMail::class));
+        $documentsMail = Mail::queued(ApplicationCorrectionMail::class)
+            ->first(fn (ApplicationCorrectionMail $mail) => $mail->rejectionRemark === 'Please correct the academic application details.');
+        $formMail = Mail::queued(ApplicationCorrectionMail::class)
+            ->first(fn (ApplicationCorrectionMail $mail) => $mail->rejectionRemark === 'Please correct the non-academic application details.');
+        $closureMail = Mail::queued(ApplicationClosureMail::class)->first();
+        $this->assertTrue($documentsMail->resubmissionDeadline->equalTo($now->copy()->addDay()));
+        $this->assertTrue($formMail->resubmissionDeadline->equalTo($now->copy()->addDay()));
+        $this->assertStringContainsString('<strong>What to fix:</strong>', $documentsMail->render());
+        $this->assertStringContainsString('Please correct the academic application details.', $documentsMail->render());
+        $this->assertStringContainsString('<ol>', $formMail->render());
+        $this->assertSame('Your Scholarship Application Has Been Closed', $closureMail->notificationSubject());
+        $this->assertSame(
+            "Dear Decision Student,\n\nYour application for Decision academic Award has been closed after its final resubmission.\n\nReason for closure: The form still needs correction.\n\nBest regards,\n\nScholarship Office",
+            $closureMail->notificationBody()
         );
+        $closedProfile = StudentProfile::where('scholarship_name', $closureMail->scholarshipName)->firstOrFail();
+        $this->assertSame($closureMail->notificationBody(), $closedProfile->last_notification_body);
+        $this->assertStringContainsString('<strong>Reason for closure:</strong> The form still needs correction.', $closureMail->render());
         Mail::assertNotQueued(ApplicationSectionStatusMail::class);
         Mail::assertNotQueued(ApplicationFinalRejectionMail::class);
+    }
+
+    public function test_expired_correction_is_locked_on_dashboard_and_server_blocks_resubmission(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+        [$student, $application, $profile, $scholarship] = $this->makeApplication('academic');
+        config(['scholarships.slot_counting_starts_at' => now()->subDay()->toDateTimeString()]);
+        $scholarship->forceFill(['max_slots' => 1])->save();
+        $this->assertSame(1, $scholarship->activeApplicationsCount());
+        $this->assertSame(0, $scholarship->availableSlotsCount());
+        $deadline = now()->subSecond();
+        $profile->forceFill([
+            'application_status' => 'rejected',
+            'rejection_reason' => 'Wrong Uploaded Documents',
+            'rejection_remark' => 'Please upload a readable certificate.',
+            'resubmission_deadline' => $deadline,
+        ])->save();
+        $application->forceFill(['status' => 'rejected'])->save();
+
+        $this->assertSame(0, $scholarship->fresh()->activeApplicationsCount());
+        $this->assertSame(1, $scholarship->fresh()->availableSlotsCount());
+
+        $this->actingAs($student)->get('/dashboard')->assertOk()
+            ->assertViewHas('appliedScholarships', fn (array $items) => collect($items)->contains(fn (array $item) =>
+                (int) $item['scholarship_id'] === $scholarship->id
+                && $item['expired'] === true
+                && $item['locked'] === true
+                && $item['reopen'] === false
+            ));
+        $this->assertNotNull($profile->fresh()->locked_at);
+
+        $payload = $this->resubmissionPayload($student, $scholarship, $application, $profile);
+        $payload['uploads'] = [UploadedFile::fake()->create('replacement-document.pdf', 10, 'application/pdf')];
+        $this->actingAs($student)->from('/dashboard')->post('/student-profiles', $payload)
+            ->assertRedirect(route('dashboard', ['section' => 'acad'], absolute: false))
+            ->assertSessionHas('error', 'The resubmission deadline has passed. This application is closed and cannot be resubmitted.');
+        $this->assertSame('rejected', $profile->fresh()->application_status);
+        $this->assertSame('rejected', $application->fresh()->status);
     }
 
     public function test_rejection_rejects_any_reason_outside_the_two_choices(): void
@@ -162,6 +250,10 @@ class AdminApplicationDecisionTest extends TestCase
         Mail::fake();
         [$admin] = $this->makeUsers();
         [, , $profile] = $this->makeApplication('academic');
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/reject", [
+            'reason' => 'Wrong Form',
+        ])->assertUnprocessable();
 
         $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/reject", [
             'reason' => 'Other',
@@ -184,7 +276,8 @@ class AdminApplicationDecisionTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('status', 'error');
         $this->postJson("/admin/applications/{$approvedProfile->id}/reject", [
-            'reason' => 'Wrong uploaded documents or incomplete form',
+            'reason' => 'Wrong Uploaded Documents',
+            'rejection_remark' => 'Please upload the missing certificate.',
         ])->assertStatus(409);
         $this->assertSame('approved', $approvedProfile->fresh()->application_status);
 
@@ -211,14 +304,16 @@ class AdminApplicationDecisionTest extends TestCase
         $profile->forceFill(['uploads' => ['uploads' => ['student_profiles/old-document.pdf']]])->save();
 
         $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/reject", [
-            'reason' => 'Wrong uploaded documents or incomplete form',
+            'reason' => 'Wrong Uploaded Documents',
+            'rejection_remark' => 'Please upload a readable document.',
         ])->assertOk()->assertJsonPath('locked', false);
         $this->assertNull($profile->fresh()->locked_at);
         $this->postJson("/admin/applications/{$profile->id}/approve")
             ->assertStatus(409)
             ->assertJsonPath('message', 'This application is awaiting student resubmission before another decision can be made.');
         $this->postJson("/admin/applications/{$profile->id}/reject", [
-            'reason' => 'Wrong uploaded documents or incomplete form',
+            'reason' => 'Wrong Uploaded Documents',
+            'rejection_remark' => 'Please upload a readable document.',
         ])->assertStatus(409);
         $this->assertSame('rejected', $profile->fresh()->application_status);
 
@@ -235,7 +330,8 @@ class AdminApplicationDecisionTest extends TestCase
         $this->assertSame('pending', $application->fresh()->status);
 
         $this->actingAs($admin)->postJson("/admin/applications/{$profile->id}/reject", [
-            'reason' => 'Wrong uploaded documents or incomplete form',
+            'reason' => 'Wrong Form',
+            'rejection_remark' => 'Please correct the form.',
         ])->assertOk()->assertJsonPath('locked', true);
         $this->assertNotNull($profile->fresh()->locked_at);
         $this->postJson("/admin/applications/{$profile->id}/approve")->assertStatus(409);

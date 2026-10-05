@@ -293,6 +293,38 @@ class ScholarshipApplicationLockTest extends TestCase
         });
     }
 
+    public function test_dashboard_status_section_only_shows_the_authenticated_students_latest_application(): void
+    {
+        [$student] = $this->makeUsers();
+        $otherStudent = User::factory()->approved()->create();
+        [, $studentProfile] = $this->makeApplication($student, 'Current Student Pending Award', 'non-academic');
+        [, $otherProfile] = $this->makeApplication($otherStudent, 'Other Student Approved Award', 'academic', [
+            'application_status' => 'approved',
+        ]);
+
+        $studentProfile->forceFill(['course' => 'CURRENT STUDENT STATUS MARKER'])->save();
+        $otherProfile->forceFill(['course' => 'OTHER STUDENT STATUS MARKER'])->save();
+
+        $this->actingAs($student)->get('/dashboard?section=status')
+            ->assertOk()
+            ->assertSee('CURRENT STUDENT STATUS MARKER')
+            ->assertDontSee('OTHER STUDENT STATUS MARKER')
+            ->assertSee('status-pending');
+
+        $this->actingAs($student)->get('/dashboard?section=non')
+            ->assertOk()
+            ->assertViewHas('appliedScholarships', fn (array $items) => collect($items)->contains(fn (array $item) =>
+                (int) $item['scholarship_id'] === $studentProfile->application->scholarship_id
+                && $item['grant_type'] === 'non-academic'
+                && $item['status'] === 'pending'
+            ));
+
+        $this->actingAs($student)->get('/application-status')
+            ->assertOk()
+            ->assertSee('Current Student Pending Award')
+            ->assertSee('status-pending');
+    }
+
     public function test_manual_applicant_rejection_does_not_lock_or_send_mail(): void
     {
         Mail::fake();

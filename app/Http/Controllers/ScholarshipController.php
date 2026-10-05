@@ -140,6 +140,62 @@ class ScholarshipController extends Controller
         ]);
     }
 
+    public function availabilityIndex(Request $request)
+    {
+        $selectedType = trim((string) $request->query('type', ''));
+        $selectedName = trim((string) $request->query('name', ''));
+        $validType = in_array($selectedType, ['academic', 'non-academic'], true);
+
+        $scholarships = Scholarship::query()
+            ->when($validType, fn ($query) => $query->where('type', $selectedType))
+            ->when($selectedName !== '', fn ($query) => $query->where('name', $selectedName))
+            ->orderBy('name')
+            ->get();
+
+        $nameOptions = Scholarship::query()
+            ->when($validType, fn ($query) => $query->where('type', $selectedType))
+            ->orderBy('name')
+            ->pluck('name')
+            ->unique()
+            ->values();
+
+        return view('admin.scholarships.availability', compact(
+            'scholarships',
+            'selectedType',
+            'selectedName',
+            'nameOptions',
+        ));
+    }
+
+    public function updateAvailability(Request $request, Scholarship $scholarship)
+    {
+        $validated = $request->validate([
+            'max_slots' => ['nullable', 'integer', 'min:0'],
+            'accepting_applications' => ['nullable', 'boolean'],
+            'time_restricted' => ['nullable', 'boolean'],
+            'application_start_time' => ['nullable', 'required_if:time_restricted,1', 'date_format:H:i'],
+            'application_end_time' => ['nullable', 'required_if:time_restricted,1', 'date_format:H:i'],
+            'application_start_date' => ['nullable', 'date'],
+            'application_end_date' => ['nullable', 'date', 'after_or_equal:application_start_date'],
+        ]);
+
+        $timeRestricted = $request->boolean('time_restricted');
+        $scholarship->update([
+            'max_slots' => isset($validated['max_slots']) ? (int) $validated['max_slots'] : null,
+            'accepting_applications' => $request->boolean('accepting_applications'),
+            'time_restricted' => $timeRestricted,
+            'application_start_time' => $timeRestricted ? $validated['application_start_time'] : null,
+            'application_end_time' => $timeRestricted ? $validated['application_end_time'] : null,
+            'application_start_date' => $validated['application_start_date'] ?? null,
+            'application_end_date' => $validated['application_end_date'] ?? null,
+        ]);
+
+        return redirect()->route('admin.scholarships.availability', [
+            'type' => $scholarship->type,
+            'name' => $scholarship->name,
+        ])->with('success', 'Scholarship availability updated successfully.');
+    }
+
     public function destroy(Scholarship $scholarship)
     {
         if ($scholarship->logo_path) {

@@ -22,12 +22,17 @@ class ApplicationReceivedMail extends Mailable implements ShouldQueue
     {
         return 'Your Scholarship Application Has Been Received';
     }
-
     public function notificationBody(): string
     {
-        return 'Dear ' . $this->studentName . ', this is to confirm that your application for '
+        return "Greetings from the Office of Student Development and Welfare (OSDW)!\n\n"
+            . "We are pleased to confirm that we have successfully received your application for the "
             . $this->scholarshipName
-            . ' has been received and is currently under review. We will notify you by email once a decision has been made. If you have any questions in the meantime, feel free to visit the OSDW office in Aparri.';
+            . ".\n\n"
+            . "Your application is currently under review. Our office will carefully evaluate the information and documents you submitted.\n\n"
+            . "You will receive an email notification once a decision has been made regarding your application. You may also monitor your application status through the CSU Aparri Scholarship Portal.\n\n"
+            . "Thank you for your interest in the scholarship program. We appreciate your commitment to pursuing your education.\n\n"
+            . "Best regards,\n\n"
+            . "OSDW Aparri";
     }
 
     public function build(): self
