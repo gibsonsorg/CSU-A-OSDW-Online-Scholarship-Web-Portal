@@ -14,7 +14,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(\Google\Service\Drive::class, function ($app) {
+            $config = $app['config']->get('filesystems.disks.google', []);
+            $folderId = trim((string) ($config['folder'] ?? env('GOOGLE_DRIVE_FOLDER_ID', '')));
+
+            $client = new \Google\Client();
+            $client->setClientId($config['clientId'] ?? env('GOOGLE_DRIVE_CLIENT_ID'));
+            $client->setClientSecret($config['clientSecret'] ?? env('GOOGLE_DRIVE_CLIENT_SECRET'));
+            $client->refreshToken($config['refreshToken'] ?? env('GOOGLE_DRIVE_REFRESH_TOKEN'));
+
+            return new \Google\Service\Drive($client);
+        });
     }
 
     /**

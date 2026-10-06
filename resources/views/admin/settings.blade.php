@@ -388,6 +388,59 @@
             color: #999;
         }
 
+        .backup-warning-banner {
+            margin-bottom: 18px;
+            padding: 12px 14px;
+            border-left: 4px solid #d97706;
+            background: #fff7ed;
+            color: #9a4d00;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .log-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .log-badge-success {
+            background: #e8f5e9;
+            color: #1b5e20;
+        }
+
+        .log-badge-failed {
+            background: #fdecea;
+            color: #b42318;
+        }
+
+        .backup-log-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .backup-log-table th,
+        .backup-log-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #eef2f7;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .backup-log-table th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 700;
+        }
+
         @media (max-width: 1024px) {
             .backup-grid {
                 grid-template-columns: 1fr;
@@ -491,12 +544,56 @@
                     </div>
                 </div>
 
+                @if($googleTokenWarning)
+                    <div class="backup-warning-banner">
+                        Warning: {{ $googleTokenWarning->error_message }}
+                    </div>
+                @endif
+
                 <!-- Backup History Section -->
                 <div class="backup-history-section table-section">
                     <h2>Backup History</h2>
-                    <div class="empty-state">
-                        <p>Loading backup history...</p>
-                    </div>
+
+                    @if($backupLogs->isEmpty())
+                        <div class="empty-state">
+                            <p>No backup activity recorded yet.</p>
+                        </div>
+                    @else
+                        <div class="table-wrapper">
+                            <table class="backup-log-table">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Filename</th>
+                                        <th>Size</th>
+                                        <th>Storage</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($backupLogs as $log)
+                                        <tr>
+                                            <td>{{ ucfirst($log->type) }}</td>
+                                            <td>{{ $log->filename }}</td>
+                                            <td>{{ App\Services\BackupService::formatFileSize($log->size) }}</td>
+                                            <td>{{ ucfirst($log->storage) }}</td>
+                                            <td>
+                                                @if($log->status === 'success')
+                                                    <span class="log-badge log-badge-success">Success</span>
+                                                @else
+                                                    <span class="log-badge log-badge-failed">Failed</span>
+                                                @endif
+                                            </td>
+                                            <td>{{ $log->created_at ? $log->created_at->format('Y-m-d H:i:s') : '-' }}</td>
+                                            <td>{{ $log->error_message ?? '—' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
 
                 <!-- Table Section -->

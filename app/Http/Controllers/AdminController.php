@@ -142,6 +142,7 @@ class AdminController extends Controller
         $dateFrom = (string) $request->query('date_from', '');
         $dateTo = (string) $request->query('date_to', '');
         $scholarshipName = trim((string) $request->query('scholarship_name', ''));
+        $studentName = trim((string) $request->query('student_name', ''));
         // CHANGE: Filter applicants by the minimum admin-entered amount.
         $status = strtolower((string) $request->query('status', 'all'));
         $allowedStatuses = ['all', 'approved', 'pending', 'rejected'];
@@ -152,10 +153,6 @@ class AdminController extends Controller
 
         $query = StudentProfile::where('grant_type', $grantType)
             ->whereNull('deleted_at')
-            ->where(function ($query) {
-                $query->whereNull('student_profiles.source')
-                    ->orWhere('student_profiles.source', '!=', 'manual');
-            })
             ->when($dateFrom !== '', function ($query) use ($dateFrom) {
                 $query->whereDate(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'), '>=', $dateFrom);
             })
@@ -164,6 +161,16 @@ class AdminController extends Controller
             })
             ->when($scholarshipName !== '', function ($query) use ($scholarshipName) {
                 $query->where('student_profiles.scholarship_name', $scholarshipName);
+            })
+            ->when($studentName !== '', function ($query) use ($studentName) {
+                $searchTerm = strtolower($studentName);
+                $query->where(function ($query) use ($searchTerm) {
+                    $query->whereRaw('LOWER(COALESCE(student_profiles.first_name, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                        ->orWhereRaw('LOWER(COALESCE(student_profiles.last_name, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                        ->orWhereRaw('LOWER(COALESCE(student_profiles.middle_name, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                        ->orWhereRaw('LOWER(CONCAT(COALESCE(student_profiles.first_name, ""), " ", COALESCE(student_profiles.last_name, ""))) LIKE ?', ['%' . $searchTerm . '%'])
+                        ->orWhereRaw('LOWER(CONCAT(COALESCE(student_profiles.last_name, ""), " ", COALESCE(student_profiles.first_name, ""))) LIKE ?', ['%' . $searchTerm . '%']);
+                });
             })
             ->when($status !== 'all', function ($query) use ($status) {
                 $query->where('student_profiles.application_status', $status);

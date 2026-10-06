@@ -25,6 +25,17 @@
             <option value="rejected" @selected(request('status') === 'rejected')>Rejected</option>
         </select>
     </div>
+    <div class="grant-filter-field grant-search-field">
+        <label for="grant-search">Search</label>
+        <input
+            id="grant-search"
+            type="text"
+            name="student_name"
+            value="{{ request('student_name') }}"
+            placeholder="Search student name"
+            aria-label="Search student name"
+        >
+    </div>
     <button class="grant-filter-button" type="submit">Filter</button>
     <p class="grant-filter-error" id="grant-filter-error" role="alert" hidden>Date From must be before or equal to Date To.</p>
 </form>
@@ -48,6 +59,10 @@
         flex-direction: column;
         gap: 4px;
         min-width: 0;
+    }
+
+    .grant-search-field {
+        flex: 1.7 1 220px;
     }
 
     .grant-filter-field label {

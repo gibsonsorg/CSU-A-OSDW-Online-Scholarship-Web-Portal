@@ -53,16 +53,24 @@ class BackupController extends Controller
     {
         try {
             $backup = BackupHistory::findOrFail($id);
-            $filePath = $this->backupService->backupPath($backup->file_path);
+            $localFilePath = storage_path('app/' . ltrim($backup->file_path, '/\\'));
 
-            if (!file_exists($filePath)) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Backup file not found',
-                ], 404);
+            if (file_exists($localFilePath)) {
+                return response()->download($localFilePath, $backup->filename);
             }
 
-            return response()->download($filePath, $backup->filename);
+            if ($backup->backup_type === 'automatic' && $this->backupService->hasGoogleBackup($backup->filename)) {
+                $contents = $this->backupService->getGoogleBackupContents($backup->filename);
+
+                return response()->streamDownload(static function () use ($contents): void {
+                    echo $contents;
+                }, $backup->filename, ['Content-Type' => 'application/zip']);
+            }
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Backup file not found',
+            ], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',

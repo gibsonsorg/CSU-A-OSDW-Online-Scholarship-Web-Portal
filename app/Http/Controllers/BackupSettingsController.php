@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BackupLog;
 use App\Models\StudentProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -14,8 +15,15 @@ class BackupSettingsController extends Controller
         $deletedApplicants = StudentProfile::onlyTrashed()
             ->orderBy('deleted_at', 'desc')
             ->get();
-        
-        return view('admin.settings', compact('deletedApplicants'));
+
+        $backupLogs = BackupLog::latest()->take(10)->get();
+        $googleTokenWarning = BackupLog::where('type', 'automatic')
+            ->where('status', 'failed')
+            ->where('error_message', 'Google Drive token expired. Please generate a new refresh token.')
+            ->latest()
+            ->first();
+
+        return view('admin.settings', compact('deletedApplicants', 'backupLogs', 'googleTokenWarning'));
     }
 
     public function generateManualBackup()

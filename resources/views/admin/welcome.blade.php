@@ -95,8 +95,6 @@
         @endif
         @if(in_array($filterType, ['academic', 'non-academic'], true))
             @include('admin.partials.grant-filters', ['filterType' => $filterType, 'scholarshipNames' => $scholarshipNames ?? collect()])
-        @elseif($filterType === 'users')
-            @include('admin.partials.users-filters')
         @elseif($filterType === 'all')
             @include('admin.partials.application-filters')
         @endif
@@ -212,7 +210,7 @@
                     @endphp
                     <tr data-source="{{ $app->source ?? 'application' }}" data-id="{{ $app->id }}">
                         @if(in_array($filterType, ['academic', 'non-academic'], true))
-                            <td>{{ $fullName !== '' ? $fullName : '—' }}</td>
+                            <td>{{ $fullName !== '' ? strtoupper($fullName) : '—' }}</td>
                             <td>{{ $app->sex }}</td>
                             <td>{{ $app->course }}</td>
                             <td>{{ $app->year_level }}</td>

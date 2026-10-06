@@ -14,6 +14,30 @@
     <div class="main" id="adminMain">
         @include('admin.partials.sidebar-toggle')
 
+        @php
+            $studentDashboardScholarshipLogos = [
+                'Athletic Scholarship' => asset('images/athletic scholarship.logo.png'),
+                "Employees' Grant" => asset('images/employees grant.logo.png'),
+                'Socio-Cultural Scholarship' => asset('images/csu.logo.png'),
+                'Campus Student Publication' => asset('images/campus stud. publication.jpg'),
+                'Differently Abled Persons' => asset('images/dap.logo.png'),
+                'Student Council Federation Grant' => asset('images/campus stud.council.png'),
+                'CSU Aparri Alumni Association' => asset('images/csu alumni assoc.logo.jpg'),
+                'Agkaykaysa' => asset('images/agkaykaysa.logo.png'),
+                'Tulong Dunong Program' => asset('images/ched.logo.png'),
+                'Open Heart Scholarship' => asset('images/open heart.logo.png'),
+                'Tertiary Education Subsidy' => asset('images/tes logo.png'),
+                'Cagayan Valley Assoc. of Hawaii' => asset('images/cagayan valley assoc. hawaii logo.png'),
+                'DOST SEI Project Strand' => asset('images/dost.logo.png'),
+                'LGU Aparri' => asset('images/lgu.logo.jpg'),
+                'Natalged A Lasam' => asset('images/lgu lasam.logo.png'),
+                'Andres Tamayo Scholarship' => asset('images/andres tamayo.logo.jpg'),
+                'Gokongwei Brothers Foundation' => asset('images/gokongwei logo.png'),
+                'University Based Scholarship' => asset('images/csu.logo.png'),
+                'ACEF – GIAHEP' => asset('images/acef-giahep scholarship logo.png'),
+            ];
+        @endphp
+
         <div class="topbar">
             <div class="topbar-left">
                 <h1>Add Scholarship</h1>
@@ -55,7 +79,12 @@
                                 <tr>
                                     <td class="scholarship-management-name">
                                         <div class="scholarship-management-identity">
-                                            <img src="{{ $scholarship->logo_path ? Storage::url($scholarship->logo_path) : asset('images/csu.logo.png') }}" alt="{{ $scholarship->name }} logo">
+                                            @php
+                                                $scholarshipLogo = $scholarship->logo_path
+                                                    ? Storage::url($scholarship->logo_path)
+                                                    : ($studentDashboardScholarshipLogos[$scholarship->name] ?? asset('images/csu.logo.png'));
+                                            @endphp
+                                            <img src="{{ $scholarshipLogo }}" alt="{{ $scholarship->name }} logo">
                                             <div><strong>{{ $scholarship->name }}</strong><span>{{ Str::limit($scholarship->short_information ?: $scholarship->description, 95) }}</span></div>
                                         </div>
                                     </td>
@@ -77,7 +106,7 @@
                     </table>
                 </div>
                 @if(isset($scholarships) && $scholarships->hasPages())
-                    <div class="scholarship-management-pagination">{{ $scholarships->links() }}</div>
+                    {{ $scholarships->links('vendor.pagination.admin') }}
                 @endif
             </section>
 

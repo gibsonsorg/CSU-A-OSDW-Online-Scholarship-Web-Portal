@@ -3,15 +3,19 @@
 namespace App\Services;
 
 use App\Models\BackupHistory;
+use App\Models\BackupLog;
 use Exception;
 use ZipArchive;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
+use Throwable;
 
 class BackupService
 {
+    public function __construct(private GoogleDriveBackupStorage $googleDriveStorage)
+    {
+    }
+
     public function backupPath(string $relativePath): string
     {
         $backupRoot = realpath(storage_path('app/backups'));
@@ -29,28 +33,26 @@ class BackupService
      */
     public function createBackup($type = 'manual'): array
     {
+        $sqlFilename = null;
+        $zipFilename = null;
+        $zipPath = null;
+
         try {
             $backupDir = storage_path('app/backups');
             if (!is_dir($backupDir)) {
                 mkdir($backupDir, 0755, true);
             }
 
-            // Create SQL dump
             $timestamp = date('Y-m-d_H-i-s');
             $sqlFilename = "backup_$timestamp.sql";
             $sqlPath = $backupDir . DIRECTORY_SEPARATOR . $sqlFilename;
 
             $this->createSqlDump($sqlPath);
 
-            // Verify the dump was created
             if (!file_exists($sqlPath)) {
                 throw new Exception('Failed to create database dump');
             }
 
-            // Get file size
-            $fileSize = filesize($sqlPath);
-
-            // Create ZIP file
             $zipFilename = "backup_$timestamp.zip";
             $zipPath = $backupDir . DIRECTORY_SEPARATOR . $zipFilename;
 
@@ -62,13 +64,26 @@ class BackupService
             $zip->addFile($sqlPath, $sqlFilename);
             $zip->close();
 
-            // Delete the SQL file (keep only ZIP)
             unlink($sqlPath);
 
-            // Get the final ZIP file size
             $finalSize = filesize($zipPath);
 
-            // Record in database
+            if ($type === 'automatic') {
+                $this->uploadBackupToGoogle($zipPath, $zipFilename);
+                if (! unlink($zipPath)) {
+                    throw new Exception('Google Drive upload succeeded, but the local backup could not be deleted.');
+                }
+                $storage = 'google';
+
+                try {
+                    $this->pruneGoogleDriveBackups();
+                } catch (Throwable $e) {
+                    Log::warning('Google Drive backup retention cleanup failed', ['exception' => $e]);
+                }
+            } else {
+                $storage = 'local';
+            }
+
             $backup = BackupHistory::create([
                 'filename' => $zipFilename,
                 'file_path' => 'backups/' . $zipFilename,
@@ -76,6 +91,8 @@ class BackupService
                 'backup_type' => $type,
                 'status' => 'success',
             ]);
+
+            $this->logBackupAttempt($type, $zipFilename, $finalSize, 'success', $storage, null);
 
             return [
                 'status' => 'success',
@@ -85,28 +102,97 @@ class BackupService
                 'backup' => $backup,
             ];
         } catch (Exception $e) {
-            Log::error('Backup creation failed', ['exception' => $e]);
-            // Record failed backup
+            Log::error('Backup creation failed', ['type' => $type, 'exception' => $e]);
+
+            $friendlyMessage = $this->formatGoogleDriveErrorMessage($e, $type);
+            $filename = $zipFilename ?? ($sqlFilename ?? 'unknown');
+            $size = $zipPath && file_exists($zipPath) ? filesize($zipPath) : 0;
+
             BackupHistory::create([
-                'filename' => $sqlFilename ?? 'unknown',
-                'file_path' => 'backups/' . ($sqlFilename ?? 'unknown'),
-                'file_size' => 0,
+                'filename' => $filename,
+                'file_path' => 'backups/' . $filename,
+                'file_size' => $size,
                 'backup_type' => $type,
                 'status' => 'failed',
-                'error_message' => 'Backup operation failed. Please check the application logs for details.',
+                'error_message' => $friendlyMessage,
             ]);
+
+            $this->logBackupAttempt($type, $filename, $size, 'failed', $type === 'automatic' ? 'google' : 'local', $friendlyMessage);
 
             return [
                 'status' => 'error',
-                'message' => 'Backup failed.',
+                'message' => $friendlyMessage,
             ];
         }
+    }
+
+    public function uploadBackupToGoogle(string $zipPath, string $filename): void
+    {
+        $folderId = trim((string) config('filesystems.disks.google.folder', env('GOOGLE_DRIVE_FOLDER_ID', '')));
+
+        if ($folderId === '') {
+            throw new Exception('Google Drive folder ID is missing. Please set GOOGLE_DRIVE_FOLDER_ID.');
+        }
+
+        $this->googleDriveStorage->upload($zipPath, basename($filename));
+    }
+
+    public function pruneGoogleDriveBackups(): void
+    {
+        $this->googleDriveStorage->pruneBackups();
+    }
+
+    public function hasGoogleBackup(string $filename): bool
+    {
+        return $this->googleDriveStorage->hasBackup($filename);
+    }
+
+    public function getGoogleBackupContents(string $filename): string
+    {
+        return $this->googleDriveStorage->getBackupContents($filename);
+    }
+
+    public function deleteGoogleBackup(string $filename): void
+    {
+        $this->googleDriveStorage->deleteBackup($filename);
+    }
+
+    private function logBackupAttempt(string $type, string $filename, int $size, string $status, string $storage, ?string $errorMessage): void
+    {
+        BackupLog::create([
+            'type' => $type,
+            'filename' => $filename,
+            'size' => $size,
+            'status' => $status,
+            'storage' => $storage,
+            'error_message' => $errorMessage,
+        ]);
+    }
+
+    private function formatGoogleDriveErrorMessage(Exception $e, string $type): string
+    {
+        $message = strtolower($e->getMessage());
+
+        if ($type === 'automatic' && str_contains($message, 'folder id is missing')) {
+            return 'Google Drive folder ID is missing. Please set GOOGLE_DRIVE_FOLDER_ID.';
+        }
+
+        if ($type === 'automatic' && (
+            str_contains($message, 'invalid_grant') ||
+            str_contains($message, 'oauth') ||
+            str_contains($message, 'unauthorized') ||
+            str_contains($message, 'auth')
+        )) {
+            return 'Google Drive token expired. Please generate a new refresh token.';
+        }
+
+        return $type === 'automatic' ? 'Google Drive upload failed.' : 'Backup operation failed. Please check the application logs for details.';
     }
 
     /**
      * Create an SQL dump of the database
      */
-    private function createSqlDump($filePath): void
+    protected function createSqlDump($filePath): void
     {
         $dbHost = env('DB_HOST', 'localhost');
         $dbName = env('DB_DATABASE', 'scholarship_portal');
@@ -114,11 +200,11 @@ class BackupService
         $dbPassword = env('DB_PASSWORD', '');
 
         $command = 'mysqldump --host=' . escapeshellarg($dbHost) . ' --user=' . escapeshellarg($dbUser);
-        
+
         if (!empty($dbPassword)) {
             $command .= ' --password=' . escapeshellarg($dbPassword);
         }
-        
+
         $command .= " " . escapeshellarg($dbName) . " > " . escapeshellarg($filePath) . " 2>&1";
 
         $output = null;
@@ -136,13 +222,26 @@ class BackupService
     public function restore($backupId): array
     {
         $tempDir = null;
+        $tempBackupFile = null;
+
         try {
             $backup = BackupHistory::findOrFail($backupId);
+            $backupPath = null;
 
-            $backupPath = $this->backupPath($backup->file_path);
+            $localBackupPath = storage_path('app/' . ltrim($backup->file_path, '/\\'));
+            if (file_exists($localBackupPath)) {
+                $backupPath = $localBackupPath;
+            } elseif ($backup->backup_type === 'automatic' && $this->hasGoogleBackup($backup->filename)) {
+                $tempBackupFile = storage_path('app/backups/' . basename($backup->filename));
+                file_put_contents($tempBackupFile, $this->getGoogleBackupContents($backup->filename));
+                $backupPath = $tempBackupFile;
+            }
+
+            if (!$backupPath) {
+                throw new Exception('Backup file not found');
+            }
+
             $tempDir = storage_path('app/backups/temp_' . uniqid('', true));
-
-            // Extract ZIP
             if (!is_dir($tempDir)) {
                 mkdir($tempDir, 0755, true);
             }
@@ -180,7 +279,6 @@ class BackupService
             $zip->extractTo($tempDir);
             $zip->close();
 
-            // Find SQL file
             $files = scandir($tempDir);
             $sqlFile = null;
             foreach ($files as $file) {
@@ -194,7 +292,6 @@ class BackupService
                 throw new Exception('SQL file not found in backup');
             }
 
-            // Restore database
             $this->restoreFromSql($sqlFile);
 
             return [
@@ -208,6 +305,10 @@ class BackupService
                 'message' => 'Restore failed.',
             ];
         } finally {
+            if ($tempBackupFile && file_exists($tempBackupFile)) {
+                unlink($tempBackupFile);
+            }
+
             if ($tempDir && is_dir($tempDir)) {
                 File::deleteDirectory($tempDir);
             }
@@ -225,11 +326,11 @@ class BackupService
         $dbPassword = env('DB_PASSWORD', '');
 
         $command = 'mysql --host=' . escapeshellarg($dbHost) . ' --user=' . escapeshellarg($dbUser);
-        
+
         if (!empty($dbPassword)) {
             $command .= ' --password=' . escapeshellarg($dbPassword);
         }
-        
+
         $command .= " " . escapeshellarg($dbName) . " < " . escapeshellarg($sqlFilePath) . " 2>&1";
 
         $output = null;
@@ -248,10 +349,12 @@ class BackupService
     {
         try {
             $backup = BackupHistory::findOrFail($backupId);
-            $filePath = $this->backupPath($backup->file_path);
+            $localFilePath = storage_path('app/' . ltrim($backup->file_path, '/\\'));
 
-            if (file_exists($filePath)) {
-                unlink($filePath);
+            if (file_exists($localFilePath)) {
+                unlink($localFilePath);
+            } elseif ($backup->backup_type === 'automatic' && $this->hasGoogleBackup($backup->filename)) {
+                $this->deleteGoogleBackup($backup->filename);
             }
 
             $backup->delete();
