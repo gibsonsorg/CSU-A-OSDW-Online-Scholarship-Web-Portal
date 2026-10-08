@@ -77,6 +77,72 @@
         </div>
     </div>
 
+    @if($filterType === 'dashboard')
+        <section class="needs-attention-panel" aria-labelledby="needs-attention-title">
+            <div class="needs-attention-header">
+                <div>
+                    <span class="needs-attention-icon" aria-hidden="true"></span>
+                    <h2 id="needs-attention-title">Needs Attention</h2>
+                </div>
+            </div>
+
+            <div class="needs-attention-grid">
+                <section class="needs-attention-section" aria-labelledby="pending-applications-title">
+                    <h3 id="pending-applications-title">Pending Applications (Aging)</h3>
+                    @forelse($pendingApplications as $application)
+                        <div class="needs-attention-item">
+                            <div class="needs-attention-text">
+                                <span class="needs-attention-name">{{ $application['scholarship_name'] ?: 'Scholarship' }}</span>
+                                <span class="needs-attention-subtitle">{{ $application['full_name'] ?: 'Applicant' }}</span>
+                            </div>
+                            <div class="needs-attention-actions">
+                                <span class="needs-attention-badge needs-attention-badge-{{ $application['urgency'] }}">{{ $application['days_pending'] }} day{{ $application['days_pending'] === 1 ? '' : 's' }}</span>
+                                <button type="button" class="needs-attention-link needs-attention-review" data-id="{{ $application['id'] }}">Review <span aria-hidden="true">→</span></button>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="needs-attention-empty">Nothing needs attention right now.</p>
+                    @endforelse
+                </section>
+
+                <section class="needs-attention-section" aria-labelledby="closing-soon-title">
+                    <h3 id="closing-soon-title">Scholarships Closing Soon</h3>
+                    @forelse($scholarshipsClosingSoon as $scholarship)
+                        <div class="needs-attention-item">
+                            <div class="needs-attention-text">
+                                <span class="needs-attention-name">{{ $scholarship['name'] }}</span>
+                            </div>
+                            <div class="needs-attention-actions">
+                                <span class="needs-attention-badge needs-attention-badge-{{ $scholarship['urgency'] }}">{{ $scholarship['days_remaining'] }} day{{ $scholarship['days_remaining'] === 1 ? '' : 's' }}</span>
+                                <a class="needs-attention-link" href="{{ route('admin.scholarships.availability', ['name' => $scholarship['name']]) }}">Manage <span aria-hidden="true">→</span></a>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="needs-attention-empty">Nothing needs attention right now.</p>
+                    @endforelse
+                </section>
+            </div>
+
+            <section class="needs-attention-section needs-attention-section-full" aria-labelledby="near-capacity-title">
+                <h3 id="near-capacity-title">Scholarships Near Capacity</h3>
+                @forelse($nearCapacityScholarships as $scholarship)
+                    <div class="needs-attention-capacity-item">
+                        <div class="needs-attention-capacity-row">
+                            <span class="needs-attention-name">{{ $scholarship['name'] }}</span>
+                            <span class="needs-attention-capacity-value">{{ $scholarship['active_applications'] }}/{{ $scholarship['max_slots'] }} slots filled</span>
+                        </div>
+                        <div class="needs-attention-progress-track" aria-hidden="true">
+                            <span class="needs-attention-progress-bar needs-attention-progress-{{ $scholarship['urgency'] }}" style="width: {{ min(100, $scholarship['percentage']) }}%"></span>
+                        </div>
+                    </div>
+                @empty
+                    <p class="needs-attention-empty">Nothing needs attention right now.</p>
+                @endforelse
+            </section>
+        </section>
+    @endif
+
+@if($filterType !== 'dashboard')
 <div class="grid-2"> 
 <div class="card">
     <div class="card-title">
@@ -226,7 +292,9 @@
                                 </td>
                             @endif
                             <td>
-                                @if(isset($app->application_status) && $app->application_status === 'approved')
+                                @if($app->renewal_required)
+                                    <span class="badge approved">Approved</span>
+                                @elseif(isset($app->application_status) && $app->application_status === 'approved')
                                     <span class="badge approved">Approved</span>
                                 @elseif(isset($app->application_status) && $app->application_status === 'rejected')
                                     <span class="badge rejected">Rejected</span>
@@ -271,7 +339,9 @@
                             @endif
 
                             <td>
-                                @if(isset($app->application_status) && $app->application_status === 'approved')
+                                @if($app->renewal_required)
+                                    <span class="badge approved">Approved</span>
+                                @elseif(isset($app->application_status) && $app->application_status === 'approved')
                                     <span class="badge approved">Approved</span>
                                 @elseif(isset($app->application_status) && $app->application_status === 'rejected')
                                     <span class="badge rejected">Rejected</span>
@@ -303,6 +373,7 @@
         @endif
         @endif
     </div>
+@endif
 
             <!-- Profile Modal -->
        <div id="profileModal" class="apply-modal" role="dialog" aria-hidden="true">

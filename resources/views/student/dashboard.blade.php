@@ -1050,7 +1050,8 @@ Students from municipalities without accessible colleges or higher education ins
                         <label>Course</label>
                         <select name="course" class="input" required>
                             <option value="">Select course</option>
-                            <option>BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY</option>
+                            <option value="BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics">BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics</option>
+                            <option value="BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Automotive">BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Automotive</option>
                             <option>BACHELOR OF SCIENCE IN CRIMINOLOGY</option>
                             <option>BACHELOR OF SCIENCE IN FISHERIES</option>
                             <option>BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY</option>
@@ -1300,7 +1301,8 @@ Students from municipalities without accessible colleges or higher education ins
                         <label>Course</label>
                         <select name="course" class="input" required>
                             <option value="">Select course</option>
-                            <option>BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY</option>
+                            <option value="BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics">BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics</option>
+                            <option value="BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Automotive">BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Automotive</option>
                             <option>BACHELOR OF SCIENCE IN CRIMINOLOGY</option>
                             <option>BACHELOR OF SCIENCE IN FISHERIES</option>
                             <option>BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY</option>
@@ -1357,7 +1359,18 @@ Students from municipalities without accessible colleges or higher education ins
                     </div>
                     <div>
                         <label>Religion</label>
-                        <input class="input" type="text" name="religion" required>
+                        <select name="religion" class="input" required>
+                            <option value="">Select</option>
+                            <option>Methodist</option>
+                            <option>Iglesia ni Cristo</option>
+                            <option>Catholic</option>
+                            <option>Born Again</option>
+                            <option>Others</option>
+                        </select>
+                    </div>
+                    <div id="academicReligionOtherField" hidden>
+                        <label>Please specify religion</label>
+                        <input class="input" type="text" name="religion_other" placeholder="Please specify religion">
                     </div>
                     <div>
                         <label>Contact number</label>
@@ -1389,7 +1402,7 @@ Students from municipalities without accessible colleges or higher education ins
                                 <li><strong>Documents:</strong> PDF, DOCX (max 2MB)</li>
                             </ul>
                         </div>
-                        <div id="academicCombinedDocumentSection" style="display:block;">
+                        <div id="academicCombinedDocumentSection" data-reapplication-document-group="supporting_document" style="display:block;">
                             <input type="file" id="academicCombinedDocumentInput" name="supporting_document" accept=".pdf,.docx" required style="width:115px; overflow:hidden;">
                             <div id="academicCombinedDocumentNames" style="margin-top:8px; font-size:13px; color:#666;"></div>
                         </div>
@@ -1489,6 +1502,16 @@ Students from municipalities without accessible colleges or higher education ins
         console.log(`Selected ${fileCount} file(s), Total size: ${totalSizeMB}MB`);
       }
     });
+
+        const academicCombinedDocumentInput = document.getElementById('academicCombinedDocumentInput');
+        const academicCombinedDocumentNames = document.getElementById('academicCombinedDocumentNames');
+        if (academicCombinedDocumentInput && academicCombinedDocumentNames) {
+            academicCombinedDocumentInput.addEventListener('change', function() {
+                academicCombinedDocumentNames.textContent = Array.from(this.files || [])
+                    .map(file => file.name)
+                    .join(', ');
+            });
+        }
 
   </script>
 
@@ -1602,11 +1625,7 @@ Students from municipalities without accessible colleges or higher education ins
                     return;
                 }
 
-                const activeApplicationsForCard = activeApplications - (
-                    canReopen && ['pending', 'approved'].includes(application?.status) ? 1 : 0
-                );
-
-                if (activeApplicationsForCard >= maxApplications) {
+                if (!application && activeApplications >= maxApplications) {
                     card.classList.add('card-unavailable');
                     if (cardFoot) {
                         const message = document.createElement('div');
@@ -1629,7 +1648,9 @@ Students from municipalities without accessible colleges or higher education ins
                     if (cardFoot) {
                         const message = document.createElement('div');
                         message.className = 'applied-text';
-                        if (application.correction_required && !deadlinePassed) {
+                        if (application.renewal_required) {
+                            message.innerHTML = '<div class="applied-label">ACTION REQUIRED</div><div>See Application Status for more details.</div>';
+                        } else if (application.correction_required && !deadlinePassed) {
                             message.textContent = 'ACTION REQUIRED — Your application needs corrections. See Application Status for details.';
                         } else {
                             message.innerHTML = '<div class="applied-label">REJECTED</div><div>Rejected. See Application Status for details.</div>';

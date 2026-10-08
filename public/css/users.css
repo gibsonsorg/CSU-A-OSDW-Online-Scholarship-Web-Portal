@@ -2169,6 +2169,10 @@ select {
         font-weight: 600;
     }
 
+    #academicApplyModal #academicApplyForm #academicReligionOtherField {
+        display: block;
+    }
+
     #academicApplyModal #academicApplyForm .mobile-floating-control,
     #academicApplyModal #academicApplyForm .contact-number-control .mobile-floating-control {
         width: 100%;

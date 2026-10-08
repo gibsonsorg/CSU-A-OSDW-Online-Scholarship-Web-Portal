@@ -8,6 +8,8 @@ use App\Mail\ApplicationSectionStatusMail;
 use App\Models\Scholarship;
 use App\Models\StudentProfile;
 use App\Models\User;
+use App\Support\CourseCollegeDepartment;
+use App\Support\ReligionOption;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -437,6 +439,99 @@ class ApplicationWorkflowTest extends TestCase
             'scholarship_name' => $scholarship->name,
             'scholarship_type' => 'Academic',
         ])->assertSessionHasErrors(['program', 'religion']);
+    }
+
+    public function test_academic_religion_other_requires_specification_and_stores_the_text(): void
+    {
+        $student = User::factory()->approved()->create(['student_id' => '23-10012']);
+        $scholarship = Scholarship::create([
+            'name' => 'Religion Validation Scholarship',
+            'type' => 'academic',
+            'status' => 'active',
+            'accepting_applications' => true,
+        ]);
+
+        $this->actingAs($student)->from('/dashboard')->post('/student-profiles', [
+            'first_name' => 'Religion',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => '23-10012',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
+            'contact_number' => '123456789',
+            'course' => 'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics',
+            'college_department' => 'College of Industrial Technology',
+            'year_level' => '1st Year',
+            'program' => 'BSIT',
+            'religion' => 'Others',
+            'religion_other' => '',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Academic',
+        ])->assertSessionHasErrors(['religion_other']);
+
+        $response = $this->actingAs($student)->from('/dashboard')->post('/student-profiles', [
+            'first_name' => 'Religion',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => '23-10012',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
+            'contact_number' => '123456789',
+            'course' => 'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics',
+            'college_department' => 'College of Industrial Technology',
+            'year_level' => '1st Year',
+            'program' => 'BSIT',
+            'religion' => 'Others',
+            'religion_other' => 'Roman Catholic',
+            'scholarship_id' => $scholarship->id,
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Academic',
+        ]);
+
+        $response->assertRedirect(route('dashboard'));
+        $response->assertSessionDoesntHaveErrors();
+        $profile = StudentProfile::where('user_id', $student->id)->latest('id')->first();
+        $this->assertNotNull($profile);
+        $this->assertSame('Roman Catholic', $profile->religion);
+        $this->assertSame('College of Industrial Technology', $profile->college_department);
+    }
+
+    public function test_legacy_religion_and_course_values_resolve_without_loss(): void
+    {
+        $student = User::factory()->approved()->create(['student_id' => '23-10013']);
+        $scholarship = Scholarship::create(['name' => 'Legacy Validation Scholarship', 'type' => 'academic']);
+
+        StudentProfile::create([
+            'user_id' => $student->id,
+            'grant_type' => 'academic',
+            'first_name' => 'Legacy',
+            'last_name' => 'Student',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $student->email,
+            'student_id_number' => '23-10013',
+            'birthdate' => '2000-01-01',
+            'birthplace' => 'Aparri',
+            'contact_number' => '+63 9' . '123456789',
+            'course' => 'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY',
+            'college_department' => 'College of Industrial Technology',
+            'year_level' => '1st Year',
+            'program' => 'BSIT',
+            'religion' => 'Roman Catholic',
+            'scholarship_name' => $scholarship->name,
+            'scholarship_type' => 'Academic',
+            'application_status' => 'pending',
+        ]);
+
+        $this->assertSame('College of Industrial Technology', CourseCollegeDepartment::forCourse('BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY'));
+        $this->assertSame('College of Industrial Technology', CourseCollegeDepartment::forCourse('BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Automotive'));
+        $this->assertSame('Others', ReligionOption::displaySelection('Roman Catholic')['selected']);
+        $this->assertSame('Roman Catholic', ReligionOption::displaySelection('Roman Catholic')['otherText']);
     }
 
     public function test_student_dashboard_renders_id_phone_birthday_and_non_academic_personal_fields(): void

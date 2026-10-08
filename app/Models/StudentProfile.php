@@ -21,6 +21,8 @@ class StudentProfile extends Model
         'amount' => 'decimal:2',
         'locked_at' => 'datetime',
         'resubmission_deadline' => 'datetime',
+        'renewal_required' => 'boolean',
+        'renewal_resubmitted' => 'boolean',
     ];
 
     public function expireResubmissionIfDue(): bool

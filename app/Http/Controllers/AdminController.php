@@ -7,6 +7,7 @@ use App\Mail\ApplicationClosureMail;
 use App\Mail\ApplicationCorrectionMail;
 use App\Mail\ApplicationStatusMail;
 use App\Mail\ApprovalMail;
+use App\Mail\RenewalRequirementMail;
 use App\Mail\RejectionMail;
 use App\Models\Application;
 use App\Models\Scholarship;
@@ -36,9 +37,20 @@ class AdminController extends Controller
         $scholarshipNames = Scholarship::whereIn('type', ['academic', 'non-academic'])
             ->orderBy('name')
             ->get(['name', 'type']);
-        $filterType = 'all';
+        $filterType = $request->query('section') === 'reports' ? 'all' : 'dashboard';
+        $pendingApplications = $this->dashboardPendingApplications();
+        $scholarshipsClosingSoon = $this->dashboardScholarshipsClosingSoon();
+        $nearCapacityScholarships = $this->dashboardScholarshipsNearCapacity();
 
-        return view('admin.welcome', compact('recentApplications', 'scholarshipNames', 'filterType', 'scholarshipType'));
+        return view('admin.welcome', compact(
+            'recentApplications',
+            'scholarshipNames',
+            'filterType',
+            'scholarshipType',
+            'pendingApplications',
+            'scholarshipsClosingSoon',
+            'nearCapacityScholarships'
+        ));
     }
 
     public function exportApprovedGrantees(Request $request)
@@ -58,6 +70,86 @@ class AdminController extends Controller
         return in_array($scholarshipType, ['academic', 'non-academic'], true) ? $scholarshipType : '';
     }
 
+    private function dashboardPendingApplications()
+    {
+        $cutoff = now()->subDays(4)->startOfDay();
+
+        return StudentProfile::whereNull('deleted_at')
+            ->where('application_status', 'pending')
+            ->where('created_at', '<=', $cutoff)
+            ->orderBy('created_at', 'asc')
+            ->limit(4)
+            ->get()
+            ->map(function (StudentProfile $application) {
+                $daysPending = now()->startOfDay()->diffInDays($application->created_at->startOfDay());
+
+                return [
+                    'id' => $application->id,
+                    'full_name' => trim(implode(', ', array_filter([
+                        $application->last_name,
+                        $application->middle_name,
+                        $application->first_name,
+                        $application->suffix,
+                    ], static fn ($value) => $value !== null && trim((string) $value) !== ''))),
+                    'scholarship_name' => $application->scholarship_name,
+                    'days_pending' => $daysPending,
+                    'urgency' => $daysPending >= 8 ? 'urgent' : 'soon',
+                ];
+            });
+    }
+
+    private function dashboardScholarshipsClosingSoon()
+    {
+        $today = now()->startOfDay();
+
+        return Scholarship::query()
+            ->whereNotNull('application_end_date')
+            ->whereDate('application_end_date', '>=', $today)
+            ->whereDate('application_end_date', '<=', $today->copy()->addDays(7))
+            ->orderBy('application_end_date', 'asc')
+            ->limit(4)
+            ->get()
+            ->map(function (Scholarship $scholarship) use ($today) {
+                $daysRemaining = $today->diffInDays($scholarship->application_end_date->startOfDay(), false);
+
+                return [
+                    'id' => $scholarship->id,
+                    'name' => $scholarship->name,
+                    'days_remaining' => max(0, $daysRemaining),
+                    'urgency' => $daysRemaining <= 3 ? 'urgent' : 'soon',
+                ];
+            });
+    }
+
+    private function dashboardScholarshipsNearCapacity()
+    {
+        return Scholarship::query()
+            ->whereNotNull('max_slots')
+            ->where('max_slots', '>', 0)
+            ->orderBy('name')
+            ->get()
+            ->map(function (Scholarship $scholarship) {
+                $activeApplications = $scholarship->activeApplicationsCount();
+                $percentage = $scholarship->max_slots > 0
+                    ? min(100, ($activeApplications / $scholarship->max_slots) * 100)
+                    : 0;
+
+                return [
+                    'id' => $scholarship->id,
+                    'name' => $scholarship->name,
+                    'active_applications' => $activeApplications,
+                    'max_slots' => $scholarship->max_slots,
+                    'percentage' => $percentage,
+                    'urgency' => $percentage >= 95 ? 'urgent' : 'soon',
+                ];
+            })
+            ->filter(fn (array $scholarship) => $scholarship['percentage'] >= 85)
+            ->sortByDesc('percentage')
+            ->values()
+            ->take(4)
+            ->all();
+    }
+
     private function summaryApplicationsQuery(Request $request)
     {
         $dateFrom = (string) $request->query('date_from', '');
@@ -66,7 +158,11 @@ class AdminController extends Controller
         $scholarshipName = trim((string) $request->query('scholarship_name', ''));
 
         return StudentProfile::whereNull('student_profiles.deleted_at')
-            ->where('student_profiles.application_status', 'approved')
+            ->where(function ($query) {
+                $query->where('student_profiles.application_status', 'approved')
+                    ->orWhere('student_profiles.renewal_required', true)
+                    ->orWhere('student_profiles.renewal_resubmitted', true);
+            })
             ->when($scholarshipType !== '', function ($query) use ($scholarshipType) {
                 $query->where('student_profiles.grant_type', $scholarshipType);
             })
@@ -171,6 +267,22 @@ class AdminController extends Controller
                         ->orWhereRaw('LOWER(CONCAT(COALESCE(student_profiles.first_name, ""), " ", COALESCE(student_profiles.last_name, ""))) LIKE ?', ['%' . $searchTerm . '%'])
                         ->orWhereRaw('LOWER(CONCAT(COALESCE(student_profiles.last_name, ""), " ", COALESCE(student_profiles.first_name, ""))) LIKE ?', ['%' . $searchTerm . '%']);
                 });
+                if ($status === 'approved') {
+                    $query->where(function ($approvedQuery) {
+                        $approvedQuery->where('student_profiles.application_status', 'approved')
+                            ->orWhere('student_profiles.renewal_required', true)
+                            ->orWhere('student_profiles.renewal_resubmitted', true);
+                    });
+                } else {
+                    $query->where('student_profiles.application_status', $status);
+                }
+            })
+            ->where(function ($query) {
+                $query->where('student_profiles.application_status', '!=', 'pending')
+                    ->orWhere(function ($pendingQuery) {
+                        $pendingQuery->where('student_profiles.renewal_required', false)
+                            ->where('student_profiles.renewal_resubmitted', false);
+                    });
             })
             ->when($status !== 'all', function ($query) use ($status) {
                 $query->where('student_profiles.application_status', $status);
@@ -324,6 +436,8 @@ class AdminController extends Controller
             'personal_information_status' => 'approved',
             'personal_information_reason' => null,
             'scholarship_requirements_status' => 'approved',
+            'renewal_required' => false,
+            'renewal_resubmitted' => false,
             'scholarship_requirements_reason' => null,
             'application_status' => 'approved',
             'rejection_reason' => null,
@@ -386,7 +500,9 @@ class AdminController extends Controller
             return response()->json(['status' => 'error', 'message' => $message], 409);
         }
 
-        $correctionReasons = ['Wrong Uploaded Documents', 'Wrong Form'];
+        $correctionReasons = $application->renewal_required || $application->renewal_resubmitted
+            ? ['Wrong Uploaded Documents']
+            : ['Wrong Uploaded Documents', 'Wrong Form'];
         $validated = $request->validate([
             'reason' => ['required', Rule::in([
                 'Does not meet the eligibility requirements',
@@ -429,6 +545,11 @@ class AdminController extends Controller
         }
         if ($shouldLock && !$application->locked_at) {
             $statuses['locked_at'] = now();
+        }
+
+        if ($application->renewal_required || $application->renewal_resubmitted) {
+            $statuses['renewal_required'] = false;
+            $statuses['renewal_resubmitted'] = false;
         }
 
         $application->forceFill($statuses)->save();
@@ -699,6 +820,95 @@ class AdminController extends Controller
         }
 
         return null;
+    }
+
+    public function removeRestrictions(Request $request)
+    {
+        $validated = $request->validate([
+            'grant_type' => ['required', 'in:academic,non-academic,all'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'scholarship_name' => ['nullable', 'string'],
+            'preview' => ['nullable', 'boolean'],
+        ]);
+
+        $query = StudentProfile::query()
+            ->whereNull('student_profiles.deleted_at')
+            ->where('student_profiles.application_status', 'approved')
+            ->when($validated['grant_type'] !== 'all', fn ($query) => $query->where('student_profiles.grant_type', $validated['grant_type']))
+            ->when(!empty($validated['date_from']), fn ($query) => $query->whereDate(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'), '>=', $validated['date_from']))
+            ->when(!empty($validated['date_to']), fn ($query) => $query->whereDate(DB::raw('COALESCE(applications.created_at, student_profiles.created_at)'), '<=', $validated['date_to']))
+            ->when(!empty($validated['scholarship_name']), fn ($query) => $query->where('student_profiles.scholarship_name', $validated['scholarship_name']))
+            ->leftJoin('applications', 'applications.id', '=', 'student_profiles.application_id');
+
+        $profileIds = $query->pluck('student_profiles.id');
+        if (!empty($validated['preview'])) {
+            return response()->json([
+                'status' => 'ok',
+                'updated' => $profileIds->count(),
+            ]);
+        }
+
+        $profiles = StudentProfile::whereIn('id', $profileIds)
+            ->with('user')
+            ->get();
+
+        $updated = 0;
+        $emailFailures = [];
+
+        foreach ($profiles as $profile) {
+            $profile->forceFill([
+                'application_status' => 'pending',
+                'student_information_status' => $profile->student_information_status === 'approved' ? 'approved' : 'pending',
+                'personal_information_status' => $profile->personal_information_status === 'approved' ? 'approved' : 'pending',
+                'scholarship_requirements_status' => 'pending',
+                'scholarship_requirements_reason' => null,
+                'family_background_status' => $profile->family_background_status ?? 'pending',
+                'family_background_reason' => $profile->family_background_reason,
+                'rejection_reason' => null,
+                'rejection_remark' => null,
+                'resubmission_deadline' => null,
+                'renewal_required' => true,
+                'renewal_resubmitted' => false,
+            ])->save();
+
+            if ($profile->application_id) {
+                Application::whereKey($profile->application_id)->update(['status' => 'pending']);
+            }
+
+            $updated++;
+
+            if (!$profile->user || !$profile->user->email || $profile->source === 'manual') {
+                continue;
+            }
+
+            try {
+                $mail = new RenewalRequirementMail(
+                    $profile->user->name ?: trim($profile->first_name . ' ' . $profile->last_name),
+                    $profile->scholarship_name ?? 'Scholarship',
+                );
+                Mail::to($profile->user->email)->queue($mail);
+                $profile->recordNotification($mail->notificationSubject(), $mail->notificationBody());
+            } catch (\Throwable $e) {
+                Log::error('Bulk renewal notification failed', [
+                    'profile_id' => $profile->id,
+                    'user_id' => $profile->user->id,
+                    'exception' => $e,
+                ]);
+                $emailFailures[] = [
+                    'application_id' => $profile->id,
+                    'student' => $profile->user->name ?: trim($profile->first_name . ' ' . $profile->last_name),
+                    'email' => $profile->user->email,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'status' => 'ok',
+            'updated' => $updated,
+            'email_failures' => $emailFailures,
+        ]);
     }
 
     /**

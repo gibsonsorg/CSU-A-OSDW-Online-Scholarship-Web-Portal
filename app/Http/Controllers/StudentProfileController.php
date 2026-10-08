@@ -9,6 +9,7 @@ use App\Models\StudentProfile;
 use App\Models\User;
 use App\Mail\ApplicationReceivedMail;
 use App\Support\CourseCollegeDepartment;
+use App\Support\ReligionOption;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -234,6 +235,12 @@ class StudentProfileController extends Controller
 
     private function resolveCollegeDepartment(?string $course): ?string
     {
+        $course = trim((string) $course);
+
+        if ($course === 'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY') {
+            return 'College of Industrial Technology';
+        }
+
         return CourseCollegeDepartment::forCourse($course);
     }
 
@@ -525,17 +532,27 @@ class StudentProfileController extends Controller
             // Add academic-specific fields if this is an academic form
             if ($isAcademic) {
                 $validationRules['program'] = 'required|string|max:255';
-                $validationRules['religion'] = 'required|string|max:255';
+                $validationRules['religion'] = 'required|in:' . implode(',', ReligionOption::OPTIONS) . ',Others|max:255';
+                $validationRules['religion_other'] = 'nullable|required_if:religion,Others|string|max:255';
             }
 
             // Basic validation for non-file fields
             $data = $request->validate($validationRules);
             $familyBackgroundInput = $data['family_background'] ?? [];
             unset($data['family_background']);
-            
+
+            if ($isAcademic) {
+                $data['religion'] = ReligionOption::normalize(
+                    $data['religion'] ?? null,
+                    $data['religion_other'] ?? null,
+                );
+                unset($data['religion_other']);
+            }
+
             $user = Auth::user();
             $requestProfileId = $request->input('student_profile_id') ?: $request->input('profile_id');
             $requestApplicationId = $request->input('application_id');
+            $previousProfile = $preflightResubmissionProfile;
 
             $data['user_id'] = $user->id;
             $data['email'] = $user->email;
@@ -543,6 +560,7 @@ class StudentProfileController extends Controller
             $data['college_department'] = $this->resolveCollegeDepartment($data['course'] ?? null) ?? trim((string) ($request->input('college_department') ?? '')) ?: null;
             $data['campus'] = 'Aparri';
             $data['student_id_number'] = $request->input('student_id_number') ?? $request->input('id_number') ?? $user->student_id ?? null;
+            $isRenewalResubmission = $previousProfile?->renewal_required === true;
             if (isset($data['contact_number']) && $data['contact_number'] !== '') {
                 $data['contact_number'] = '+63 9' . $data['contact_number'];
             }
@@ -768,6 +786,15 @@ class StudentProfileController extends Controller
                         $data['family_background_status'] = 'pending';
                         $data['family_background_reason'] = null;
                     }
+                } elseif ($isRenewalResubmission) {
+                    $data['student_information_status'] = $studentStatus === 'approved' ? 'approved' : 'pending';
+                    $data['personal_information_status'] = $personalStatus === 'approved' ? 'approved' : 'pending';
+                    $data['scholarship_requirements_status'] = 'pending';
+                    $data['scholarship_requirements_reason'] = null;
+                    if (!$isAcademic && $previousProfile->grant_type === 'non-academic') {
+                        $data['family_background_status'] = $familyBackgroundStatus === 'approved' ? 'approved' : 'pending';
+                        $data['family_background_reason'] = $previousProfile->family_background_reason;
+                    }
                 } else {
                     $data['student_information_status'] = $studentStatus === 'approved' ? 'approved' : 'pending';
                     $data['personal_information_status'] = $personalStatus === 'approved' ? 'approved' : 'pending';
@@ -799,7 +826,7 @@ class StudentProfileController extends Controller
                 if (array_is_list($previousUploads)) {
                     $previousUploads = ['uploads' => $previousUploads];
                 }
-                $newUploads = $requirementsRejected && is_array($data['uploads'])
+                $newUploads = ($requirementsRejected || $isRenewalResubmission) && is_array($data['uploads'])
                     ? $data['uploads']
                     : [];
                 $mergedUploads = [];
@@ -811,6 +838,22 @@ class StudentProfileController extends Controller
                 } elseif ($applicationWasRejected) {
                     $oldRejectedFiles = collect($previousUploads)->flatten()->filter(fn ($path) => is_string($path))->unique()->values()->all();
                     $data[$reviewColumn] = null;
+                } elseif ($isRenewalResubmission) {
+                    $oldRejectedFiles = collect($previousUploads)->flatten()->filter(fn ($path) => is_string($path))->unique()->values()->all();
+                    foreach ($newUploads as $group => $files) {
+                        foreach ((array) $files as $path) {
+                            if (!is_string($path)) {
+                                continue;
+                            }
+                            $mergedUploads[$group][] = $path;
+                            $mergedReviews[$group . '.' . (count($mergedUploads[$group]) - 1)] = [
+                                'status' => 'pending',
+                                'reason' => null,
+                            ];
+                        }
+                    }
+                    $data['uploads'] = !empty($mergedUploads) ? $mergedUploads : null;
+                    $data[$reviewColumn] = !empty($mergedReviews) ? $mergedReviews : null;
                 } elseif (!$isAcademic && $requirementsRejected && !empty($newUploads['supporting_document'])) {
                     $oldRejectedFiles = collect($previousUploads)->flatten()->filter(fn ($path) => is_string($path))->unique()->values()->all();
                     $mergedUploads['supporting_document'] = array_values($newUploads['supporting_document']);
@@ -1064,7 +1107,7 @@ class StudentProfileController extends Controller
 
                 $canReapply = $previousProfile && $applicationWasRejected;
 
-                if ($existingApp && !$canReapply) {
+                if ($existingApp && !$canReapply && !$isRenewalResubmission) {
                     // Rollback and return the same friendly error message used earlier
                     DB::rollBack();
                     return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
@@ -1078,7 +1121,12 @@ class StudentProfileController extends Controller
                     ->lockForUpdate()
                     ->count();
 
-                if ($activeApplications >= 2) {
+                $isExistingRenewalContinuation = $isRenewalResubmission
+                    && $previousProfile
+                    && $existingApp
+                    && (int) $existingApp->id === (int) $previousProfile->application_id;
+
+                if ($activeApplications >= 2 && !$isExistingRenewalContinuation) {
                     DB::rollBack();
                     return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
                         ->with('error', 'You already have two active applications, so this scholarship is not available.');
@@ -1095,6 +1143,26 @@ class StudentProfileController extends Controller
                     $previousProfile->rejection_reason = null;
                     $previousProfile->rejection_remark = null;
                     $previousProfile->resubmission_deadline = null;
+                    $previousProfile->renewal_required = false;
+                    $previousProfile->renewal_resubmitted = false;
+                    $previousProfile->save();
+                    $profile = $previousProfile;
+                } elseif ($previousProfile && $isRenewalResubmission) {
+                    $application = $existingApp ?? Application::whereKey($previousProfile->application_id)->first();
+                    if ($application) {
+                        $application->status = 'pending';
+                        $application->save();
+                    }
+                    $data['application_id'] = $previousProfile->application_id;
+                    $previousProfile->fill($data);
+                    $previousProfile->application_status = 'pending';
+                    $previousProfile->scholarship_requirements_status = 'pending';
+                    $previousProfile->scholarship_requirements_reason = null;
+                    $previousProfile->rejection_reason = null;
+                    $previousProfile->rejection_remark = null;
+                    $previousProfile->resubmission_deadline = null;
+                    $previousProfile->renewal_required = false;
+                    $previousProfile->renewal_resubmitted = true;
                     $previousProfile->save();
                     $profile = $previousProfile;
                 } else {

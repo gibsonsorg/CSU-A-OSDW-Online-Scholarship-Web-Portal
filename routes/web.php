@@ -63,9 +63,11 @@ Route::get('/dashboard', function () {
                     && $deadline
                     && $deadline->lessThanOrEqualTo(now())
                     && !is_null($profile?->locked_at);
+                $renewalOpen = $profile?->renewal_required === true && $profile?->application_status === 'pending';
                 return [
                     'name' => trim($latest->scholarship_name),
                     'status' => $latest->application_status ?? 'pending',
+                    'renewal_required' => $profile?->renewal_required === true,
                     'rejection_reason' => $profile?->rejection_reason,
                     'rejection_remark' => $profile?->rejection_remark,
                     'resubmission_deadline' => $deadline?->toIso8601String(),
@@ -74,9 +76,10 @@ Route::get('/dashboard', function () {
                     'scholarship_id' => $latest->application?->scholarship_id,
                     'grant_type' => $latest->grant_type,
                     'locked' => !is_null($profile?->locked_at),
-                    'reopen' => $profile?->application_status === 'rejected'
+                    'reopen' => ($profile?->application_status === 'rejected'
                         && is_null($profile?->locked_at)
-                        && (!$deadline || $deadline->isFuture()),
+                        && (!$deadline || $deadline->isFuture()))
+                        || $renewalOpen,
                     'profile' => $profile,
                 ];
             })
@@ -194,6 +197,9 @@ Route::post('/admin/applications/{id}/approve', [AdminController::class, 'approv
 
 // Reject application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/reject', [AdminController::class, 'reject'])->middleware(['auth', 'admin']);
+
+// Bulk renewal action for approved applications in the current filtered report set.
+Route::post('/admin/applications/remove-restrictions', [AdminController::class, 'removeRestrictions'])->middleware(['auth', 'admin']);
 
 // Update application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/update', [AdminController::class, 'update'])->middleware(['auth', 'admin']);

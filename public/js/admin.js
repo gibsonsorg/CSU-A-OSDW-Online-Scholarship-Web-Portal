@@ -318,11 +318,16 @@
     }
 
     async function rejectApplication() {
-        const reasons = [
-            'Does not meet the eligibility requirements',
-            'Wrong Uploaded Documents',
-            'Wrong Form',
-        ];
+        const reasons = currentApplication?.renewal_required || currentApplication?.renewal_resubmitted
+            ? [
+                'Does not meet the eligibility requirements',
+                'Wrong Uploaded Documents',
+            ]
+            : [
+                'Does not meet the eligibility requirements',
+                'Wrong Uploaded Documents',
+                'Wrong Form',
+            ];
         const result = await Swal.fire({
             title: 'Reject Application',
             input: 'select',
@@ -413,6 +418,13 @@
     }
 
     document.querySelectorAll('.view-profile-btn').forEach(button => button.addEventListener('click', async () => {
+        currentAppId = button.dataset.id;
+        currentStep = 1;
+        document.getElementById('profileModal').classList.add('open');
+        try { await loadProfile(currentAppId); } catch (error) { document.getElementById('profileBody').textContent = error.message; }
+    }));
+
+    document.querySelectorAll('.needs-attention-review').forEach(button => button.addEventListener('click', async () => {
         currentAppId = button.dataset.id;
         currentStep = 1;
         document.getElementById('profileModal').classList.add('open');
@@ -512,6 +524,51 @@
     // CHANGE: Bind the approved-filter-only Add Amount button.
     document.querySelector('[data-action="add-amount"]')?.addEventListener('click', addAmountToFilteredApplicants);
 
+    async function removeRestrictionsFromFilteredApplicants() {
+        const button = document.querySelector('[data-action="remove-restriction"]');
+        const params = new URLSearchParams(window.location.search);
+        const confirmation = await Swal.fire({
+            title: 'Remove restriction for all approved applicants?',
+            text: 'This will reopen Scholarship & Requirements for all approved applications matching the current Summary of Reports filters.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, remove restriction',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#f59e0b',
+            cancelButtonColor: '#6c757d',
+        });
+        if (!confirmation.isConfirmed) return;
+
+        try {
+            const data = {
+                grant_type: button?.dataset.grantType || '',
+                date_from: params.get('date_from') || '',
+                date_to: params.get('date_to') || '',
+                scholarship_name: params.get('scholarship_name') || '',
+            };
+            const result = await postJson('/admin/applications/remove-restrictions', data);
+            const affected = Number(result.updated ?? 0);
+            const warnings = Array.isArray(result.email_failures) ? result.email_failures : [];
+            await Swal.fire({
+                icon: warnings.length ? 'warning' : 'success',
+                title: warnings.length ? 'Restrictions removed with email warnings' : 'Restrictions removed',
+                text: warnings.length
+                    ? `Removed restrictions for ${affected} approved applicants. ${warnings.length} email(s) could not be queued; the affected applications were still reopened.`
+                    : `Removed restrictions for ${affected} approved applicants.`,
+                timer: warnings.length ? 5000 : 2500,
+                showConfirmButton: !warnings.length,
+            });
+            if (warnings.length) {
+                console.warn('Renewal emails failed:', warnings);
+            }
+            window.location.reload();
+        } catch (error) {
+            await Swal.fire({ icon: 'error', title: 'Unable to remove restrictions', text: error.message });
+        }
+    }
+
+    document.querySelector('[data-action="remove-restriction"]')?.addEventListener('click', removeRestrictionsFromFilteredApplicants);
+
     // CHANGE: Inline create/edit/delete controls for manually logged applicants.
     const manualApplicantFields = ['last_name', 'first_name', 'middle_name', 'sex', 'course', 'year_level', 'scholarship_name', 'date', 'application_status'];
     const structuredManualRequiredFields = ['last_name', 'first_name', 'sex', 'course', 'year_level', 'scholarship_name', 'date', 'application_status'];
@@ -523,6 +580,8 @@
         'BACHELOR OF SECONDARY EDUCATION',
         'BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM',
         'BACHELOR OF ELEMENTARY EDUCATION',
+        'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics',
+        'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Automotive',
     ];
     let openManualRow = null;
     let openManualEmptyRow = null;

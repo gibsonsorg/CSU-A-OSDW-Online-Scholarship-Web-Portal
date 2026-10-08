@@ -7,6 +7,7 @@ use App\Mail\ApplicationClosureMail;
 use App\Mail\ApplicationFinalRejectionMail;
 use App\Mail\ApplicationSectionStatusMail;
 use App\Mail\ApplicationStatusMail;
+use App\Mail\RenewalRequirementMail;
 use App\Models\Application;
 use App\Models\Scholarship;
 use App\Models\StudentProfile;
@@ -55,6 +56,65 @@ class AdminApplicationDecisionTest extends TestCase
         $this->assertCount(2, Mail::queued(ApplicationStatusMail::class));
         Mail::assertNotQueued(ApplicationSectionStatusMail::class);
         Mail::assertNotQueued(ApplicationFinalRejectionMail::class);
+    }
+
+    public function test_remove_restriction_reopens_only_requirements_for_filtered_approved_applications(): void
+    {
+        Mail::fake();
+        [$admin] = $this->makeUsers();
+        $this->travelTo(now()->startOfSecond());
+
+        [$studentA, $applicationA, $profileA, $scholarshipA] = $this->makeApplication('academic', withFamily: false);
+        [$studentB, $applicationB, $profileB, $scholarshipB] = $this->makeApplication('academic', withFamily: false);
+        $profileA->forceFill(['application_status' => 'approved', 'student_information_status' => 'approved', 'personal_information_status' => 'approved', 'scholarship_requirements_status' => 'approved', 'family_background_status' => 'pending'])->save();
+        $profileB->forceFill(['application_status' => 'approved', 'student_information_status' => 'approved', 'personal_information_status' => 'approved', 'scholarship_requirements_status' => 'approved', 'family_background_status' => 'pending'])->save();
+        $applicationA->forceFill(['status' => 'approved'])->save();
+        $applicationB->forceFill(['status' => 'approved'])->save();
+
+        $this->actingAs($admin)
+            ->postJson('/admin/applications/remove-restrictions', [
+                'grant_type' => 'all',
+                'scholarship_name' => $scholarshipA->name,
+            ])
+            ->assertOk()
+            ->assertJsonPath('updated', 2)
+            ->assertJsonCount(0, 'email_failures');
+
+        $profileA->refresh();
+        $profileB->refresh();
+        $this->assertSame('pending', $profileA->application_status);
+        $this->assertSame('approved', $profileA->student_information_status);
+        $this->assertSame('approved', $profileA->personal_information_status);
+        $this->assertSame('pending', $profileA->scholarship_requirements_status);
+        $this->assertNull($profileA->rejection_reason);
+        $this->assertNull($profileA->resubmission_deadline);
+        $this->assertTrue($profileA->renewal_required);
+        $this->assertSame('pending', $profileA->family_background_status);
+        $this->assertSame('pending', $applicationA->fresh()->status);
+
+        $this->assertCount(2, Mail::queued(RenewalRequirementMail::class));
+        Mail::assertQueued(RenewalRequirementMail::class, fn (RenewalRequirementMail $mail) =>
+            $mail->studentName === $studentA->name
+            && $mail->scholarshipName === $scholarshipA->name
+        );
+        Mail::assertQueued(RenewalRequirementMail::class, fn (RenewalRequirementMail $mail) =>
+            $mail->studentName === $studentB->name
+            && $mail->scholarshipName === $scholarshipB->name
+        );
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profileA->id}/reject", [
+            'reason' => 'Wrong Form',
+            'rejection_remark' => 'This field is irrelevant.',
+        ])->assertUnprocessable();
+        $this->actingAs($admin)->postJson("/admin/applications/{$profileA->id}/reject", [
+            'reason' => 'Wrong Uploaded Documents',
+            'rejection_remark' => 'Please upload a clearer document.',
+        ])->assertOk();
+        $this->assertSame('rejected', $profileA->fresh()->application_status);
+
+        $this->actingAs($admin)->postJson("/admin/applications/{$profileA->id}/approve")
+            ->assertConflict();
+        $this->assertSame('rejected', $profileA->fresh()->application_status);
     }
 
     public function test_eligibility_rejection_locks_immediately_and_sends_eligibility_email(): void

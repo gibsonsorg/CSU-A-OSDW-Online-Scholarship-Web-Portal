@@ -290,6 +290,15 @@ function applyDraftToForm(form, draft) {
         }
     });
 
+    if (form.id === 'academicApplyForm') {
+        const religionField = form.querySelector('[name="religion"]');
+        const savedReligion = resolveReligionSelection(religionField?.value);
+        if (religionField) religionField.value = savedReligion.selected;
+        updateReligionOtherField(form);
+        const otherField = form.querySelector('[name="religion_other"]');
+        if (otherField && savedReligion.selected === 'Others') otherField.value = savedReligion.otherText;
+    }
+
     normalizeApplicationFormValues(form);
     if (form.id === 'applyForm' || form.id === 'academicApplyForm') initializeMobileFloatingLabels(form);
 }
@@ -354,11 +363,32 @@ function applyPrefillValueToForm(form, fieldName, value) {
     const input = form.querySelector(`[name="${fieldName}"]`);
     if (!input || input.type === 'file') return;
     input.value = value;
+    if (fieldName === 'religion' && form.id === 'academicApplyForm') {
+        const display = resolveReligionSelection(value);
+        input.value = display.selected;
+        const otherField = form.querySelector('[name="religion_other"]');
+        const otherWrapper = form.querySelector('#academicReligionOtherField');
+        if (otherField && otherWrapper) {
+            otherField.value = display.otherText;
+            otherWrapper.hidden = display.selected !== 'Others';
+            otherField.required = display.selected === 'Others';
+            otherField.disabled = display.selected !== 'Others';
+        }
+    }
     if (form.id === 'applyForm' || form.id === 'academicApplyForm') initializeMobileFloatingLabels(form);
     normalizeApplicationFormValues(form);
     if (fieldName === 'course' && input.value) {
         updateCollegeDepartmentForForm(form);
     }
+}
+
+function resolveReligionSelection(value) {
+    const trimmed = String(value ?? '').trim();
+    const options = ['Methodist', 'Iglesia ni Cristo', 'Catholic', 'Born Again'];
+    const matched = options.find(option => option.toLowerCase() === trimmed.toLowerCase());
+    return matched
+        ? { selected: matched, otherText: '' }
+        : { selected: trimmed === '' ? '' : 'Others', otherText: trimmed === '' ? '' : trimmed };
 }
 
 function setFormHydrationBusy(form, isBusy) {
@@ -553,6 +583,16 @@ function prepareReapplication(title, modalType, scholarshipId) {
     });
 
     normalizeApplicationFormValues(form);
+    if (form.id === 'academicApplyForm') {
+        const religionField = form.querySelector('[name="religion"]');
+        if (religionField) {
+            const savedReligion = resolveReligionSelection(religionField.value);
+            religionField.value = savedReligion.selected;
+            updateReligionOtherField(form);
+            const otherField = form.querySelector('[name="religion_other"]');
+            if (otherField && savedReligion.selected === 'Others') otherField.value = savedReligion.otherText;
+        }
+    }
 
     const courseField = form.querySelector('[name="course"]');
     if (courseField && courseField.value) {
@@ -567,21 +607,24 @@ function prepareReapplication(title, modalType, scholarshipId) {
     const studentFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'student_id_number', 'id_number', 'course', 'college_department', 'year_level', 'program'];
     const personalFields = ['birthdate', 'birthplace', 'sex', 'status', 'religion', 'contact_number', 'home_address'];
     const isWholeApplicationReopen = profile.application_status === 'rejected';
+    const isRenewalReapplication = profile.renewal_required === true && profile.application_status === 'pending';
     const isDocumentsOnlyReapplication = isWholeApplicationReopen && profile.rejection_reason === 'Wrong Uploaded Documents';
     const isFormOnlyReapplication = isWholeApplicationReopen && profile.rejection_reason === 'Wrong Form';
     form.dataset.correctionFlow = isDocumentsOnlyReapplication
         ? 'wrong-uploaded-documents'
-        : isFormOnlyReapplication ? 'wrong-form' : '';
+        : isFormOnlyReapplication ? 'wrong-form' : isRenewalReapplication ? 'renewal-requirement' : '';
     const sectionStatus = isDocumentsOnlyReapplication
         ? { student: 'approved', personal: 'approved', requirements: 'rejected', family: 'approved' }
         : isFormOnlyReapplication
             ? { student: 'rejected', personal: 'rejected', requirements: 'approved', family: 'rejected' }
-            : {
-                student: isWholeApplicationReopen ? 'rejected' : profile.student_information_status,
-                personal: isWholeApplicationReopen ? 'rejected' : profile.personal_information_status,
-                requirements: isWholeApplicationReopen ? 'rejected' : profile.scholarship_requirements_status,
-                family: isWholeApplicationReopen ? 'rejected' : profile.family_background_status,
-            };
+            : isRenewalReapplication
+                ? { student: 'approved', personal: 'approved', requirements: 'pending', family: 'approved' }
+                : {
+                    student: isWholeApplicationReopen ? 'rejected' : profile.student_information_status,
+                    personal: isWholeApplicationReopen ? 'rejected' : profile.personal_information_status,
+                    requirements: isWholeApplicationReopen ? 'rejected' : profile.scholarship_requirements_status,
+                    family: isWholeApplicationReopen ? 'rejected' : profile.family_background_status,
+                };
     const reviews = profile.document_review || profile.document_reviews || {};
     const rejectedGroups = new Set(Object.entries(reviews)
         .filter(([, review]) => review?.status === 'rejected')
@@ -618,6 +661,7 @@ function prepareReapplication(title, modalType, scholarshipId) {
         && sectionStatus.requirements === 'approved';
     const familyBackground = profile.family_background || profile.familyBackground || {};
     form.dataset.familyBackgroundOnlyReapplication = familyBackgroundOnlyReapplication ? 'true' : 'false';
+    const isRequirementsOnlyRenewalFlow = isRenewalReapplication;
     if (familyPanel) {
         if (familyBackgroundRejected) familyPanel.dataset.familyBackgroundPage = '1';
         familyPanel.dataset.reapplicationHidden = familyBackgroundRejected ? 'false' : 'true';
@@ -667,7 +711,9 @@ function prepareReapplication(title, modalType, scholarshipId) {
             && familyBackgroundRejected
             && !familyBackgroundOnlyReapplication
             && status === 'approved';
-        const visible = status === 'rejected' || isLockedRequirementsAfterFamily;
+        const visible = isRequirementsOnlyRenewalFlow
+            ? panel.dataset.nonAcademicStep === '4' || panel.dataset.academicStep === '3'
+            : status === 'rejected' || isLockedRequirementsAfterFamily;
         panel.dataset.reapplicationHidden = visible ? 'false' : 'true';
         panel.hidden = !visible;
         panel.querySelectorAll('input, select, textarea').forEach(input => {
@@ -689,7 +735,8 @@ function prepareReapplication(title, modalType, scholarshipId) {
             : group === 'certificate_of_enrollment'
                 ? ['certificate_of_enrollment', 'enrollment']
                 : [group];
-        const visible = isDocumentsOnlyReapplication
+        const visible = isRequirementsOnlyRenewalFlow
+            || isDocumentsOnlyReapplication
             || (!isFormOnlyReapplication && (isWholeApplicationReopen
                 || (sectionStatus.requirements === 'rejected' && aliases.some(alias => rejectedGroups.has(alias)))));
         wrapper.dataset.reapplicationHidden = visible ? 'false' : 'true';
@@ -701,8 +748,8 @@ function prepareReapplication(title, modalType, scholarshipId) {
     });
 
     form.querySelectorAll('input[type="file"]').forEach(input => input.required = false);
-    const rejectedDocument = !isFormOnlyReapplication && ['supporting_document', 'uploads', 'grades', 'certificate_of_grades', 'certificate_of_enrollment', 'enrollment', 'certificate_of_sports_coordinator', 'certificate_of_adviser']
-        .some(group => rejectedGroups.has(group));
+    const rejectedDocument = isRequirementsOnlyRenewalFlow || (!isFormOnlyReapplication && ['supporting_document', 'uploads', 'grades', 'certificate_of_grades', 'certificate_of_enrollment', 'enrollment', 'certificate_of_sports_coordinator', 'certificate_of_adviser']
+        .some(group => rejectedGroups.has(group)));
     if (rejectedDocument) {
         const input = form.querySelector(modalType === 'academic'
             ? '#academicCombinedDocumentInput'
@@ -718,8 +765,10 @@ function prepareReapplication(title, modalType, scholarshipId) {
         const progressStatus = isNonAcademic
             ? ({ 1: sectionStatus.student, 2: sectionStatus.personal, 3: sectionStatus.family, 4: sectionStatus.requirements })[progressStep]
             : ({ 1: sectionStatus.student, 2: sectionStatus.personal, 3: sectionStatus.requirements })[progressStep];
-        const visible = progressStatus === 'rejected'
-            || (isNonAcademic && !isWholeApplicationReopen && familyBackgroundRejected && !familyBackgroundOnlyReapplication && progressStep === 4 && progressStatus === 'approved');
+        const visible = isRequirementsOnlyRenewalFlow
+            ? progressStep === (isNonAcademic ? 4 : 3)
+            : progressStatus === 'rejected'
+                || (isNonAcademic && !isWholeApplicationReopen && familyBackgroundRejected && !familyBackgroundOnlyReapplication && progressStep === 4 && progressStatus === 'approved');
         step.dataset.reapplicationHidden = visible ? 'false' : 'true';
         step.hidden = !visible;
     });
@@ -736,8 +785,9 @@ function prepareReapplication(title, modalType, scholarshipId) {
         return statuses[step] === 'rejected';
     });
     const firstVisibleRejectedIndex = firstRejectedStep >= 0 ? firstRejectedStep + 1 : 1;
-    if (modalType === 'academic') updateAcademicStepUI(firstVisibleRejectedIndex);
-    else updateNonAcademicStepUI(firstVisibleRejectedIndex);
+    const firstVisibleStep = isRequirementsOnlyRenewalFlow ? (modalType === 'academic' ? 3 : 4) : firstVisibleRejectedIndex;
+    if (modalType === 'academic') updateAcademicStepUI(firstVisibleStep);
+    else updateNonAcademicStepUI(firstVisibleStep);
 }
 
 function closeAcademicApplyModal() {
@@ -1325,6 +1375,9 @@ const collegeDepartmentMap = {
     'BACHELOR OF SECONDARY EDUCATION': 'College of Teacher Education',
     'BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM': 'College of Business, Entrepreneurship and Accountancy',
     'BACHELOR OF ELEMENTARY EDUCATION': 'College of Teacher Education',
+    'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY': 'College of Industrial Technology',
+    'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics': 'College of Industrial Technology',
+    'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Automotive': 'College of Industrial Technology',
 };
 
 function updateCollegeDepartmentForForm(form) {
@@ -1332,8 +1385,25 @@ function updateCollegeDepartmentForForm(form) {
     const courseField = form.querySelector('[name="course"]');
     const collegeField = form.querySelector('[name="college_department"]');
     if (!courseField || !collegeField) return;
-    collegeField.value = collegeDepartmentMap[courseField.value] || '';
+    const selectedCourse = String(courseField.value ?? '');
+    collegeField.value = collegeDepartmentMap[selectedCourse] || '';
     collegeField.readOnly = true;
+}
+
+function updateReligionOtherField(form) {
+    const religionField = form?.querySelector('[name="religion"]');
+    const otherField = form?.querySelector('[name="religion_other"]');
+    const otherWrapper = form?.querySelector('#academicReligionOtherField');
+    if (!religionField || !otherField || !otherWrapper) return;
+
+    const showOther = religionField.value === 'Others';
+    otherWrapper.hidden = !showOther;
+    otherField.required = showOther;
+    otherField.disabled = !showOther;
+    if (!showOther) {
+        otherField.value = '';
+    }
+    initializeMobileFloatingLabels(form);
 }
 
 document.addEventListener('DOMContentLoaded', function(){
@@ -1393,6 +1463,13 @@ document.addEventListener('DOMContentLoaded', function(){
             courseField.addEventListener('change', () => updateCollegeDepartmentForForm(academicForm));
         }
         updateCollegeDepartmentForForm(academicForm);
+        const religionField = academicForm.querySelector('[name="religion"]');
+        if (religionField) {
+            religionField.addEventListener('change', () => updateReligionOtherField(academicForm));
+            const savedReligion = resolveReligionSelection(religionField.value);
+            religionField.value = savedReligion.selected;
+            updateReligionOtherField(academicForm);
+        }
         const currentStep = Number(academicForm.dataset.currentAcademicStep || 1);
         updateAcademicStepUI(currentStep);
 
@@ -1862,6 +1939,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 input.readOnly = false;
                 if (input.type === 'file') input.required = false;
             });
+            const documentNames = form.querySelector('#academicCombinedDocumentNames');
+            if (documentNames) documentNames.textContent = '';
             const resetCollegeField = form.querySelector('[name="college_department"]');
             if (resetCollegeField) {
                 resetCollegeField.value = '';
