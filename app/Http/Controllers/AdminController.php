@@ -10,6 +10,7 @@ use App\Mail\ApprovalMail;
 use App\Mail\RenewalRequirementMail;
 use App\Mail\RejectionMail;
 use App\Models\Application;
+use App\Models\FamilyBackground;
 use App\Models\Scholarship;
 use App\Models\StudentNotification;
 use App\Models\StudentProfile;
@@ -1287,6 +1288,131 @@ class AdminController extends Controller
 
             return response()->json(['status' => 'error', 'message' => 'Unable to save amounts.'], 500);
         }
+    }
+
+    public function destroyFinalizedRejected(Request $request, $id)
+    {
+        $profile = StudentProfile::withTrashed()->whereKey($id)->first();
+
+        if (!$profile) {
+            return response()->json(['status' => 'error', 'message' => 'Application not found.'], 404);
+        }
+
+        if (!$profile->isEligibleForPermanentDeletion()) {
+            Log::warning('Blocked permanent application deletion for ineligible profile', [
+                'admin_id' => $request->user()?->id,
+                'student_profile_id' => $profile->id,
+                'student_id' => $profile->user_id,
+                'application_status' => $profile->application_status,
+                'locked_at' => $profile->locked_at,
+                'resubmission_deadline' => $profile->resubmission_deadline,
+                'source' => $profile->source,
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This application is not eligible for permanent deletion.',
+            ], 422);
+        }
+
+        $studentId = $profile->user_id;
+        $scholarshipId = null;
+        $scholarshipName = $profile->scholarship_name ?? 'Scholarship';
+        if (!empty($profile->application_id)) {
+            $application = Application::whereKey($profile->application_id)->first();
+            $scholarshipId = $application?->scholarship_id;
+            $scholarshipName = $application?->scholarship?->name ?? $profile->scholarship_name ?? 'Scholarship';
+        }
+
+        $filePaths = [];
+        $uploads = $profile->uploads ?? [];
+        if (is_array($uploads)) {
+            foreach ($uploads as $groupFiles) {
+                if (is_array($groupFiles)) {
+                    foreach ($groupFiles as $file) {
+                        if (is_string($file) && trim($file) !== '') {
+                            $filePaths[] = $file;
+                        }
+                    }
+                } elseif (is_string($groupFiles) && trim($groupFiles) !== '') {
+                    $filePaths[] = $groupFiles;
+                }
+            }
+        }
+
+        try {
+            DB::transaction(function () use ($profile, $studentId, $scholarshipId, $scholarshipName) {
+                $lockedProfile = StudentProfile::withTrashed()->whereKey($profile->id)->lockForUpdate()->firstOrFail();
+
+                if (!$lockedProfile->isEligibleForPermanentDeletion()) {
+                    throw new \RuntimeException('This application is not eligible for permanent deletion.');
+                }
+
+                FamilyBackground::where('student_profile_id', $lockedProfile->id)->delete();
+                StudentNotification::where(function ($query) use ($lockedProfile) {
+                    $query->where('application_id', $lockedProfile->id)
+                        ->orWhere('application_id', $lockedProfile->application_id);
+                })->where('user_id', $lockedProfile->user_id)->delete();
+
+                if (!is_null($lockedProfile->application_id)) {
+                    Application::whereKey($lockedProfile->application_id)->delete();
+                }
+
+                $lockedProfile->forceDelete();
+            });
+        } catch (\Throwable $e) {
+            Log::error('Failed to permanently delete finalized application', [
+                'admin_id' => $request->user()?->id,
+                'student_profile_id' => $id,
+                'student_id' => $studentId,
+                'scholarship_id' => $scholarshipId,
+                'scholarship_name' => $scholarshipName,
+                'exception' => $e,
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage() ?: 'Unable to permanently delete application.',
+            ], 500);
+        }
+
+        foreach (array_unique($filePaths) as $filePath) {
+            $deletedFile = false;
+
+            foreach (['local', 'public'] as $disk) {
+                try {
+                    if (Storage::disk($disk)->exists($filePath)) {
+                        Storage::disk($disk)->delete($filePath);
+                        $deletedFile = true;
+                        break;
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('Permanent deletion file removal failed', [
+                        'file_path' => $filePath,
+                        'disk' => $disk,
+                        'student_profile_id' => $id,
+                        'exception' => $e,
+                    ]);
+                }
+            }
+
+            if (!$deletedFile) {
+                Log::warning('Permanent application deletion skipped missing file', [
+                    'student_profile_id' => $id,
+                    'file_path' => $filePath,
+                ]);
+            }
+        }
+
+        Log::info('Permanent application deletion executed', [
+            'admin_id' => $request->user()?->id,
+            'student_id' => $studentId,
+            'scholarship_id' => $scholarshipId,
+            'scholarship_name' => $scholarshipName,
+            'deleted_at' => now()->toDateTimeString(),
+        ]);
+
+        return response()->json(['status' => 'ok', 'message' => 'Application permanently deleted.']);
     }
 
     /**

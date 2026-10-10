@@ -209,6 +209,7 @@
                 }).join('');
         const canDecideApplication = app.application_status === 'pending' && !app.locked_at;
         const decisionDisabledAttribute = canDecideApplication ? '' : 'disabled aria-disabled="true"';
+        const canDeleteFinalizedRejected = Boolean(app.eligible_for_permanent_deletion) && app.source !== 'manual';
         const isNonAcademic = app.grant_type === 'non-academic';
         const familyProgress = document.querySelector('[data-profile-family-progress]');
         const familyProgressLine = document.querySelector('[data-profile-family-progress-line]');
@@ -301,6 +302,7 @@
             `<div class="review-actions application-decision-actions full">
                 <button type="button" class="review-approve" data-action="approve-app" ${decisionDisabledAttribute}>Approve Application</button>
                 <button type="button" class="review-reject" data-action="reject-app" ${decisionDisabledAttribute}>Reject Application</button>
+                ${canDeleteFinalizedRejected ? '<button type="button" class="review-delete" data-action="delete-finalized-app">Delete application</button>' : ''}
             </div>`;
         const family = app.family_background || {};
         const familyValue = value => value === null || value === undefined || String(value).trim() === '' ? 'N/A' : value;
@@ -673,6 +675,24 @@
             }
             if (actionTarget && actionTarget.dataset.action === 'reject-app') {
                 await rejectApplication();
+                return;
+            }
+            if (actionTarget && actionTarget.dataset.action === 'delete-finalized-app') {
+                const studentName = [currentApplication?.first_name, currentApplication?.middle_name, currentApplication?.last_name, currentApplication?.suffix].filter(Boolean).join(' ').trim() || 'This student';
+                const scholarshipName = currentApplication?.scholarship_name || 'this scholarship';
+                const result = await Swal.fire({
+                    title: 'Delete application?',
+                    html: `<p><strong>${escapeHtml(studentName)}</strong> for <strong>${escapeHtml(scholarshipName)}</strong> will be permanently removed and cannot be undone.</p>`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    focusCancel: true,
+                    confirmButtonColor: '#b91c1c',
+                    confirmButtonText: 'Delete application',
+                    cancelButtonText: 'Cancel',
+                });
+                if (!result.isConfirmed) return;
+                await postJson(`/admin/applications/${currentAppId}/final-delete`);
+                await finishApplicationAction('Application deleted', 'The application was permanently deleted.');
                 return;
             }
             if (actionTarget && actionTarget.dataset.action === 'remove-app') {

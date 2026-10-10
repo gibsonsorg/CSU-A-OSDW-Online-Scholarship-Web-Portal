@@ -326,7 +326,7 @@
         }
 
         .detail-modal-body {
-            padding: 1.25rem 1.5rem 1.5rem;
+            padding: 1.25rem 1.5rem 1.1rem;
         }
 
         .detail-section-label {
@@ -382,59 +382,6 @@
             padding-top: 0.75rem;
             border-top: 1px solid currentColor;
             font-weight: 700;
-        }
-
-        .detail-help-box {
-            margin-top: 1.25rem;
-            padding: 1rem 1.1rem;
-            background: #fafafa;
-            border: 1px solid #e5e5e5;
-            border-radius: 12px;
-        }
-
-        .detail-help-box p {
-            margin: 0 0 0.75rem;
-            font-size: 0.85rem;
-            color: #1a1a1a;
-            line-height: 1.5;
-        }
-
-        .detail-help-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .detail-btn {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.5rem 0.9rem;
-            border-radius: 8px;
-            font-size: 0.82rem;
-            font-weight: 600;
-            text-decoration: none;
-            transition: background 0.2s, color 0.2s;
-        }
-
-        .detail-btn-primary {
-            background: #1a1a1a;
-            color: #fff;
-        }
-
-        .detail-btn-primary:hover {
-            background: #333;
-            color: #fff;
-        }
-
-        .detail-btn-secondary {
-            background: #fff;
-            color: #1a1a1a;
-            border: 1px solid #1a1a1a;
-        }
-
-        .detail-btn-secondary:hover {
-            background: #f5f5f5;
-            color: #1a1a1a;
         }
 
         @media (max-width: 900px) {
@@ -566,13 +513,6 @@
                 <p class="detail-section-label">Latest email notification</p>
                 <p id="rejectionDetailSubject" class="notification-subject"></p>
                 <div id="rejectionDetailMessage" class="rejection-message-box"></div>
-
-                <div class="detail-help-box">
-                    <div class="detail-help-actions">
-                        <a href="{{ route('dashboard', ['section' => 'acad']) }}" class="detail-btn detail-btn-primary" id="rejectionBrowseLink">Browse Scholarships</a>
-                        <button type="button" class="detail-btn detail-btn-secondary" id="rejectionDetailCloseBtn">Close</button>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -606,7 +546,6 @@
             const updatedEl = document.getElementById('rejectionDetailUpdated');
             const subjectEl = document.getElementById('rejectionDetailSubject');
             const messageEl = document.getElementById('rejectionDetailMessage');
-            const browseLink = document.getElementById('rejectionBrowseLink');
             const applications = JSON.parse(
                 document.getElementById('applicationsStatusData').textContent || '[]'
             );
@@ -631,10 +570,6 @@
                 messageEl.classList.toggle('is-rejected', application.application_status === 'rejected');
                 messageEl.classList.toggle('is-approved', application.application_status === 'approved');
 
-                browseLink.href = application.grant_type === 'non-academic'
-                    ? '{{ route('dashboard', ['section' => 'non']) }}'
-                    : '{{ route('dashboard', ['section' => 'acad']) }}';
-
                 overlay.classList.add('is-open');
                 document.body.style.overflow = 'hidden';
             }
@@ -658,7 +593,6 @@
             });
 
             document.getElementById('rejectionDetailClose').addEventListener('click', closeRejectionDetail);
-            document.getElementById('rejectionDetailCloseBtn').addEventListener('click', closeRejectionDetail);
 
             overlay.addEventListener('click', function (event) {
                 if (event.target === overlay) {

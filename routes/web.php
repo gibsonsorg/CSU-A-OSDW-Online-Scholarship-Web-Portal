@@ -233,6 +233,7 @@ Route::get('/admin/applications/{id}', function($id){
 
     $payload = $p->toArray();
     $payload['old_grant_matches'] = $matches;
+    $payload['eligible_for_permanent_deletion'] = $p->isEligibleForPermanentDeletion();
 
     return response()->json($payload);
 })->middleware(['auth', 'admin']);
@@ -242,6 +243,10 @@ Route::post('/admin/applications/{id}/approve', [AdminController::class, 'approv
 
 // Reject application endpoint - uses AdminController
 Route::post('/admin/applications/{id}/reject', [AdminController::class, 'reject'])->middleware(['auth', 'admin']);
+
+// Permanently delete an already finalized rejected application.
+Route::post('/admin/applications/{id}/final-delete', [AdminController::class, 'destroyFinalizedRejected'])->middleware(['auth', 'admin']);
+Route::delete('/admin/applications/{id}/final-delete', [AdminController::class, 'destroyFinalizedRejected'])->middleware(['auth', 'admin']);
 
 // Bulk renewal action for approved applications in the current filtered report set.
 Route::post('/admin/applications/remove-restrictions', [AdminController::class, 'removeRestrictions'])->middleware(['auth', 'admin']);

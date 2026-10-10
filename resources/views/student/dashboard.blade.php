@@ -751,7 +751,9 @@ Students from municipalities without accessible colleges or higher education ins
 
         <div class="s-card" data-name="talamayan scholarship private community" data-description="The Talamayan Scholarship is a community-based private support program that helps students in the Cagayan community continue their education with financial assistance.">
             <div class="card-head">
-                <div class="card-icon"></div>
+                <div class="card-icon">
+                    <img src="{{ asset('images/talamayan.png') }}" alt="open heart scholarship logo">
+                </div>
                 <div class="card-names">
                     <h3>Talamayan Scholarship</h3>
                     <p class="prog">Community Support Grant</p>

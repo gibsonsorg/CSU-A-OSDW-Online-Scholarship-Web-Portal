@@ -49,6 +49,21 @@ class StudentProfile extends Model
             && $this->resubmission_deadline->lessThanOrEqualTo(now());
     }
 
+    public function isEligibleForPermanentDeletion(): bool
+    {
+        if ($this->source === 'manual' || $this->application_status !== 'rejected') {
+            return false;
+        }
+
+        if ($this->locked_at !== null) {
+            return true;
+        }
+
+        return $this->resubmission_deadline !== null
+            && $this->resubmission_deadline->lessThanOrEqualTo(now())
+            && in_array($this->rejection_reason, ['Wrong Uploaded Documents', 'Wrong Form'], true);
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

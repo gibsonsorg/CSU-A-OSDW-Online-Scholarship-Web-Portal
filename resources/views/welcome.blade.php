@@ -183,11 +183,11 @@
                     </div>
                     <div class="about-grantee-stats" aria-label="Scholarship program highlights">
                         <div class="about-grantee-stat">
-                            <strong>1500</strong>
+                            <strong>3,500</strong>
                             <span>Scholars Supported</span>
                         </div>
                         <div class="about-grantee-stat">
-                            <strong>3,500</strong>
+                            <strong>5,500</strong>
                             <span>Student Assisted</span>
                         </div>
                         <div class="about-grantee-stat">
