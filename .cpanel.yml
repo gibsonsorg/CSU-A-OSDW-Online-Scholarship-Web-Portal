@@ -1,0 +1,14 @@
+
+---
+deployment:
+  tasks:
+    - export APPPATH=/home/csuaparr/public_html/repositories/osdw_scholarportal
+
+    # Install PHP dependencies
+    - cd $APPPATH && composer install --no-dev --optimize-autoloader --no-interaction
+
+    # Install Node.js dependencies
+    - cd $APPPATH && npm install
+
+    # Build frontend assets
+    - cd $APPPATH && npm run build
