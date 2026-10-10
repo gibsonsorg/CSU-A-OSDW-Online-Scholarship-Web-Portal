@@ -38,9 +38,26 @@ class AdminController extends Controller
             ->orderBy('name')
             ->get(['name', 'type']);
         $filterType = $request->query('section') === 'reports' ? 'all' : 'dashboard';
-        $pendingApplications = $this->dashboardPendingApplications();
-        $scholarshipsClosingSoon = $this->dashboardScholarshipsClosingSoon();
-        $nearCapacityScholarships = $this->dashboardScholarshipsNearCapacity();
+        $needsAttention = $filterType === 'dashboard'
+            ? $this->dashboardNeedsAttention($request->query('na_page', 1))
+            : [
+                'pendingApplications' => [],
+                'pendingApplicationsTotal' => 0,
+                'scholarshipsClosingSoon' => [],
+                'scholarshipsClosingSoonTotal' => 0,
+                'nearCapacityScholarships' => [],
+                'nearCapacityScholarshipsTotal' => 0,
+                'needsAttentionPage' => 1,
+                'needsAttentionTotalPages' => 1,
+            ];
+        $pendingApplications = $needsAttention['pendingApplications'];
+        $pendingApplicationsTotal = $needsAttention['pendingApplicationsTotal'];
+        $scholarshipsClosingSoon = $needsAttention['scholarshipsClosingSoon'];
+        $scholarshipsClosingSoonTotal = $needsAttention['scholarshipsClosingSoonTotal'];
+        $nearCapacityScholarships = $needsAttention['nearCapacityScholarships'];
+        $nearCapacityScholarshipsTotal = $needsAttention['nearCapacityScholarshipsTotal'];
+        $needsAttentionPage = $needsAttention['needsAttentionPage'];
+        $needsAttentionTotalPages = $needsAttention['needsAttentionTotalPages'];
 
         return view('admin.welcome', compact(
             'recentApplications',
@@ -48,9 +65,176 @@ class AdminController extends Controller
             'filterType',
             'scholarshipType',
             'pendingApplications',
+            'pendingApplicationsTotal',
             'scholarshipsClosingSoon',
-            'nearCapacityScholarships'
+            'scholarshipsClosingSoonTotal',
+            'nearCapacityScholarships',
+            'nearCapacityScholarshipsTotal',
+            'needsAttentionPage',
+            'needsAttentionTotalPages'
         ));
+    }
+
+    public function needsAttention(Request $request)
+    {
+        $needsAttention = $this->dashboardNeedsAttention($request->query('na_page', 1));
+
+        return response()->json([
+            'html' => view('admin.partials.needs-attention-content', $needsAttention)->render(),
+            'page' => $needsAttention['needsAttentionPage'],
+            'totalPages' => $needsAttention['needsAttentionTotalPages'],
+        ]);
+    }
+
+    private function dashboardNeedsAttention(mixed $requestedPage): array
+    {
+        $today = now()->startOfDay();
+        $pendingQuery = StudentProfile::query()
+            ->whereNull('deleted_at')
+            ->where('application_status', 'pending')
+            ->where('created_at', '<=', now()->subDays(4)->startOfDay());
+        $closingSoonQuery = Scholarship::query()
+            ->whereNotNull('application_end_date')
+            ->whereDate('application_end_date', '>=', $today)
+            ->whereDate('application_end_date', '<=', $today->copy()->addDays(7));
+        $nearCapacityQuery = $this->dashboardNearCapacityQuery();
+
+        $pendingTotal = (clone $pendingQuery)->count();
+        $closingSoonTotal = (clone $closingSoonQuery)->count();
+        $nearCapacityTotal = DB::query()
+            ->fromSub(clone $nearCapacityQuery, 'qualifying_near_capacity')
+            ->count();
+
+        $pendingPages = (int) ceil($pendingTotal / 4);
+        $closingSoonPages = (int) ceil($closingSoonTotal / 5);
+        $nearCapacityPages = (int) ceil($nearCapacityTotal / 4);
+        $needsAttentionTotalPages = max(1, $pendingPages, $closingSoonPages, $nearCapacityPages);
+        $parsedPage = filter_var($requestedPage, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $needsAttentionPage = min($parsedPage === false ? 1 : $parsedPage, $needsAttentionTotalPages);
+        $offset = ($needsAttentionPage - 1);
+
+        $pendingApplications = (clone $pendingQuery)
+            ->select(['id', 'first_name', 'middle_name', 'last_name', 'suffix', 'scholarship_name', 'created_at'])
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
+            ->offset($offset * 4)
+            ->limit(4)
+            ->get()
+            ->map(function (StudentProfile $application) {
+                $daysPending = now()->startOfDay()->diffInDays($application->created_at->startOfDay(), true);
+
+                return [
+                    'id' => $application->id,
+                    'full_name' => trim(implode(', ', array_filter([
+                        $application->last_name,
+                        $application->middle_name,
+                        $application->first_name,
+                        $application->suffix,
+                    ], static fn ($value) => $value !== null && trim((string) $value) !== ''))),
+                    'scholarship_name' => $application->scholarship_name,
+                    'days_pending' => $daysPending,
+                    'urgency' => $daysPending >= 8 ? 'urgent' : 'soon',
+                ];
+            })
+            ->all();
+
+        $scholarshipsClosingSoon = (clone $closingSoonQuery)
+            ->select(['id', 'name', 'application_end_date'])
+            ->orderBy('application_end_date', 'asc')
+            ->orderBy('id', 'asc')
+            ->offset($offset * 5)
+            ->limit(5)
+            ->get()
+            ->map(function (Scholarship $scholarship) use ($today) {
+                $daysRemaining = $today->diffInDays($scholarship->application_end_date->startOfDay(), false);
+
+                return [
+                    'id' => $scholarship->id,
+                    'name' => $scholarship->name,
+                    'days_remaining' => max(0, $daysRemaining),
+                    'urgency' => $daysRemaining <= 3 ? 'urgent' : 'soon',
+                ];
+            })
+            ->all();
+
+        $nearCapacityScholarships = (clone $nearCapacityQuery)
+            ->orderByRaw('CASE WHEN near_active_applications.active_applications * 100 >= near_scholarships.max_slots * 100 THEN 100 ELSE near_active_applications.active_applications * 100.0 / near_scholarships.max_slots END DESC')
+            ->orderBy('near_scholarships.name', 'asc')
+            ->offset($offset * 4)
+            ->limit(4)
+            ->get()
+            ->map(function ($scholarship) {
+                $percentage = min(100, ($scholarship->active_applications / $scholarship->max_slots) * 100);
+
+                return [
+                    'id' => $scholarship->id,
+                    'name' => $scholarship->name,
+                    'active_applications' => (int) $scholarship->active_applications,
+                    'max_slots' => (int) $scholarship->max_slots,
+                    'percentage' => $percentage,
+                    'urgency' => $percentage >= 95 ? 'urgent' : 'soon',
+                ];
+            })
+            ->all();
+
+        return [
+            'pendingApplications' => $pendingApplications,
+            'pendingApplicationsTotal' => $pendingTotal,
+            'scholarshipsClosingSoon' => $scholarshipsClosingSoon,
+            'scholarshipsClosingSoonTotal' => $closingSoonTotal,
+            'nearCapacityScholarships' => $nearCapacityScholarships,
+            'nearCapacityScholarshipsTotal' => $nearCapacityTotal,
+            'needsAttentionPage' => $needsAttentionPage,
+            'needsAttentionTotalPages' => $needsAttentionTotalPages,
+        ];
+    }
+
+    private function dashboardNearCapacityQuery()
+    {
+        $now = now();
+        $cutoff = \Carbon\Carbon::parse(config('scholarships.slot_counting_starts_at'))
+            ->setTimezone(config('app.timezone'));
+        $activeApplications = DB::table('applications as eligible_applications')
+            ->where('eligible_applications.created_at', '>', $cutoff)
+            ->whereExists(function ($profiles) {
+                $profiles->selectRaw('1')
+                    ->from('student_profiles as unlocked_profiles')
+                    ->whereColumn('unlocked_profiles.application_id', 'eligible_applications.id')
+                    ->whereNull('unlocked_profiles.deleted_at')
+                    ->whereNull('unlocked_profiles.locked_at');
+            })
+            ->where(function ($statuses) use ($now) {
+                $statuses->whereIn('eligible_applications.status', ['pending', 'approved'])
+                    ->orWhere(function ($rejected) use ($now) {
+                        $rejected->where('eligible_applications.status', 'rejected')
+                            ->whereExists(function ($profiles) use ($now) {
+                                $profiles->selectRaw('1')
+                                    ->from('student_profiles as eligible_profiles')
+                                    ->whereColumn('eligible_profiles.application_id', 'eligible_applications.id')
+                                    ->whereNull('eligible_profiles.deleted_at')
+                                    ->whereIn('eligible_profiles.rejection_reason', ['Wrong Uploaded Documents', 'Wrong Form'])
+                                    ->whereNotNull('eligible_profiles.resubmission_deadline')
+                                    ->where('eligible_profiles.resubmission_deadline', '>', $now);
+                            });
+                    });
+            })
+            ->groupBy('eligible_applications.scholarship_id')
+            ->select('eligible_applications.scholarship_id')
+            ->selectRaw('COUNT(*) as active_applications');
+
+        return DB::table('scholarships as near_scholarships')
+            ->leftJoinSub($activeApplications, 'near_active_applications', function ($join) {
+                $join->on('near_active_applications.scholarship_id', '=', 'near_scholarships.id');
+            })
+            ->whereNotNull('near_scholarships.max_slots')
+            ->where('near_scholarships.max_slots', '>', 0)
+            ->whereRaw('COALESCE(near_active_applications.active_applications, 0) * 100 >= near_scholarships.max_slots * 85')
+            ->select([
+                'near_scholarships.id',
+                'near_scholarships.name',
+                'near_scholarships.max_slots',
+            ])
+            ->selectRaw('COALESCE(near_active_applications.active_applications, 0) as active_applications');
     }
 
     public function exportApprovedGrantees(Request $request)
@@ -68,86 +252,6 @@ class AdminController extends Controller
         $scholarshipType = (string) $request->query('grant_type', '');
 
         return in_array($scholarshipType, ['academic', 'non-academic'], true) ? $scholarshipType : '';
-    }
-
-    private function dashboardPendingApplications()
-    {
-        $cutoff = now()->subDays(4)->startOfDay();
-
-        return StudentProfile::whereNull('deleted_at')
-            ->where('application_status', 'pending')
-            ->where('created_at', '<=', $cutoff)
-            ->orderBy('created_at', 'asc')
-            ->limit(4)
-            ->get()
-            ->map(function (StudentProfile $application) {
-                $daysPending = now()->startOfDay()->diffInDays($application->created_at->startOfDay());
-
-                return [
-                    'id' => $application->id,
-                    'full_name' => trim(implode(', ', array_filter([
-                        $application->last_name,
-                        $application->middle_name,
-                        $application->first_name,
-                        $application->suffix,
-                    ], static fn ($value) => $value !== null && trim((string) $value) !== ''))),
-                    'scholarship_name' => $application->scholarship_name,
-                    'days_pending' => $daysPending,
-                    'urgency' => $daysPending >= 8 ? 'urgent' : 'soon',
-                ];
-            });
-    }
-
-    private function dashboardScholarshipsClosingSoon()
-    {
-        $today = now()->startOfDay();
-
-        return Scholarship::query()
-            ->whereNotNull('application_end_date')
-            ->whereDate('application_end_date', '>=', $today)
-            ->whereDate('application_end_date', '<=', $today->copy()->addDays(7))
-            ->orderBy('application_end_date', 'asc')
-            ->limit(4)
-            ->get()
-            ->map(function (Scholarship $scholarship) use ($today) {
-                $daysRemaining = $today->diffInDays($scholarship->application_end_date->startOfDay(), false);
-
-                return [
-                    'id' => $scholarship->id,
-                    'name' => $scholarship->name,
-                    'days_remaining' => max(0, $daysRemaining),
-                    'urgency' => $daysRemaining <= 3 ? 'urgent' : 'soon',
-                ];
-            });
-    }
-
-    private function dashboardScholarshipsNearCapacity()
-    {
-        return Scholarship::query()
-            ->whereNotNull('max_slots')
-            ->where('max_slots', '>', 0)
-            ->orderBy('name')
-            ->get()
-            ->map(function (Scholarship $scholarship) {
-                $activeApplications = $scholarship->activeApplicationsCount();
-                $percentage = $scholarship->max_slots > 0
-                    ? min(100, ($activeApplications / $scholarship->max_slots) * 100)
-                    : 0;
-
-                return [
-                    'id' => $scholarship->id,
-                    'name' => $scholarship->name,
-                    'active_applications' => $activeApplications,
-                    'max_slots' => $scholarship->max_slots,
-                    'percentage' => $percentage,
-                    'urgency' => $percentage >= 95 ? 'urgent' : 'soon',
-                ];
-            })
-            ->filter(fn (array $scholarship) => $scholarship['percentage'] >= 85)
-            ->sortByDesc('percentage')
-            ->values()
-            ->take(4)
-            ->all();
     }
 
     private function summaryApplicationsQuery(Request $request)

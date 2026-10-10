@@ -5,6 +5,8 @@
     let currentFamilyPage = 1;
     let profileStepCount = 3;
     let currentApplication = null;
+    let oldGrantRecordsReturnFocus = null;
+    let oldGrantRecordsPreviousOverflow = '';
 
     const escapeHtml = value => String(value ?? '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -79,6 +81,48 @@
         document.body.style.overflow = '';
     }
 
+    function openOldGrantRecordsModal(trigger) {
+        const modal = document.getElementById('oldGrantRecordsModal');
+        if (!modal) return;
+
+        oldGrantRecordsReturnFocus = trigger;
+        oldGrantRecordsPreviousOverflow = document.body.style.overflow;
+        modal.hidden = false;
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        modal.querySelector('[data-old-grant-modal-close]')?.focus();
+    }
+
+    function closeOldGrantRecordsModal() {
+        const modal = document.getElementById('oldGrantRecordsModal');
+        if (!modal || modal.hidden) return;
+
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.hidden = true;
+        document.body.style.overflow = oldGrantRecordsPreviousOverflow;
+        if (oldGrantRecordsReturnFocus?.isConnected) oldGrantRecordsReturnFocus.focus();
+        oldGrantRecordsReturnFocus = null;
+    }
+
+    document.addEventListener('click', function (event) {
+        const openButton = event.target.closest('[data-old-grant-modal-open]');
+        if (openButton) {
+            openOldGrantRecordsModal(openButton);
+            return;
+        }
+
+        const closeButton = event.target.closest('[data-old-grant-modal-close]');
+        if (closeButton) {
+            closeOldGrantRecordsModal();
+            return;
+        }
+
+        const modal = document.getElementById('oldGrantRecordsModal');
+        if (modal && event.target === modal) closeOldGrantRecordsModal();
+    });
+
     document.addEventListener('click', function (event) {
         const closeButton = event.target.closest('#closeDocumentPreviewModal');
         if (closeButton) {
@@ -104,6 +148,29 @@
     });
 
     document.addEventListener('keydown', function (event) {
+        const oldGrantModal = document.getElementById('oldGrantRecordsModal');
+        if (oldGrantModal && !oldGrantModal.hidden) {
+            if (event.key === 'Escape') {
+                closeOldGrantRecordsModal();
+                return;
+            }
+
+            if (event.key === 'Tab') {
+                const focusable = Array.from(oldGrantModal.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
+                if (focusable.length) {
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+                    if (event.shiftKey && document.activeElement === first) {
+                        event.preventDefault();
+                        last.focus();
+                    } else if (!event.shiftKey && document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                }
+            }
+        }
+
         if (event.key === 'Escape') {
             const modal = document.getElementById('documentPreviewModal');
             if (modal && modal.style.display === 'flex') {
@@ -115,6 +182,31 @@
     function renderProfile(app) {
         const body = document.getElementById('profileBody');
         currentApplication = app;
+        const oldGrantMatches = Array.isArray(app.old_grant_matches) ? app.old_grant_matches : [];
+        const oldGrantGroups = Array.from(oldGrantMatches.reduce((groups, record) => {
+            const scholarshipName = String(record.scholarship_name || 'Unnamed scholarship').trim();
+            const type = record.scholarship_type === 'academic' ? 'Academic' : 'Non-Academic';
+            const key = `${type.toLowerCase()}|${scholarshipName.toUpperCase()}`;
+            const group = groups.get(key) || { record, scholarshipName, type, count: 0 };
+            group.count += 1;
+            groups.set(key, group);
+            return groups;
+        }, new Map()).values());
+        const oldGrantWarning = oldGrantMatches.length ? `
+            <section class="old-grant-match-warning" role="status" aria-label="Possible Old Grants match">
+                <div class="old-grant-match-heading">
+                    <span class="old-grant-match-icon" aria-hidden="true">!</span>
+                    <p>This student appears in the Old Grants records. Possible match, please verify.</p>
+                    <button class="old-grant-match-open" type="button" data-old-grant-modal-open aria-haspopup="dialog" aria-controls="oldGrantRecordsModal">View</button>
+                </div>
+            </section>` : '';
+        const oldGrantList = oldGrantGroups.map(group => {
+                    const record = group.record;
+                    const route = record.scholarship_type === 'academic' ? '/admin/old-academic' : '/admin/old-non-academic';
+                    const search = `${record.last_name || ''} ${record.first_name || ''}`.trim();
+                    const url = `${route}?search=${encodeURIComponent(search)}`;
+                    return `<li class="old-grant-record-row"><span class="old-grant-record-name">${escapeHtml(group.scholarshipName)}</span><span class="old-grant-record-type">${escapeHtml(group.type)}</span><span class="old-grant-record-count" aria-label="Count: ${group.count}">${group.count}</span><a class="old-grant-record-view" href="${escapeHtml(url)}" target="_blank" rel="noopener">View</a></li>`;
+                }).join('');
         const canDecideApplication = app.application_status === 'pending' && !app.locked_at;
         const decisionDisabledAttribute = canDecideApplication ? '' : 'disabled aria-disabled="true"';
         const isNonAcademic = app.grant_type === 'non-academic';
@@ -268,8 +360,10 @@
             <div class="academic-review-step" data-profile-step="4">${scholarshipStep}</div>`
             : `<div class="academic-review-step" data-profile-step="1">${step1}</div><div class="academic-review-step" data-profile-step="2">${step2}</div><div class="academic-review-step" data-profile-step="3">${scholarshipStep}</div>`;
         body.innerHTML = isNonAcademic
-            ? `<div class="academic-review-step" data-profile-step="1">${step1}</div><div class="academic-review-step" data-profile-step="2">${step2}</div>${familyStep}`
-            : `<div class="academic-review-step" data-profile-step="1">${step1}</div><div class="academic-review-step" data-profile-step="2">${step2}</div><div class="academic-review-step" data-profile-step="3">${scholarshipStep}</div>`;
+            ? `${oldGrantWarning}<div class="academic-review-step" data-profile-step="1">${step1}</div><div class="academic-review-step" data-profile-step="2">${step2}</div>${familyStep}`
+            : `${oldGrantWarning}<div class="academic-review-step" data-profile-step="1">${step1}</div><div class="academic-review-step" data-profile-step="2">${step2}</div><div class="academic-review-step" data-profile-step="3">${scholarshipStep}</div>`;
+        const oldGrantListElement = document.getElementById('oldGrantRecordsList');
+        if (oldGrantListElement) oldGrantListElement.innerHTML = oldGrantList;
         updateStepUI();
     }
 
@@ -424,12 +518,95 @@
         try { await loadProfile(currentAppId); } catch (error) { document.getElementById('profileBody').textContent = error.message; }
     }));
 
-    document.querySelectorAll('.needs-attention-review').forEach(button => button.addEventListener('click', async () => {
-        currentAppId = button.dataset.id;
+    const needsAttentionPanel = document.getElementById('needsAttentionPanel');
+    let needsAttentionLoading = false;
+
+    function setNeedsAttentionUrl(page, replace = false) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('na_page', String(page));
+        window.history[replace ? 'replaceState' : 'pushState']({ naPage: page }, '', url);
+    }
+
+    async function loadNeedsAttentionPage(requestedPage, replaceUrl = false) {
+        if (!needsAttentionPanel || needsAttentionLoading) return;
+
+        needsAttentionLoading = true;
+        needsAttentionPanel.setAttribute('aria-busy', 'true');
+        needsAttentionPanel.classList.add('is-loading');
+        needsAttentionPanel.querySelector('.needs-attention-fetch-error')?.remove();
+        let loadingMessage = needsAttentionPanel.querySelector('.needs-attention-loading');
+        if (!loadingMessage) {
+            loadingMessage = document.createElement('p');
+            loadingMessage.className = 'needs-attention-loading';
+            loadingMessage.setAttribute('role', 'status');
+            needsAttentionPanel.appendChild(loadingMessage);
+        }
+        loadingMessage.textContent = 'Loading Needs Attention items...';
+        needsAttentionPanel.querySelectorAll('[data-needs-attention-page]').forEach(button => {
+            button.disabled = true;
+        });
+
+        try {
+            const endpoint = new URL(needsAttentionPanel.dataset.endpoint, window.location.href);
+            endpoint.searchParams.set('na_page', String(requestedPage));
+            const response = await fetch(endpoint, {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
+            });
+            if (!response.ok) throw new Error('Request failed');
+
+            const result = await response.json();
+            if (typeof result.html !== 'string' || !Number.isInteger(Number(result.page))) {
+                throw new Error('Unexpected response');
+            }
+
+            needsAttentionPanel.innerHTML = result.html;
+            needsAttentionPanel.dataset.page = String(result.page);
+            needsAttentionPanel.dataset.totalPages = String(result.totalPages);
+            setNeedsAttentionUrl(result.page, replaceUrl);
+        } catch (error) {
+            loadingMessage.className = 'needs-attention-fetch-error';
+            loadingMessage.setAttribute('role', 'alert');
+            loadingMessage.textContent = 'Unable to load Needs Attention items. Please try again.';
+            needsAttentionPanel.querySelectorAll('[data-needs-attention-page]').forEach(button => {
+                button.disabled = false;
+            });
+        } finally {
+            needsAttentionLoading = false;
+            needsAttentionPanel.setAttribute('aria-busy', 'false');
+            needsAttentionPanel.classList.remove('is-loading');
+        }
+    }
+
+    if (needsAttentionPanel) {
+        const requestedPage = new URL(window.location.href).searchParams.get('na_page');
+        if (requestedPage !== null && requestedPage !== needsAttentionPanel.dataset.page) {
+            setNeedsAttentionUrl(needsAttentionPanel.dataset.page, true);
+        }
+    }
+
+    document.addEventListener('click', async event => {
+        const pageButton = event.target.closest('[data-needs-attention-page]');
+        if (pageButton && needsAttentionPanel) {
+            event.preventDefault();
+            if (!pageButton.disabled) loadNeedsAttentionPage(pageButton.dataset.needsAttentionPage);
+            return;
+        }
+
+        const reviewButton = event.target.closest('.needs-attention-review');
+        if (!reviewButton) return;
+
+        currentAppId = reviewButton.dataset.id;
         currentStep = 1;
         document.getElementById('profileModal').classList.add('open');
         try { await loadProfile(currentAppId); } catch (error) { document.getElementById('profileBody').textContent = error.message; }
-    }));
+    });
+
+    window.addEventListener('popstate', () => {
+        if (!needsAttentionPanel) return;
+        const page = new URL(window.location.href).searchParams.get('na_page') || '1';
+        loadNeedsAttentionPage(page, true);
+    });
 
     const handleProfilePrevious = () => {
         if (currentStep === 4) {

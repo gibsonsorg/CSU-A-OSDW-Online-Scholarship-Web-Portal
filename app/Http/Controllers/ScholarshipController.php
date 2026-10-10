@@ -180,15 +180,31 @@ class ScholarshipController extends Controller
         ]);
 
         $timeRestricted = $request->boolean('time_restricted');
-        $scholarship->update([
-            'max_slots' => isset($validated['max_slots']) ? (int) $validated['max_slots'] : null,
-            'accepting_applications' => $request->boolean('accepting_applications'),
-            'time_restricted' => $timeRestricted,
-            'application_start_time' => $timeRestricted ? $validated['application_start_time'] : null,
-            'application_end_time' => $timeRestricted ? $validated['application_end_time'] : null,
-            'application_start_date' => $validated['application_start_date'] ?? null,
-            'application_end_date' => $validated['application_end_date'] ?? null,
-        ]);
+        try {
+            $updated = $scholarship->update([
+                'max_slots' => isset($validated['max_slots']) ? (int) $validated['max_slots'] : null,
+                'accepting_applications' => $request->boolean('accepting_applications'),
+                'time_restricted' => $timeRestricted,
+                'application_start_time' => $timeRestricted ? $validated['application_start_time'] : null,
+                'application_end_time' => $timeRestricted ? $validated['application_end_time'] : null,
+                'application_start_date' => $validated['application_start_date'] ?? null,
+                'application_end_date' => $validated['application_end_date'] ?? null,
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return redirect()->route('admin.scholarships.availability', [
+                'type' => $scholarship->type,
+                'name' => $scholarship->name,
+            ])->withInput()->with('error', 'Scholarship availability could not be saved. Please try again.');
+        }
+
+        if (!$updated) {
+            return redirect()->route('admin.scholarships.availability', [
+                'type' => $scholarship->type,
+                'name' => $scholarship->name,
+            ])->withInput()->with('error', 'Scholarship availability could not be saved. Please try again.');
+        }
 
         return redirect()->route('admin.scholarships.availability', [
             'type' => $scholarship->type,

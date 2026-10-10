@@ -24,12 +24,6 @@
             @endforeach
         </select>
     </div>
-    <div class="grant-filter-field">
-        <label for="summary-status">Status</label>
-        <select id="summary-status" aria-label="Status" disabled>
-            <option value="approved" selected>Approved</option>
-        </select>
-    </div>
     <button class="grant-filter-button" type="submit">Filter</button>
     <button class="grant-filter-button" type="submit" formaction="{{ route('admin.dashboard.export') }}">Download</button>
     <button class="grant-filter-button add-amount-button" type="button" data-action="add-amount" data-grant-type="all">Add Amount</button>
@@ -76,11 +70,6 @@
         font: inherit;
         font-size: 0.74rem;
         padding: 0 9px;
-    }
-
-    #summary-report-filters .grant-filter-field select:disabled {
-        color: #273142;
-        opacity: 1;
     }
 
     #summary-report-filters .grant-filter-button {

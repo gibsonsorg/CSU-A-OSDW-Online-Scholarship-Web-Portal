@@ -9,6 +9,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ScholarshipAvailabilityManagementTest extends TestCase
@@ -288,7 +289,8 @@ class ScholarshipAvailabilityManagementTest extends TestCase
 			->assertRedirect(route('admin.scholarships.availability', [
 				'type' => 'academic',
 				'name' => 'Academic Availability Row',
-			]));
+			]))
+			->assertSessionHas('success', 'Scholarship availability updated successfully.');
 
 		$academic->refresh();
 		$this->assertSame(2, $academic->max_slots);
@@ -325,6 +327,67 @@ class ScholarshipAvailabilityManagementTest extends TestCase
 		$this->assertNull($academic->fresh()->max_slots);
 		$this->assertNull($academic->fresh()->application_start_date);
 		$this->assertNull($academic->fresh()->application_end_date);
+	}
+
+	public function test_invalid_availability_dates_and_time_fields_return_validation_errors_without_saving(): void
+	{
+		$admin = User::factory()->approved()->create(['role' => 0]);
+		$scholarship = Scholarship::create([
+			'name' => 'Availability Validation Row',
+			'type' => 'academic',
+			'status' => 'active',
+			'max_slots' => 3,
+		]);
+
+		$response = $this->actingAs($admin)
+			->from('/admin/scholarships/availability')
+			->patch(route('admin.scholarships.availability.update', $scholarship), [
+				'max_slots' => 8,
+				'time_restricted' => '1',
+				'application_start_time' => '17:00',
+				'application_end_time' => '',
+				'application_start_date' => '2026-10-20',
+				'application_end_date' => '2026-10-10',
+			]);
+
+		$response->assertRedirect('/admin/scholarships/availability')
+			->assertSessionHasErrors(['application_end_time', 'application_end_date'])
+			->assertSessionMissing('success');
+
+		$this->assertSame(3, $scholarship->fresh()->max_slots);
+		$this->assertNull($scholarship->fresh()->application_start_date);
+		$this->assertNull($scholarship->fresh()->application_end_date);
+	}
+
+	public function test_database_write_failure_flashes_an_error_instead_of_success(): void
+	{
+		$admin = User::factory()->approved()->create(['role' => 0]);
+		$scholarship = Scholarship::create([
+			'name' => 'Availability Write Failure Row',
+			'type' => 'academic',
+			'status' => 'active',
+			'max_slots' => 3,
+		]);
+		$acceptingApplicationsBefore = $scholarship->fresh()->accepting_applications;
+
+		DB::statement("CREATE TRIGGER fail_availability_update BEFORE UPDATE ON scholarships BEGIN SELECT RAISE(ABORT, 'simulated write failure'); END");
+
+		$response = $this->actingAs($admin)
+			->from('/admin/scholarships/availability')
+			->patch(route('admin.scholarships.availability.update', $scholarship), [
+				'max_slots' => 8,
+				'accepting_applications' => '1',
+			]);
+
+		$response->assertRedirect(route('admin.scholarships.availability', [
+			'type' => 'academic',
+			'name' => 'Availability Write Failure Row',
+		]))
+			->assertSessionHas('error', 'Scholarship availability could not be saved. Please try again.')
+			->assertSessionMissing('success');
+
+		$this->assertSame(3, $scholarship->fresh()->max_slots);
+		$this->assertSame($acceptingApplicationsBefore, $scholarship->fresh()->accepting_applications);
 	}
 
 	public function test_student_submission_respects_capacity_and_rejection_frees_a_slot(): void

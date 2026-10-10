@@ -227,7 +227,10 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
             </div>
         </div>
 
-        <div class="s-card" data-name="university based scholarship academic inhouse" data-scholarship-id="{{ $academicScholarshipIdMap['University Based Scholarship'] ?? '' }}" data-scholarship-type="Academic Excellence – In-House" data-grant-type="academic" data-description="The University Based Scholarship recognizes students with outstanding academic performance throughout the school year and provides financial assistance to help them continue their studies.">
+        <div class="s-card" data-name="university based scholarship academic inhouse" data-scholarship-id="{{ $academicScholarshipIdMap['University Based Scholarship'] ?? '' }}" data-scholarship-type="Academic Excellence – In-House" data-grant-type="academic" data-description="The University Based Scholarship recognizes students with outstanding academic performance throughout the school year and provides financial assistance to help them continue their studies.
+    Eligibility Requirements
+    * Must maintain a General Weighted Average (GWA) of at least 94% in every semester to qualify for  for this scholarship.">
+            
             <div class="card-head">
                 <div class="card-icon">  <img src="{{ asset('images/csu.logo.png') }}" alt="CsuLogo"></div>
                 <div class="card-names">

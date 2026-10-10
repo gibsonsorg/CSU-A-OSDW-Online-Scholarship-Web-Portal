@@ -45,11 +45,35 @@ class AuthenticatedSessionController extends Controller
             return redirect(route('login'))->with('error', 'Your account application was rejected. Reason: ' . ($user->rejection_reason ?? 'Not specified'));
         }
 
-        $fallback = (isset($user->role) && ((string)$user->role) === '0')
+        $isAdmin = isset($user->role) && (string) $user->role === '0';
+        $fallback = $isAdmin
             ? route('admin.dashboard', absolute: false)
             : route('dashboard', absolute: false);
 
-        return redirect()->intended($fallback);
+        $intendedUrl = $request->session()->pull('url.intended');
+        $intendedPath = is_string($intendedUrl) ? parse_url($intendedUrl, PHP_URL_PATH) : null;
+        $intendedHost = is_string($intendedUrl) ? parse_url($intendedUrl, PHP_URL_HOST) : null;
+        $intendedQuery = is_string($intendedUrl) ? parse_url($intendedUrl, PHP_URL_QUERY) : null;
+        $intendedPathIsSafe = is_string($intendedPath)
+            && str_starts_with($intendedPath, '/')
+            && !str_starts_with($intendedPath, '//')
+            && !str_contains($intendedPath, '\\');
+        $intendedIsLocal = $intendedHost === null
+            ? $intendedPathIsSafe
+            : is_string($intendedHost) && strcasecmp($intendedHost, $request->getHost()) === 0;
+        $intendedIsAdminRoute = is_string($intendedPath)
+            && (
+                $intendedPath === '/admin'
+                || str_starts_with($intendedPath, '/admin/')
+                || $intendedPath === '/api/backup'
+                || str_starts_with($intendedPath, '/api/backup/')
+            );
+
+        if ($intendedIsLocal && $intendedIsAdminRoute === $isAdmin) {
+            return redirect($intendedPath . (is_string($intendedQuery) ? '?' . $intendedQuery : ''));
+        }
+
+        return redirect($fallback);
     }
 
     /**

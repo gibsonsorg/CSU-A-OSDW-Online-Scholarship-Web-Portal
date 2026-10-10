@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Models\StudentProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -29,6 +30,124 @@ class AuthenticationTest extends TestCase
 
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_admins_are_redirected_to_admin_dashboard(): void
+    {
+        $admin = User::factory()->approved()->create(['role' => 0]);
+
+        $response = $this->post('/login', [
+            'login_type' => 'admin',
+            'email' => $admin->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($admin);
+        $response->assertRedirect(route('admin.dashboard', absolute: false));
+    }
+
+    public function test_admin_with_student_profile_ignores_student_intended_url(): void
+    {
+        $admin = User::factory()->approved()->create(['role' => 0]);
+        StudentProfile::create([
+            'user_id' => $admin->id,
+            'source' => 'application',
+            'first_name' => 'Admin',
+            'last_name' => 'Profile',
+            'sex' => 'Female',
+            'status' => 'Single',
+            'email' => $admin->email,
+            'course' => 'Information Technology',
+            'scholarship_name' => 'Test Scholarship',
+            'scholarship_type' => 'Academic',
+            'grant_type' => 'academic',
+            'application_status' => 'pending',
+        ]);
+
+        $response = $this->withSession(['url.intended' => '/dashboard?section=non'])
+            ->post('/login', [
+                'login_type' => 'admin',
+                'email' => $admin->email,
+                'password' => 'password',
+            ]);
+
+        $this->assertAuthenticatedAs($admin);
+        $response->assertRedirect(route('admin.dashboard', absolute: false));
+    }
+
+    public function test_student_login_uses_student_dashboard_even_with_admin_intended_url(): void
+    {
+        $student = User::factory()->approved()->create(['role' => 1]);
+
+        $response = $this->withSession(['url.intended' => '/admin'])
+            ->post('/login', [
+                'login_type' => 'student',
+                'login_identifier' => $student->email,
+                'password' => 'password',
+            ]);
+
+        $this->assertAuthenticatedAs($student);
+        $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_student_login_does_not_follow_admin_backup_intended_url(): void
+    {
+        $student = User::factory()->approved()->create(['role' => 1]);
+
+        $response = $this->withSession(['url.intended' => '/api/backup/logs'])
+            ->post('/login', [
+                'login_type' => 'student',
+                'login_identifier' => $student->email,
+                'password' => 'password',
+            ]);
+
+        $this->assertAuthenticatedAs($student);
+        $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_student_cannot_access_admin_dashboard(): void
+    {
+        $student = User::factory()->approved()->create(['role' => 1]);
+
+        $this->actingAs($student)
+            ->get(route('admin.dashboard', absolute: false))
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_access_admin_dashboard_after_login(): void
+    {
+        $admin = User::factory()->approved()->create(['role' => 0]);
+
+        $loginResponse = $this->post('/login', [
+            'login_type' => 'admin',
+            'email' => $admin->email,
+            'password' => 'password',
+        ]);
+        $loginResponse->assertRedirect(route('admin.dashboard', absolute: false));
+
+        $this->get(route('admin.dashboard', absolute: false))->assertOk();
+    }
+
+    public function test_admin_can_logout_and_login_again(): void
+    {
+        $admin = User::factory()->approved()->create(['role' => 0]);
+
+        $this->post('/login', [
+            'login_type' => 'admin',
+            'email' => $admin->email,
+            'password' => 'password',
+        ])->assertRedirect(route('admin.dashboard', absolute: false));
+
+        $this->post('/logout')
+            ->assertRedirect(route('login', ['login_type' => 'admin']));
+        $this->assertGuest();
+
+        $this->post('/login', [
+            'login_type' => 'admin',
+            'email' => $admin->email,
+            'password' => 'password',
+        ])->assertRedirect(route('admin.dashboard', absolute: false));
+        $this->assertAuthenticatedAs($admin);
     }
 
     public function test_students_receive_generic_error_for_invalid_credentials(): void
@@ -95,6 +214,7 @@ class AuthenticationTest extends TestCase
             ]);
 
             $response->assertSessionHasErrors(['email']);
+            $response->assertRedirect('/login');
             $response->assertSessionHas('errors', function ($errors) {
                 $message = $errors->get('email')[0] ?? null;
                 return $message === 'Your email or password is incorrect.';

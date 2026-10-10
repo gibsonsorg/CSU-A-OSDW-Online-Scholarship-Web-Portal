@@ -78,67 +78,8 @@
     </div>
 
     @if($filterType === 'dashboard')
-        <section class="needs-attention-panel" aria-labelledby="needs-attention-title">
-            <div class="needs-attention-header">
-                <div>
-                    <span class="needs-attention-icon" aria-hidden="true"></span>
-                    <h2 id="needs-attention-title">Needs Attention</h2>
-                </div>
-            </div>
-
-            <div class="needs-attention-grid">
-                <section class="needs-attention-section" aria-labelledby="pending-applications-title">
-                    <h3 id="pending-applications-title">Pending Applications (Aging)</h3>
-                    @forelse($pendingApplications as $application)
-                        <div class="needs-attention-item">
-                            <div class="needs-attention-text">
-                                <span class="needs-attention-name">{{ $application['scholarship_name'] ?: 'Scholarship' }}</span>
-                                <span class="needs-attention-subtitle">{{ $application['full_name'] ?: 'Applicant' }}</span>
-                            </div>
-                            <div class="needs-attention-actions">
-                                <span class="needs-attention-badge needs-attention-badge-{{ $application['urgency'] }}">{{ $application['days_pending'] }} day{{ $application['days_pending'] === 1 ? '' : 's' }}</span>
-                                <button type="button" class="needs-attention-link needs-attention-review" data-id="{{ $application['id'] }}">Review <span aria-hidden="true">→</span></button>
-                            </div>
-                        </div>
-                    @empty
-                        <p class="needs-attention-empty">Nothing needs attention right now.</p>
-                    @endforelse
-                </section>
-
-                <section class="needs-attention-section" aria-labelledby="closing-soon-title">
-                    <h3 id="closing-soon-title">Scholarships Closing Soon</h3>
-                    @forelse($scholarshipsClosingSoon as $scholarship)
-                        <div class="needs-attention-item">
-                            <div class="needs-attention-text">
-                                <span class="needs-attention-name">{{ $scholarship['name'] }}</span>
-                            </div>
-                            <div class="needs-attention-actions">
-                                <span class="needs-attention-badge needs-attention-badge-{{ $scholarship['urgency'] }}">{{ $scholarship['days_remaining'] }} day{{ $scholarship['days_remaining'] === 1 ? '' : 's' }}</span>
-                                <a class="needs-attention-link" href="{{ route('admin.scholarships.availability', ['name' => $scholarship['name']]) }}">Manage <span aria-hidden="true">→</span></a>
-                            </div>
-                        </div>
-                    @empty
-                        <p class="needs-attention-empty">Nothing needs attention right now.</p>
-                    @endforelse
-                </section>
-            </div>
-
-            <section class="needs-attention-section needs-attention-section-full" aria-labelledby="near-capacity-title">
-                <h3 id="near-capacity-title">Scholarships Near Capacity</h3>
-                @forelse($nearCapacityScholarships as $scholarship)
-                    <div class="needs-attention-capacity-item">
-                        <div class="needs-attention-capacity-row">
-                            <span class="needs-attention-name">{{ $scholarship['name'] }}</span>
-                            <span class="needs-attention-capacity-value">{{ $scholarship['active_applications'] }}/{{ $scholarship['max_slots'] }} slots filled</span>
-                        </div>
-                        <div class="needs-attention-progress-track" aria-hidden="true">
-                            <span class="needs-attention-progress-bar needs-attention-progress-{{ $scholarship['urgency'] }}" style="width: {{ min(100, $scholarship['percentage']) }}%"></span>
-                        </div>
-                    </div>
-                @empty
-                    <p class="needs-attention-empty">Nothing needs attention right now.</p>
-                @endforelse
-            </section>
+        <section id="needsAttentionPanel" class="needs-attention-panel" aria-labelledby="needs-attention-title" data-endpoint="{{ route('admin.dashboard.needs_attention') }}" data-page="{{ $needsAttentionPage }}" data-total-pages="{{ $needsAttentionTotalPages }}">
+            @include('admin.partials.needs-attention-content')
         </section>
     @endif
 
@@ -403,6 +344,16 @@
             </div>
         </div>
     </div>
+
+<div id="oldGrantRecordsModal" class="old-grant-records-overlay" aria-hidden="true" hidden>
+    <section class="old-grant-records-dialog" role="dialog" aria-modal="true" aria-labelledby="oldGrantRecordsTitle" tabindex="-1">
+        <header class="old-grant-records-header">
+            <h2 id="oldGrantRecordsTitle">Old Grants Records</h2>
+            <button type="button" class="old-grant-records-close" data-old-grant-modal-close aria-label="Close Old Grants Records">&times;</button>
+        </header>
+        <ul id="oldGrantRecordsList" class="old-grant-records-list"></ul>
+    </section>
+</div>
 
 <div id="documentPreviewModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;">
     <div class="modal-content" style="max-width:1100px;width:92%;background:white;border-radius:8px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,0.3);position:relative;">

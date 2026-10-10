@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Manage Availability | CSU Grants</title>
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
     @include('admin.partials.sidebar')
@@ -22,15 +23,27 @@
 
         <div class="content availability-page">
             @if (session('success'))
-                <div class="alert alert-success">{{ session('success') }}</div>
-            @endif
-
-            @if ($errors->any())
-                <div class="alert alert-danger" role="alert">
-                    @foreach ($errors->all() as $error)
-                        <div>{{ $error }}</div>
-                    @endforeach
-                </div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Saved Successfully!',
+                            text: 'Scholarship availability has been updated successfully.',
+                            confirmButtonColor: '#6b0f1a',
+                        });
+                    });
+                </script>
+            @elseif (session('error') || $errors->any())
+                <script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Unable to Save Changes',
+                            text: @json(session('error') ?: $errors->first()),
+                            confirmButtonColor: '#6b0f1a',
+                        });
+                    });
+                </script>
             @endif
 
             <form method="GET" action="{{ route('admin.scholarships.availability') }}" class="availability-filters">
@@ -133,6 +146,66 @@
     </div>
 
     <script>
+        (function () {
+            let confirmationOpen = false;
+
+            document.querySelectorAll('.availability-table .save-btn').forEach(function (button) {
+                button.addEventListener('click', async function (event) {
+                    event.preventDefault();
+
+                    if (confirmationOpen || button.disabled) return;
+
+                    const form = document.getElementById(button.getAttribute('form'));
+                    if (!form) return;
+
+                    confirmationOpen = true;
+                    let result;
+
+                    try {
+                        result = await Swal.fire({
+                            title: 'Are you sure?',
+                            text: 'Do you want to save these scholarship availability changes?',
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, Save Changes',
+                            cancelButtonText: 'No, Cancel',
+                            confirmButtonColor: '#6b0f1a',
+                            cancelButtonColor: '#6b7280',
+                            reverseButtons: true,
+                            focusCancel: true,
+                        });
+                    } catch (error) {
+                        confirmationOpen = false;
+                        await Swal.fire({
+                            icon: 'error',
+                            title: 'Unable to Open Confirmation',
+                            text: 'Please try saving again.',
+                            confirmButtonColor: '#6b0f1a',
+                        });
+                        return;
+                    }
+
+                    confirmationOpen = false;
+                    if (!result.isConfirmed || !form.reportValidity()) return;
+
+                    button.disabled = true;
+                    button.textContent = 'Saving...';
+                    try {
+                        form.requestSubmit();
+                    } catch (error) {
+                        button.disabled = false;
+                        button.textContent = 'Save';
+                        await Swal.fire({
+                            icon: 'error',
+                            title: 'Unable to Save Changes',
+                            text: 'Please try again.',
+                            confirmButtonColor: '#6b0f1a',
+                        });
+                    }
+                });
+            });
+        })();
+
         document.querySelectorAll('[data-time-toggle]').forEach(function (toggle) {
             const row = toggle.closest('tr');
             const fields = row.querySelectorAll('[data-start-time], [data-end-time]');

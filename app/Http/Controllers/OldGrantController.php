@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Imports\OldGrantImport;
 use App\Models\OldGrantRecord;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -155,15 +156,24 @@ class OldGrantController extends Controller
         $scholarshipName = trim((string) $request->query('scholarship_name', ''));
         $yearLevel = trim((string) $request->query('year_level', ''));
         $course = trim((string) $request->query('course', ''));
+        $firstLastNameExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? "LOWER(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))"
+            : 'LOWER(CONCAT(COALESCE(first_name, ""), " ", COALESCE(last_name, "")))';
+        $lastFirstNameExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? "LOWER(COALESCE(last_name, '') || ' ' || COALESCE(first_name, ''))"
+            : 'LOWER(CONCAT(COALESCE(last_name, ""), " ", COALESCE(first_name, "")))';
+        $amountOrderExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? 'CASE WHEN amount IS NULL OR TRIM(amount) = "" THEN 1 ELSE 0 END ASC'
+            : 'CASE WHEN amount IS NULL OR TRIM(amount) = "" OR (amount NOT REGEXP "^[0-9]+(\\\\.[0-9]+)?$" AND UPPER(TRIM(amount)) <> "FREE TUITION") THEN 1 ELSE 0 END ASC';
 
         $query = OldGrantRecord::where('scholarship_type', $grantType)
-            ->when($search !== '', function ($query) use ($search) {
+            ->when($search !== '', function ($query) use ($search, $firstLastNameExpression, $lastFirstNameExpression) {
                 $searchTerm = strtolower($search);
-                $query->where(function ($query) use ($searchTerm) {
+                $query->where(function ($query) use ($searchTerm, $firstLastNameExpression, $lastFirstNameExpression) {
                     $query->whereRaw('LOWER(COALESCE(first_name, "")) LIKE ?', ['%' . $searchTerm . '%'])
                         ->orWhereRaw('LOWER(COALESCE(last_name, "")) LIKE ?', ['%' . $searchTerm . '%'])
-                        ->orWhereRaw('LOWER(CONCAT(COALESCE(first_name, ""), " ", COALESCE(last_name, ""))) LIKE ?', ['%' . $searchTerm . '%'])
-                        ->orWhereRaw('LOWER(CONCAT(COALESCE(last_name, ""), " ", COALESCE(first_name, ""))) LIKE ?', ['%' . $searchTerm . '%']);
+                        ->orWhereRaw($firstLastNameExpression . ' LIKE ?', ['%' . $searchTerm . '%'])
+                        ->orWhereRaw($lastFirstNameExpression . ' LIKE ?', ['%' . $searchTerm . '%']);
                 });
             })
             ->when($scholarshipName !== '', function ($query) use ($scholarshipName) {
@@ -187,7 +197,7 @@ class OldGrantController extends Controller
             })
             ->orderByRaw($grantType === 'academic'
                 ? 'CASE WHEN year IS NULL OR TRIM(year) = "" THEN 1 ELSE 0 END ASC'
-                : 'CASE WHEN amount IS NULL OR TRIM(amount) = "" OR (amount NOT REGEXP "^[0-9]+(\\\\.[0-9]+)?$" AND UPPER(TRIM(amount)) <> "FREE TUITION") THEN 1 ELSE 0 END ASC')
+                : $amountOrderExpression)
             ->orderByRaw('CASE WHEN sequence_no IS NULL OR TRIM(sequence_no) = "" THEN 2147483647 ELSE CAST(sequence_no AS UNSIGNED) END ASC');
 
         return $query->paginate(10)->withQueryString();

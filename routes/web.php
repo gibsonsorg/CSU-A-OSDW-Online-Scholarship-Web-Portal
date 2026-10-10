@@ -9,6 +9,7 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\ScholarshipController;
 use App\Models\StudentProfile;
 use App\Models\Scholarship;
+use App\Models\OldGrantRecord;
 use Illuminate\Support\Facades\Route;
 
 //HOME ROUTE
@@ -160,6 +161,7 @@ Route::get('/admin/non-academic', [AdminController::class, 'nonAcademicDashboard
 
 // Admin scholarship creation
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {
+    Route::get('/admin/dashboard/needs-attention', [AdminController::class, 'needsAttention'])->name('admin.dashboard.needs_attention');
     Route::get('/admin/scholarships/create', [ScholarshipController::class, 'create'])->name('admin.scholarships.create');
     Route::get('/admin/scholarships/availability', [ScholarshipController::class, 'availabilityIndex'])->name('admin.scholarships.availability');
     Route::patch('/admin/scholarships/{scholarship}/availability', [ScholarshipController::class, 'updateAvailability'])->name('admin.scholarships.availability.update');
@@ -189,7 +191,50 @@ Route::post('/admin/users/{id}/delete', [AdminController::class, 'deleteUser'])-
 Route::get('/admin/applications/{id}', function($id){
     $p = StudentProfile::with('familyBackground')->find($id);
     if (!$p) return response()->json(['error'=>'not_found'], 404);
-    return response()->json($p);
+
+    $matches = collect();
+
+    if ($p->source === 'application') {
+        $normalizeName = static function ($value, bool $dropSuffix = false): string {
+            $value = strtoupper((string) $value);
+            $value = str_replace(['.', ','], '', $value);
+            $value = preg_replace('/\s+/', ' ', trim($value)) ?? '';
+
+            if ($dropSuffix) {
+                $value = preg_replace('/\s+(JR|SR|II|III|IV)$/', '', $value) ?? $value;
+            }
+
+            return trim($value);
+        };
+
+        $normalizedFirstName = $normalizeName($p->first_name);
+        $normalizedLastName = $normalizeName($p->last_name, true);
+
+        if ($normalizedFirstName !== '' && $normalizedLastName !== '') {
+            $lastNameInitial = addcslashes(substr($normalizedLastName, 0, 1), '\\%_');
+            $lastNamePrefix = $lastNameInitial . '%';
+            $matches = OldGrantRecord::query()
+                ->select(['first_name', 'last_name', 'scholarship_name', 'scholarship_type', 'year'])
+                ->where(function ($query) use ($lastNamePrefix, $lastNameInitial) {
+                    $query->where('last_name', 'like', $lastNamePrefix)
+                        ->orWhereRaw(
+                            "UPPER(LTRIM(REPLACE(REPLACE(TRIM(last_name), '.', ''), ',', ''))) LIKE ?",
+                            [$lastNameInitial . '%']
+                        );
+                })
+                ->get()
+                ->filter(static function (OldGrantRecord $record) use ($normalizeName, $normalizedFirstName, $normalizedLastName): bool {
+                    return $normalizeName($record->first_name) === $normalizedFirstName
+                        && $normalizeName($record->last_name, true) === $normalizedLastName;
+                })
+                ->values();
+        }
+    }
+
+    $payload = $p->toArray();
+    $payload['old_grant_matches'] = $matches;
+
+    return response()->json($payload);
 })->middleware(['auth', 'admin']);
 
 // Approve application endpoint
