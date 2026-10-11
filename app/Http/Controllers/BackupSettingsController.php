@@ -17,13 +17,8 @@ class BackupSettingsController extends Controller
             ->get();
 
         $backupLogs = BackupLog::latest()->take(10)->get();
-        $googleTokenWarning = BackupLog::where('type', 'automatic')
-            ->where('status', 'failed')
-            ->where('error_message', 'Google Drive token expired. Please generate a new refresh token.')
-            ->latest()
-            ->first();
 
-        return view('admin.settings', compact('deletedApplicants', 'backupLogs', 'googleTokenWarning'));
+        return view('admin.settings', compact('deletedApplicants', 'backupLogs'));
     }
 
     public function generateManualBackup()

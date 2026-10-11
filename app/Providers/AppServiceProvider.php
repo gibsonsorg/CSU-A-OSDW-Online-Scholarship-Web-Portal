@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Announcement;
 use App\Services\AdminDashboardStats;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
@@ -34,6 +35,21 @@ class AppServiceProvider extends ServiceProvider
     {
         View::composer('admin.welcome', function (ViewInstance $view): void {
             $view->with('stats', app(AdminDashboardStats::class)->get());
+        });
+
+        View::composer('layouts.navigation', function (ViewInstance $view): void {
+            $user = auth()->user();
+            $hasNewAnnouncements = false;
+
+            if ($user && (string) $user->role !== '0') {
+                $query = Announcement::query();
+                if ($user->announcements_seen_at) {
+                    $query->where('created_at', '>', $user->announcements_seen_at);
+                }
+                $hasNewAnnouncements = $query->exists();
+            }
+
+            $view->with('hasNewAnnouncements', $hasNewAnnouncements);
         });
     }
 }

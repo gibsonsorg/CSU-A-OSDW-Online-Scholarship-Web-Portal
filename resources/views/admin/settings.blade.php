@@ -544,12 +544,6 @@
                     </div>
                 </div>
 
-                @if($googleTokenWarning)
-                    <div class="backup-warning-banner">
-                        Warning: {{ $googleTokenWarning->error_message }}
-                    </div>
-                @endif
-
                 <!-- Backup History Section -->
                 <div class="backup-history-section table-section">
                     <h2>Backup History</h2>

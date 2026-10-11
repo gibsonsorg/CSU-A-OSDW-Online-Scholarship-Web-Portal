@@ -235,12 +235,6 @@ class StudentProfileController extends Controller
 
     private function resolveCollegeDepartment(?string $course): ?string
     {
-        $course = trim((string) $course);
-
-        if ($course === 'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY') {
-            return 'College of Industrial Technology';
-        }
-
         return CourseCollegeDepartment::forCourse($course);
     }
 
@@ -384,6 +378,11 @@ class StudentProfileController extends Controller
             $data[$field] = $value;
         }
 
+        if ($grantType === 'academic') {
+            $data['college_department'] = $this->resolveCollegeDepartment($profile->course) ?? $profile->college_department;
+            $data['program'] = CourseCollegeDepartment::programForCourse($profile->course) ?? '';
+        }
+
         return response()->json([
             'data' => $data,
             'grant_type' => $grantType,
@@ -472,7 +471,7 @@ class StudentProfileController extends Controller
 
             $isAcademic = $selectedScholarship
                 ? $selectedScholarship->type === 'academic'
-                : $request->has('program');
+                : ($request->input('application_form_type') === 'academic' || $request->has('program'));
             $request->merge([
                 'student_id_number' => $request->input('student_id_number') ?? $request->input('id_number') ?? Auth::user()?->student_id,
             ]);
@@ -531,7 +530,15 @@ class StudentProfileController extends Controller
 
             // Add academic-specific fields if this is an academic form
             if ($isAcademic) {
-                $validationRules['program'] = 'required|string|max:255';
+                $validationRules['course'] = [
+                    'required',
+                    'string',
+                    function (string $attribute, mixed $value, \Closure $fail): void {
+                        if (CourseCollegeDepartment::programForCourse($value) === null) {
+                            $fail('Select a valid course.');
+                        }
+                    },
+                ];
                 $validationRules['religion'] = 'required|in:' . implode(',', ReligionOption::OPTIONS) . ',Others|max:255';
                 $validationRules['religion_other'] = 'nullable|required_if:religion,Others|string|max:255';
             }
@@ -1130,6 +1137,11 @@ class StudentProfileController extends Controller
                     DB::rollBack();
                     return redirect()->route('dashboard', ['section' => $isAcademic ? 'acad' : 'non'])
                         ->with('error', 'You already have two active applications, so this scholarship is not available.');
+                }
+
+                if ($isAcademic) {
+                    $data['college_department'] = $this->resolveCollegeDepartment($data['course'] ?? null);
+                    $data['program'] = CourseCollegeDepartment::programForCourse($data['course'] ?? null);
                 }
 
                 if ($existingApp && $canReapply && $previousProfile) {

@@ -5,22 +5,66 @@ namespace App\Support;
 final class CourseCollegeDepartment
 {
     private const MAP = [
-        'BACHELOR OF SCIENCE IN CRIMINOLOGY' => 'College of Criminal Justice Education',
-        'BACHELOR OF SCIENCE IN FISHERIES' => 'College of Fisheries and Aquatic Sciences',
-        'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY' => 'College of Information and Computing Science',
-        'BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT' => 'College of Hospitality Management',
-        'BACHELOR OF SECONDARY EDUCATION' => 'College of Teacher Education',
-        'BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM' => 'College of Business, Entrepreneurship and Accountancy',
-        'BACHELOR OF ELEMENTARY EDUCATION' => 'College of Teacher Education',
-        'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY' => 'College of Industrial Technology',
-        'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics' => 'College of Industrial Technology',
-        'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Automotive' => 'College of Industrial Technology',
+        'BACHELOR OF SCIENCE IN CRIMINOLOGY' => [
+            'college_department' => 'College of Criminal Justice Education',
+            'program' => 'BSCRIM',
+        ],
+        'BACHELOR OF SCIENCE IN FISHERIES' => [
+            'college_department' => 'College of Fisheries and Aquatic Sciences',
+            'program' => 'BSIF',
+        ],
+        'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY' => [
+            'college_department' => 'College of Information and Computing Science',
+            'program' => 'BSIT',
+        ],
+        'BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT' => [
+            'college_department' => 'College of Hospitality Management',
+            'program' => 'BSHM',
+        ],
+        'BACHELOR OF SECONDARY EDUCATION' => [
+            'college_department' => 'College of Teacher Education',
+            'program' => 'BSED',
+        ],
+        'BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM' => [
+            'college_department' => 'College of Business, Entrepreneurship and Accountancy',
+            'program' => 'BSAIS',
+        ],
+        'BACHELOR OF ELEMENTARY EDUCATION' => [
+            'college_department' => 'College of Teacher Education',
+            'program' => 'BEED',
+        ],
+        'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY' => [
+            'college_department' => 'College of Industrial Technology',
+            'program' => 'BSIndTech',
+        ],
+        'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics' => [
+            'college_department' => 'College of Industrial Technology',
+            'program' => 'BSIndTech',
+        ],
+        'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Automotive' => [
+            'college_department' => 'College of Industrial Technology',
+            'program' => 'BSIndTech',
+        ],
     ];
 
     public static function forCourse(?string $course): ?string
     {
-        $trimmed = trim((string) $course);
-        return self::MAP[$trimmed] ?? null;
+        return self::courseInformation($course)['college_department'] ?? null;
+    }
+
+    public static function programForCourse(?string $course): ?string
+    {
+        return self::courseInformation($course)['program'] ?? null;
+    }
+
+    public static function informationMap(): array
+    {
+        $map = [];
+        foreach (self::MAP as $course => $information) {
+            $map[self::normalizeCourse($course)] = $information;
+        }
+
+        return $map;
     }
 
     public static function courses(): array
@@ -30,6 +74,30 @@ final class CourseCollegeDepartment
 
     public static function map(): array
     {
-        return self::MAP;
+        $map = [];
+        foreach (self::MAP as $course => $information) {
+            $map[$course] = $information['college_department'];
+        }
+
+        return $map;
+    }
+
+    private static function courseInformation(?string $course): ?array
+    {
+        $normalizedCourse = self::normalizeCourse($course);
+        foreach (self::MAP as $knownCourse => $information) {
+            if (self::normalizeCourse($knownCourse) === $normalizedCourse) {
+                return $information;
+            }
+        }
+
+        return null;
+    }
+
+    private static function normalizeCourse(?string $course): string
+    {
+        $collapsed = preg_replace('/\s+/', ' ', trim((string) $course)) ?? '';
+
+        return mb_strtoupper($collapsed);
     }
 }

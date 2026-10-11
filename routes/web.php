@@ -7,6 +7,9 @@ use App\Http\Controllers\OldGrantController;
 use App\Http\Controllers\BackupSettingsController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\ScholarshipController;
+use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\AdminAnnouncementController;
+use App\Http\Controllers\AnnouncementImageController;
 use App\Models\StudentProfile;
 use App\Models\Scholarship;
 use App\Models\OldGrantRecord;
@@ -147,6 +150,33 @@ Route::post('/student/notifications/read-all', [StudentProfileController::class,
 Route::get('/student-application-prefill', [StudentProfileController::class, 'applicationPrefill'])
     ->middleware(['auth', 'verified', 'web'])
     ->name('student.application-prefill');
+
+Route::middleware(['auth', 'verified', 'approved.student'])->group(function (): void {
+    Route::get('/announcements', [AnnouncementController::class, 'index'])->name('student.announcements.index');
+    Route::get('/announcements/{announcement}/comments', [AnnouncementController::class, 'comments'])->name('student.announcements.comments.index');
+    Route::post('/announcements/{announcement}/comments', [AnnouncementController::class, 'storeComment'])
+        ->middleware('throttle:10,1')
+        ->name('student.announcements.comments.store');
+    Route::delete('/announcement-comments/{comment}', [AnnouncementController::class, 'destroyOwnComment'])
+        ->name('student.announcements.comments.destroy');
+});
+
+Route::get('/announcements/images/{image}', [AnnouncementImageController::class, 'show'])
+    ->middleware(['auth', 'verified'])
+    ->name('announcements.images.show');
+
+Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function (): void {
+    Route::get('/announcements', [AdminAnnouncementController::class, 'index'])->name('announcements.index');
+    Route::post('/announcements', [AdminAnnouncementController::class, 'store'])
+        ->middleware('throttle:5,1')
+        ->name('announcements.store');
+    Route::get('/announcements/{announcement}/edit', [AdminAnnouncementController::class, 'edit'])->name('announcements.edit');
+    Route::get('/announcements/{announcement}/comments', [AdminAnnouncementController::class, 'comments'])->name('announcements.comments');
+    Route::put('/announcements/{announcement}', [AdminAnnouncementController::class, 'update'])->name('announcements.update');
+    Route::delete('/announcements/{announcement}', [AdminAnnouncementController::class, 'destroy'])->name('announcements.destroy');
+    Route::patch('/announcements/{announcement}/pin', [AdminAnnouncementController::class, 'togglePin'])->name('announcements.pin');
+    Route::delete('/announcement-comments/{comment}', [AdminAnnouncementController::class, 'destroyComment'])->name('announcements.comments.destroy');
+});
 
 //ADMIN DASHBOARD ROUTE 
 // Admin dashboard - shows recent applications

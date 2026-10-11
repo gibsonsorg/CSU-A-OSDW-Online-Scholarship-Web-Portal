@@ -28,6 +28,12 @@
         <a href="{{ route('application-status') }}" class="student-sidebar-link {{ request()->routeIs('application-status') ? 'active' : '' }}">
             {{ __('Application Status') }}
         </a>
+        <a href="{{ route('student.announcements.index') }}" class="student-sidebar-link {{ request()->routeIs('student.announcements.*') ? 'active' : '' }}">
+            <span>Announcements</span>
+            @if ($hasNewAnnouncements ?? false)
+                <span class="student-announcements-new-dot" aria-label="New announcements"></span>
+            @endif
+        </a>
 
         <div class="student-sidebar-footer">
             <div class="student-sidebar-divider"></div>
@@ -529,6 +535,15 @@
     .student-sidebar-link.active {
         background: linear-gradient(135deg, var(--maroon-light, #8b1a28), var(--maroon, #6b0f1a));
         color: var(--gold-light, #f5d9a7);
+    }
+
+    .student-announcements-new-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #f0c45b;
+        flex: 0 0 8px;
+        box-shadow: 0 0 0 2px rgba(240, 196, 91, 0.18);
     }
 
     .student-sidebar-logout-form {

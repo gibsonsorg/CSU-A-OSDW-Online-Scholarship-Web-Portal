@@ -1276,6 +1276,7 @@ Students from municipalities without accessible colleges or higher education ins
                 @csrf
                 <input type="hidden" name="application_id" value="">
                 <input type="hidden" name="student_profile_id" value="">
+                <input type="hidden" name="application_form_type" value="academic">
 
                 <div class="apply-row academic-step-panel active" data-academic-step="1">
                     <div>
@@ -1328,8 +1329,8 @@ Students from municipalities without accessible colleges or higher education ins
                         </select>
                     </div>
                     <div>
-                        <label>Program</label>
-                        <input class="input" type="text" name="program" required>
+                        <label for="academicProgram">Program</label>
+                        <input id="academicProgram" class="input" type="text" name="program" value="" readonly aria-readonly="true">
                     </div>
                     <div>
                         <label>College or Department</label>
@@ -1425,6 +1426,7 @@ Students from municipalities without accessible colleges or higher education ins
   <script>
     window.academicScholarshipIdMap = @json($academicScholarshipIdMap ?? []);
     window.nonAcademicScholarshipIdMap = @json($nonAcademicScholarshipIdMap ?? []);
+        window.courseInformationMap = @json(\App\Support\CourseCollegeDepartment::informationMap());
     window.scholarshipAvailabilityMessages = @json($scholarshipAvailabilityMessages ?? ['id' => [], 'name' => []]);
     window.scholarshipApplicationDateMessages = @json($scholarshipApplicationDateMessages ?? ['id' => [], 'name' => []]);
     window.scholarshipSlotCounts = @json($scholarshipSlotCounts ?? ['id' => [], 'name' => []]);

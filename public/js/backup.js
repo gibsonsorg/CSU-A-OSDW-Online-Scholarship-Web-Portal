@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 async function handleManualBackup(e) {
     e.preventDefault();
-    
+
     const button = e.target.querySelector('button[type="submit"]');
     const originalText = button.innerHTML;
     button.disabled = true;
@@ -84,24 +84,74 @@ async function handleManualBackup(e) {
             },
         });
 
-        const data = await response.json();
+        const data = await parseJsonResponse(response);
 
         if (data.status === 'success') {
+            const backupId = data.backup_id;
+            if (!backupId) {
+                throw new Error('Backup was created, but no download ID was returned.');
+            }
+
             showNotification('✓ Backup created successfully! Downloading...', 'success');
-            // Trigger download
-            setTimeout(() => {
-                window.location.href = `/api/backup/${data.backup_id ?? 'latest'}/download`;
-                loadBackupHistory();
-            }, 500);
+            await triggerBackupDownload(backupId, data.filename || 'backup.zip');
+            loadBackupHistory();
         } else {
-            showNotification('✗ ' + (data.message || 'Backup creation failed'), 'error');
+            throw new Error(data.message || 'Backup creation failed');
         }
     } catch (error) {
-        showNotification('✗ Error: ' + error.message, 'error');
+        showNotification('✗ ' + error.message, 'error');
     } finally {
         button.disabled = false;
         button.innerHTML = originalText;
     }
+}
+
+async function parseJsonResponse(response) {
+    const contentType = response.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+        return response.json();
+    }
+
+    const text = await response.text();
+    if (!text.trim()) {
+        return {};
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        if (text.toLowerCase().includes('<!doctype html') || text.toLowerCase().includes('<html')) {
+            throw new Error('The server returned an HTML error page. Please make sure you are still logged in and the backup route is available.');
+        }
+
+        throw new Error(text.slice(0, 180) || 'Request failed');
+    }
+}
+
+async function triggerBackupDownload(backupId, filename) {
+    const response = await fetch(`/api/backup/${backupId}/download`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+
+    if (!response.ok) {
+        const errorData = await parseJsonResponse(response).catch(() => null);
+        const message = errorData && errorData.message ? errorData.message : 'Backup download failed.';
+        throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename || 'backup.zip';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
 }
 
 /**
@@ -462,7 +512,12 @@ async function restoreBackup(backupId) {
  */
 async function downloadBackup(backupId) {
     try {
-        window.location.href = `/api/backup/${backupId}/download`;
+        const backupRow = document.querySelector(`button[onclick="downloadBackup(${backupId})"]`);
+        const filename = backupRow && backupRow.closest('tr')
+            ? backupRow.closest('tr').querySelector('td')?.textContent?.trim() || 'backup.zip'
+            : 'backup.zip';
+
+        await triggerBackupDownload(backupId, filename);
         showNotification('✓ Download started', 'success');
     } catch (error) {
         showNotification('✗ Error: ' + error.message, 'error');

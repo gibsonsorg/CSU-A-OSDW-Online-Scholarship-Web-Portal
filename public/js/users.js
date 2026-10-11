@@ -283,12 +283,16 @@ function applyDraftToForm(form, draft) {
 
     Object.entries(draft.values).forEach(([fieldName, value]) => {
         const input = form.querySelector(`[name="${fieldName}"]`);
+        if (fieldName === 'course') {
+            setCourseValueForForm(form, value);
+            updateCollegeDepartmentForForm(form);
+            return;
+        }
         if (!input || input.type === 'file' || input.readOnly) return;
         input.value = value ?? '';
-        if (fieldName === 'course' && input.value) {
-            updateCollegeDepartmentForForm(form);
-        }
     });
+
+    updateCollegeDepartmentForForm(form);
 
     if (form.id === 'academicApplyForm') {
         const religionField = form.querySelector('[name="religion"]');
@@ -360,6 +364,15 @@ function applyPrefillValueToForm(form, fieldName, value) {
         applyFamilyBackgroundPrefill(form, value);
         return;
     }
+    if (fieldName === 'course') {
+        setCourseValueForForm(form, value);
+        updateCollegeDepartmentForForm(form);
+        return;
+    }
+    if (fieldName === 'college_department' || (fieldName === 'program' && form.id === 'academicApplyForm')) {
+        updateCollegeDepartmentForForm(form);
+        return;
+    }
     const input = form.querySelector(`[name="${fieldName}"]`);
     if (!input || input.type === 'file') return;
     input.value = value;
@@ -377,9 +390,6 @@ function applyPrefillValueToForm(form, fieldName, value) {
     }
     if (form.id === 'applyForm' || form.id === 'academicApplyForm') initializeMobileFloatingLabels(form);
     normalizeApplicationFormValues(form);
-    if (fieldName === 'course' && input.value) {
-        updateCollegeDepartmentForForm(form);
-    }
 }
 
 function resolveReligionSelection(value) {
@@ -437,6 +447,7 @@ async function hydrateFormOpenState(form, grantType, scholarshipId, scholarshipN
         Object.entries(prefill).forEach(([fieldName, value]) => {
             applyPrefillValueToForm(form, fieldName, value);
         });
+        updateCollegeDepartmentForForm(form);
     } finally {
         setFormHydrationBusy(form, false);
         delete form.dataset.hydrating;
@@ -564,7 +575,6 @@ function prepareReapplication(title, modalType, scholarshipId) {
         course: profile.course,
         college_department: profile.college_department,
         year_level: profile.year_level,
-        program: profile.program,
         birthdate: profile.birthdate ? String(profile.birthdate).split('T')[0] : '',
         birthplace: profile.birthplace,
         sex: profile.sex,
@@ -577,10 +587,18 @@ function prepareReapplication(title, modalType, scholarshipId) {
     };
 
     Object.entries(values).forEach(([name, value]) => {
+        if (name === 'course') {
+            setCourseValueForForm(form, value);
+            updateCollegeDepartmentForForm(form);
+            return;
+        }
+        if (name === 'program' || name === 'college_department') return;
         const input = form.querySelector(`[name="${name}"]`);
         if (!input || value === null || value === undefined) return;
         input.value = value;
     });
+
+    updateCollegeDepartmentForForm(form);
 
     normalizeApplicationFormValues(form);
     if (form.id === 'academicApplyForm') {
@@ -594,17 +612,14 @@ function prepareReapplication(title, modalType, scholarshipId) {
         }
     }
 
-    const courseField = form.querySelector('[name="course"]');
-    if (courseField && courseField.value) {
-        updateCollegeDepartmentForForm(form);
-    }
+    updateCollegeDepartmentForForm(form);
 
     const applicationIdInput = form.querySelector('[name="application_id"]');
     const studentProfileIdInput = form.querySelector('[name="student_profile_id"]');
     if (applicationIdInput) applicationIdInput.value = profile.application_id || '';
     if (studentProfileIdInput) studentProfileIdInput.value = profile.id || '';
 
-    const studentFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'student_id_number', 'id_number', 'course', 'college_department', 'year_level', 'program'];
+    const studentFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'student_id_number', 'id_number', 'course', 'college_department', 'year_level'];
     const personalFields = ['birthdate', 'birthplace', 'sex', 'status', 'religion', 'contact_number', 'home_address'];
     const isWholeApplicationReopen = profile.application_status === 'rejected';
     const isRenewalReapplication = profile.renewal_required === true && profile.application_status === 'pending';
@@ -719,7 +734,7 @@ function prepareReapplication(title, modalType, scholarshipId) {
         panel.querySelectorAll('input, select, textarea').forEach(input => {
             const preserveScholarshipValue = ['scholarship_name', 'scholarship_type'].includes(input.name)
                 && sectionStatus.requirements !== 'rejected';
-            if (input.type !== 'hidden' && !input.dataset.reapplicationPreserved && !preserveScholarshipValue) {
+            if (input.type !== 'hidden' && input.name !== 'program' && !input.dataset.reapplicationPreserved && !preserveScholarshipValue) {
                 input.disabled = status !== 'rejected';
             }
         });
@@ -1367,27 +1382,55 @@ function validateFilesForSubmission(form, fileValidationRules) {
     return true;
 }
 
-const collegeDepartmentMap = {
-    'BACHELOR OF SCIENCE IN CRIMINOLOGY': 'College of Criminal Justice Education',
-    'BACHELOR OF SCIENCE IN FISHERIES': 'College of Fisheries and Aquatic Sciences',
-    'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY': 'College of Information and Computing Science',
-    'BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT': 'College of Hospitality Management',
-    'BACHELOR OF SECONDARY EDUCATION': 'College of Teacher Education',
-    'BACHELOR OF SCIENCE IN ACCOUNTING INFORMATION SYSTEM': 'College of Business, Entrepreneurship and Accountancy',
-    'BACHELOR OF ELEMENTARY EDUCATION': 'College of Teacher Education',
-    'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY': 'College of Industrial Technology',
-    'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Electronics': 'College of Industrial Technology',
-    'BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY- Major in Automotive': 'College of Industrial Technology',
-};
+function normalizeCourseKey(course) {
+    return String(course ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
+}
+
+function setCourseValueForForm(form, value) {
+    const courseField = form?.querySelector('[name="course"]');
+    if (!courseField) return;
+
+    const courseValue = String(value ?? '');
+    const normalizedCourse = normalizeCourseKey(courseValue);
+    const matchingOption = Array.from(courseField.options).find(option =>
+        normalizeCourseKey(option.value) === normalizedCourse
+    );
+
+    if (matchingOption) {
+        courseField.value = matchingOption.value;
+    } else if (courseValue.trim()) {
+        let preservedOption = Array.from(courseField.options).find(option => option.value === courseValue);
+        if (!preservedOption) {
+            preservedOption = new Option(courseValue, courseValue);
+            preservedOption.hidden = true;
+            preservedOption.dataset.preservedCourse = 'true';
+            courseField.add(preservedOption);
+        }
+        courseField.value = courseValue;
+    } else {
+        courseField.value = '';
+    }
+}
 
 function updateCollegeDepartmentForForm(form) {
     if (!form) return;
     const courseField = form.querySelector('[name="course"]');
     const collegeField = form.querySelector('[name="college_department"]');
-    if (!courseField || !collegeField) return;
-    const selectedCourse = String(courseField.value ?? '');
-    collegeField.value = collegeDepartmentMap[selectedCourse] || '';
-    collegeField.readOnly = true;
+    const courseInformation = window.courseInformationMap?.[normalizeCourseKey(courseField?.value)];
+
+    if (collegeField) {
+        collegeField.value = courseInformation?.college_department || '';
+        collegeField.readOnly = true;
+    }
+
+    const programField = form.id === 'academicApplyForm' ? form.querySelector('[name="program"]') : null;
+    if (programField) {
+        programField.value = courseInformation?.program || '';
+        programField.readOnly = true;
+    }
+
+    if (collegeField) refreshMobileFloatingField(collegeField);
+    if (programField) refreshMobileFloatingField(programField);
 }
 
 function updateReligionOtherField(form) {
@@ -1939,6 +1982,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 input.readOnly = false;
                 if (input.type === 'file') input.required = false;
             });
+            updateCollegeDepartmentForForm(form);
             const documentNames = form.querySelector('#academicCombinedDocumentNames');
             if (documentNames) documentNames.textContent = '';
             const resetCollegeField = form.querySelector('[name="college_department"]');

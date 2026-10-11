@@ -32,6 +32,7 @@ class User extends Authenticatable
         'email_verification_code_hash',
         'email_verification_expires_at',
         'email_verification_attempts',
+        'announcements_seen_at',
     ];
 
     /**
@@ -54,6 +55,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'email_verification_expires_at' => 'datetime',
+            'announcements_seen_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -61,5 +63,15 @@ class User extends Authenticatable
     public function studentNotifications()
     {
         return $this->hasMany(StudentNotification::class, 'user_id');
+    }
+
+    public function announcements()
+    {
+        return $this->hasMany(Announcement::class, 'admin_user_id');
+    }
+
+    public function announcementComments()
+    {
+        return $this->hasMany(AnnouncementComment::class);
     }
 }

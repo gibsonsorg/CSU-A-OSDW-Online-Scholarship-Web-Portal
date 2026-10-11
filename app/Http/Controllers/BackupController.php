@@ -25,12 +25,15 @@ class BackupController extends Controller
     {
         try {
             $result = $this->backupService->createBackup('manual');
-            
+
             if ($result['status'] === 'success') {
+                $backupId = $result['backup']->id ?? null;
+
                 return response()->json([
                     'status' => 'success',
                     'message' => 'Backup created successfully',
                     'filename' => $result['filename'],
+                    'backup_id' => $backupId,
                 ]);
             }
 
@@ -56,7 +59,7 @@ class BackupController extends Controller
             $localFilePath = storage_path('app/' . ltrim($backup->file_path, '/\\'));
 
             if (file_exists($localFilePath)) {
-                return response()->download($localFilePath, $backup->filename);
+                return response()->download($localFilePath, $backup->filename, ['Content-Type' => 'application/zip']);
             }
 
             if ($backup->backup_type === 'automatic' && $this->backupService->hasGoogleBackup($backup->filename)) {
