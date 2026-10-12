@@ -498,7 +498,7 @@
         try {
             const params = new URLSearchParams(window.location.search);
             const data = {
-                grant_type: amountButton?.dataset.grantType || '',
+                grant_type: isCombinedScope ? (params.get('grant_type') || 'all') : (amountButton?.dataset.grantType || ''),
                 date_from: params.get('date_from') || '',
                 date_to: params.get('date_to') || '',
                 scholarship_name: params.get('scholarship_name') || '',

@@ -1,4 +1,5 @@
 <form id="summary-report-filters" class="grant-filters" method="GET" action="{{ route('admin.dashboard') }}">
+    <input type="hidden" name="section" value="reports">
     <div class="grant-filter-field">
         <label for="summary-date-from">Date From</label>
         <input id="summary-date-from" type="date" name="date_from" value="{{ request('date_from') }}">

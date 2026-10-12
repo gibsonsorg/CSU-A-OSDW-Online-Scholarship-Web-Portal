@@ -344,6 +344,12 @@ class AdminController extends Controller
         $dateTo = (string) $request->query('date_to', '');
         $scholarshipName = trim((string) $request->query('scholarship_name', ''));
         $studentName = trim((string) $request->query('student_name', ''));
+        $firstLastNameExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? "LOWER(COALESCE(student_profiles.first_name, '') || ' ' || COALESCE(student_profiles.last_name, ''))"
+            : 'LOWER(CONCAT(COALESCE(student_profiles.first_name, ""), " ", COALESCE(student_profiles.last_name, "")))';
+        $lastFirstNameExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? "LOWER(COALESCE(student_profiles.last_name, '') || ' ' || COALESCE(student_profiles.first_name, ''))"
+            : 'LOWER(CONCAT(COALESCE(student_profiles.last_name, ""), " ", COALESCE(student_profiles.first_name, "")))';
         // CHANGE: Filter applicants by the minimum admin-entered amount.
         $status = strtolower((string) $request->query('status', 'all'));
         $allowedStatuses = ['all', 'approved', 'pending', 'rejected'];
@@ -363,14 +369,14 @@ class AdminController extends Controller
             ->when($scholarshipName !== '', function ($query) use ($scholarshipName) {
                 $query->where('student_profiles.scholarship_name', $scholarshipName);
             })
-            ->when($studentName !== '', function ($query) use ($studentName) {
+            ->when($studentName !== '', function ($query) use ($studentName, $status, $firstLastNameExpression, $lastFirstNameExpression) {
                 $searchTerm = strtolower($studentName);
-                $query->where(function ($query) use ($searchTerm) {
+                $query->where(function ($query) use ($searchTerm, $firstLastNameExpression, $lastFirstNameExpression) {
                     $query->whereRaw('LOWER(COALESCE(student_profiles.first_name, "")) LIKE ?', ['%' . $searchTerm . '%'])
                         ->orWhereRaw('LOWER(COALESCE(student_profiles.last_name, "")) LIKE ?', ['%' . $searchTerm . '%'])
                         ->orWhereRaw('LOWER(COALESCE(student_profiles.middle_name, "")) LIKE ?', ['%' . $searchTerm . '%'])
-                        ->orWhereRaw('LOWER(CONCAT(COALESCE(student_profiles.first_name, ""), " ", COALESCE(student_profiles.last_name, ""))) LIKE ?', ['%' . $searchTerm . '%'])
-                        ->orWhereRaw('LOWER(CONCAT(COALESCE(student_profiles.last_name, ""), " ", COALESCE(student_profiles.first_name, ""))) LIKE ?', ['%' . $searchTerm . '%']);
+                        ->orWhereRaw($firstLastNameExpression . ' LIKE ?', ['%' . $searchTerm . '%'])
+                        ->orWhereRaw($lastFirstNameExpression . ' LIKE ?', ['%' . $searchTerm . '%']);
                 });
                 if ($status === 'approved') {
                     $query->where(function ($approvedQuery) {
@@ -378,7 +384,7 @@ class AdminController extends Controller
                             ->orWhere('student_profiles.renewal_required', true)
                             ->orWhere('student_profiles.renewal_resubmitted', true);
                     });
-                } else {
+                } elseif ($status !== 'all') {
                     $query->where('student_profiles.application_status', $status);
                 }
             })
