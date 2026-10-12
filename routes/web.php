@@ -331,11 +331,11 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
 
 // BACKUP API ROUTES
 Route::middleware(['auth', 'verified', 'admin'])->prefix('api/backup')->group(function () {
-    Route::post('/create', [BackupController::class, 'create']);
-    Route::get('/list', [BackupController::class, 'list']);
-    Route::get('/{id}/download', [BackupController::class, 'download']);
-    Route::post('/{id}/restore', [BackupController::class, 'restore']);
-    Route::delete('/{id}', [BackupController::class, 'delete']);
-    Route::get('/schedule/get', [BackupController::class, 'getSchedule']);
-    Route::post('/schedule/update', [BackupController::class, 'updateSchedule']);
+    Route::post('/create', [BackupController::class, 'create'])->name('backup.api.create');
+    Route::get('/list', [BackupController::class, 'list'])->name('backup.api.list');
+    Route::get('/{id}/download', [BackupController::class, 'download'])->name('backup.api.download');
+    Route::post('/{id}/restore', [BackupController::class, 'restore'])->name('backup.api.restore');
+    Route::delete('/{id}', [BackupController::class, 'delete'])->name('backup.api.delete');
+    Route::get('/schedule/get', [BackupController::class, 'getSchedule'])->name('backup.api.schedule.get');
+    Route::post('/schedule/update', [BackupController::class, 'updateSchedule'])->name('backup.api.schedule.update');
 });

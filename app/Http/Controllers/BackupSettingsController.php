@@ -21,37 +21,28 @@ class BackupSettingsController extends Controller
         return view('admin.settings', compact('deletedApplicants', 'backupLogs'));
     }
 
-    public function generateManualBackup()
+    public function generateManualBackup(\App\Services\BackupService $backupService)
     {
         try {
-            $backupDir = storage_path('backups');
-            if (!file_exists($backupDir)) {
-                mkdir($backupDir, 0755, true);
+            $result = $backupService->createBackup('manual');
+            if (($result['status'] ?? null) !== 'success' || !isset($result['backup'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $result['message'] ?? 'Backup creation failed.',
+                ], 500);
             }
 
-            $backupFilename = 'backup_' . date('Y-m-d_H-i-s') . '.sql';
-            $backupPath = $backupDir . '/' . $backupFilename;
+            $backup = $result['backup'];
+            $backupPath = $backupService->backupPath($backup->file_path);
 
-            $dbHost = env('DB_HOST', 'localhost');
-            $dbName = env('DB_DATABASE', 'scholarship_portal');
-            $dbUser = env('DB_USERNAME', 'root');
-            $dbPassword = env('DB_PASSWORD', '');
-
-            $command = 'mysqldump --host=' . escapeshellarg($dbHost) . ' --user=' . escapeshellarg($dbUser);
-            if ($dbPassword) {
-                $command .= ' --password=' . escapeshellarg($dbPassword);
-            }
-            $command .= ' ' . escapeshellarg($dbName) . ' > ' . escapeshellarg($backupPath) . ' 2>&1';
-            exec($command, $output, $returnCode);
-
-            if ($returnCode === 0) {
-                return response()->download($backupPath, $backupFilename)->deleteFileAfterSend(false);
-            } else {
-                return response()->json(['error' => 'Backup creation failed'], 500);
-            }
-        } catch (\Exception $e) {
+            return response()->download($backupPath, $backup->filename, ['Content-Type' => 'application/zip'])
+                ->deleteFileAfterSend(false);
+        } catch (\Throwable $e) {
             Log::error('Manual backup generation failed', ['exception' => $e]);
-            return response()->json(['error' => 'Backup creation failed.'], 500);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Backup creation failed. Check the application log for details.',
+            ], 500);
         }
     }
 

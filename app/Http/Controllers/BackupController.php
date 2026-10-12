@@ -8,6 +8,7 @@ use App\Services\BackupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class BackupController extends Controller
 {
@@ -28,12 +29,16 @@ class BackupController extends Controller
 
             if ($result['status'] === 'success') {
                 $backupId = $result['backup']->id ?? null;
+                if (!$backupId) {
+                    throw new \RuntimeException('Backup was created without a history record.');
+                }
 
                 return response()->json([
                     'status' => 'success',
                     'message' => 'Backup created successfully',
                     'filename' => $result['filename'],
                     'backup_id' => $backupId,
+                    'download_url' => route('backup.api.download', ['id' => $backupId]),
                 ]);
             }
 
@@ -41,10 +46,11 @@ class BackupController extends Controller
                 'status' => 'error',
                 'message' => $result['message'],
             ], 500);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
+            Log::error('Manual backup API request failed', ['exception' => $e]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to create backup.',
+                'message' => 'Failed to create backup. Check the application log for details.',
             ], 500);
         }
     }
@@ -74,10 +80,11 @@ class BackupController extends Controller
                 'status' => 'error',
                 'message' => 'Backup file not found',
             ], 404);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
+            Log::error('Backup download API request failed', ['backup_id' => $id, 'exception' => $e]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'Download failed.',
+                'message' => 'Download failed. Check the application log for details.',
             ], 500);
         }
     }
@@ -107,7 +114,8 @@ class BackupController extends Controller
                 'status' => 'success',
                 'data' => $formatted,
             ]);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
+            Log::error('Backup history API request failed', ['exception' => $e]);
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unable to load backups.',
@@ -134,10 +142,11 @@ class BackupController extends Controller
                 'status' => 'error',
                 'message' => $result['message'],
             ], 500);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
+            Log::error('Backup restore API request failed', ['backup_id' => $id, 'exception' => $e]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'Restore failed.',
+                'message' => 'Restore failed. Check the application log for details.',
             ], 500);
         }
     }
@@ -161,10 +170,11 @@ class BackupController extends Controller
                 'status' => 'error',
                 'message' => $result['message'],
             ], 500);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
+            Log::error('Backup deletion API request failed', ['backup_id' => $id, 'exception' => $e]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'Delete failed.',
+                'message' => 'Delete failed. Check the application log for details.',
             ], 500);
         }
     }
@@ -193,7 +203,8 @@ class BackupController extends Controller
                     'last_status' => $schedule->last_status,
                 ],
             ]);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
+            Log::error('Backup schedule API request failed', ['exception' => $e]);
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unable to load backup schedule.',
@@ -235,7 +246,8 @@ class BackupController extends Controller
                     'last_status' => $schedule->last_status,
                 ],
             ]);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
+            Log::warning('Backup schedule update API request failed', ['exception' => $e]);
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unable to update backup schedule.',

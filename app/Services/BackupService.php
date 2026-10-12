@@ -5,6 +5,11 @@ namespace App\Services;
 use App\Models\BackupHistory;
 use App\Models\BackupLog;
 use Exception;
+use FilesystemIterator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use ZipArchive;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
@@ -34,13 +39,22 @@ class BackupService
     public function createBackup($type = 'manual'): array
     {
         $sqlFilename = null;
+        $sqlPath = null;
         $zipFilename = null;
         $zipPath = null;
+        $zipComplete = false;
+        $success = false;
 
         try {
             $backupDir = storage_path('app/backups');
-            if (!is_dir($backupDir)) {
-                mkdir($backupDir, 0755, true);
+            if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true) && !is_dir($backupDir)) {
+                throw new Exception('Unable to create the private backup directory.');
+            }
+            if (!is_writable($backupDir)) {
+                throw new Exception('The private backup directory is not writable.');
+            }
+            if (!class_exists(ZipArchive::class)) {
+                throw new Exception('The PHP ZIP extension is required to create backups. Enable ZipArchive in the web PHP configuration.');
             }
 
             $timestamp = date('Y-m-d_H-i-s');
@@ -58,15 +72,32 @@ class BackupService
 
             $zip = new ZipArchive();
             if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-                throw new Exception('Failed to create ZIP file');
+                throw new Exception('Unable to create the backup ZIP file. Check storage permissions and available disk space.');
             }
 
-            $zip->addFile($sqlPath, $sqlFilename);
-            $zip->close();
+            try {
+                if (!$zip->addFile($sqlPath, $sqlFilename)) {
+                    throw new Exception('Unable to add the database dump to the backup ZIP.');
+                }
+                $this->addUploadedFilesToArchive($zip);
+            } catch (Throwable $e) {
+                $zip->close();
+                throw $e;
+            }
 
-            unlink($sqlPath);
+            if (!$zip->close()) {
+                throw new Exception('Unable to finalize the backup ZIP file.');
+            }
+            $zipComplete = true;
+
+            if (!unlink($sqlPath)) {
+                throw new Exception('The ZIP was created, but its temporary SQL file could not be removed.');
+            }
 
             $finalSize = filesize($zipPath);
+            if ($finalSize === false || $finalSize < 1) {
+                throw new Exception('The generated backup ZIP is empty or unreadable.');
+            }
 
             if ($type === 'automatic') {
                 $this->uploadBackupToGoogle($zipPath, $zipFilename);
@@ -93,6 +124,7 @@ class BackupService
             ]);
 
             $this->logBackupAttempt($type, $zipFilename, $finalSize, 'success', $storage, null);
+            $success = true;
 
             return [
                 'status' => 'success',
@@ -101,28 +133,39 @@ class BackupService
                 'filepath' => $zipPath,
                 'backup' => $backup,
             ];
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             Log::error('Backup creation failed', ['type' => $type, 'exception' => $e]);
 
             $friendlyMessage = $this->formatGoogleDriveErrorMessage($e, $type);
             $filename = $zipFilename ?? ($sqlFilename ?? 'unknown');
             $size = $zipPath && file_exists($zipPath) ? filesize($zipPath) : 0;
 
-            BackupHistory::create([
-                'filename' => $filename,
-                'file_path' => 'backups/' . $filename,
-                'file_size' => $size,
-                'backup_type' => $type,
-                'status' => 'failed',
-                'error_message' => $friendlyMessage,
-            ]);
+            try {
+                BackupHistory::create([
+                    'filename' => $filename,
+                    'file_path' => 'backups/' . $filename,
+                    'file_size' => $size ?: 0,
+                    'backup_type' => $type,
+                    'status' => 'failed',
+                    'error_message' => $friendlyMessage,
+                ]);
 
-            $this->logBackupAttempt($type, $filename, $size, 'failed', $type === 'automatic' ? 'google' : 'local', $friendlyMessage);
+                $this->logBackupAttempt($type, $filename, $size ?: 0, 'failed', $type === 'automatic' ? 'google' : 'local', $friendlyMessage);
+            } catch (Throwable $recordingException) {
+                Log::error('Failed to record backup failure', ['type' => $type, 'exception' => $recordingException]);
+            }
 
             return [
                 'status' => 'error',
                 'message' => $friendlyMessage,
             ];
+        } finally {
+            if ($sqlPath && is_file($sqlPath)) {
+                @unlink($sqlPath);
+            }
+            if (!$success && !$zipComplete && $zipPath && is_file($zipPath)) {
+                @unlink($zipPath);
+            }
         }
     }
 
@@ -169,7 +212,7 @@ class BackupService
         ]);
     }
 
-    private function formatGoogleDriveErrorMessage(Exception $e, string $type): string
+    private function formatGoogleDriveErrorMessage(Throwable $e, string $type): string
     {
         $message = strtolower($e->getMessage());
 
@@ -186,7 +229,15 @@ class BackupService
             return 'Google Drive token expired. Please generate a new refresh token.';
         }
 
-        return $type === 'automatic' ? 'Google Drive upload failed.' : 'Backup operation failed. Please check the application logs for details.';
+        if ($type === 'automatic') {
+            return 'Google Drive upload failed.';
+        }
+
+        if (str_contains($message, 'zip') || str_contains($message, 'writable') || str_contains($message, 'unsupported') || str_contains($message, 'unable to create')) {
+            return $e->getMessage();
+        }
+
+        return 'Backup operation failed. Please check the application logs for details.';
     }
 
     /**
@@ -194,26 +245,67 @@ class BackupService
      */
     protected function createSqlDump($filePath): void
     {
-        $dbHost = env('DB_HOST', 'localhost');
-        $dbName = env('DB_DATABASE', 'scholarship_portal');
-        $dbUser = env('DB_USERNAME', 'root');
-        $dbPassword = env('DB_PASSWORD', '');
-
-        $command = 'mysqldump --host=' . escapeshellarg($dbHost) . ' --user=' . escapeshellarg($dbUser);
-
-        if (!empty($dbPassword)) {
-            $command .= ' --password=' . escapeshellarg($dbPassword);
+        $stream = @fopen($filePath, 'wb');
+        if ($stream === false) {
+            throw new Exception('Unable to write the temporary database dump. Check storage permissions.');
         }
 
-        $command .= " " . escapeshellarg($dbName) . " > " . escapeshellarg($filePath) . " 2>&1";
-
-        $output = null;
-        $returnCode = null;
-        exec($command, $output, $returnCode);
-
-        if ($returnCode !== 0) {
-            throw new Exception('mysqldump failed: ' . implode("\n", $output));
+        try {
+            app(PhpDatabaseDumper::class)->dumpToStream(DB::connection(), $stream);
+        } finally {
+            fclose($stream);
         }
+
+        if (!is_file($filePath) || filesize($filePath) === 0) {
+            throw new Exception('The database dump is empty or could not be completed.');
+        }
+    }
+
+    private function addUploadedFilesToArchive(ZipArchive $zip): void
+    {
+        foreach (['local' => 'private', 'public' => 'public'] as $diskName => $archiveDisk) {
+            $root = realpath(Storage::disk($diskName)->path(''));
+            if ($root === false || !is_dir($root)) {
+                continue;
+            }
+
+            $root = rtrim($root, DIRECTORY_SEPARATOR);
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
+            );
+
+            foreach ($iterator as $file) {
+                if (!$file->isFile() || $file->isLink()) {
+                    continue;
+                }
+
+                $relativePath = substr($file->getPathname(), strlen($root) + 1);
+                $relativePath = str_replace('\\', '/', $relativePath);
+                if (!$this->isSafeArchiveRelativePath($relativePath)) {
+                    throw new Exception('An uploaded file has an invalid storage path; backup was aborted.');
+                }
+
+                if (!$zip->addFile($file->getPathname(), 'storage/' . $archiveDisk . '/' . $relativePath)) {
+                    throw new Exception('Unable to add an uploaded file to the backup ZIP.');
+                }
+            }
+        }
+    }
+
+    private function isSafeArchiveRelativePath(string $path): bool
+    {
+        $normalized = str_replace('\\', '/', $path);
+        if ($normalized === '' || str_starts_with($normalized, '/') || preg_match('/^[A-Za-z]:/', $normalized) || str_contains($normalized, "\0")) {
+            return false;
+        }
+
+        foreach (explode('/', $normalized) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -240,6 +332,9 @@ class BackupService
             if (!$backupPath) {
                 throw new Exception('Backup file not found');
             }
+            if (!class_exists(ZipArchive::class)) {
+                throw new Exception('The PHP ZIP extension is required to restore backups. Enable ZipArchive in the web PHP configuration.');
+            }
 
             $tempDir = storage_path('app/backups/temp_' . uniqid('', true));
             if (!is_dir($tempDir)) {
@@ -259,16 +354,20 @@ class BackupService
                 $externalAttributesType = 0;
                 $zip->getExternalAttributesIndex($index, $externalAttributesType, $externalAttributes);
                 $isSymlink = (($externalAttributes >> 16) & 0xF000) === 0xA000;
+                $matches = [];
+                $isSqlEntry = preg_match('/^backup_[0-9_-]+\.sql$/', $normalizedEntry) === 1;
+                $isUploadEntry = preg_match('~^storage/(private|public)/(.+)$~', $normalizedEntry, $matches) === 1;
 
                 if ($entryName === false || str_ends_with($normalizedEntry, '/') || $isSymlink ||
-                    str_contains($normalizedEntry, '../') || str_starts_with($normalizedEntry, '/') ||
-                    preg_match('/^[A-Za-z]:\\//', $normalizedEntry) ||
-                    dirname($normalizedEntry) !== '.' || pathinfo($normalizedEntry, PATHINFO_EXTENSION) !== 'sql' ||
-                    !preg_match('/^backup_[0-9_-]+\.sql$/', basename($normalizedEntry))) {
+                    (!$isSqlEntry && !$isUploadEntry) ||
+                    ($isSqlEntry && dirname($normalizedEntry) !== '.') ||
+                    ($isUploadEntry && !$this->isSafeArchiveRelativePath($matches[2] ?? ''))) {
                     $zip->close();
                     throw new Exception('Invalid backup archive');
                 }
-                $sqlEntries++;
+                if ($isSqlEntry) {
+                    $sqlEntries++;
+                }
             }
 
             if ($sqlEntries !== 1) {
@@ -293,12 +392,13 @@ class BackupService
             }
 
             $this->restoreFromSql($sqlFile);
+            $this->restoreUploadedFiles($tempDir);
 
             return [
                 'status' => 'success',
-                'message' => 'Database restored successfully from ' . $backup->filename,
+                'message' => 'Database and uploaded files restored successfully from ' . $backup->filename,
             ];
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             Log::error('Backup restore failed', ['backup_id' => $backupId, 'exception' => $e]);
             return [
                 'status' => 'error',
@@ -318,20 +418,89 @@ class BackupService
     /**
      * Restore database from SQL file
      */
+    private function restoreUploadedFiles(string $extractedRoot): void
+    {
+        foreach (['private' => 'local', 'public' => 'public'] as $archiveDisk => $diskName) {
+            $stagedRoot = $extractedRoot . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . $archiveDisk;
+            if (!is_dir($stagedRoot)) {
+                continue;
+            }
+
+            $destinationRoot = Storage::disk($diskName)->path('');
+            if (!is_dir($destinationRoot) && !mkdir($destinationRoot, 0755, true) && !is_dir($destinationRoot)) {
+                throw new Exception('Unable to access the configured upload storage directory.');
+            }
+            $destinationRoot = realpath($destinationRoot);
+            if ($destinationRoot === false) {
+                throw new Exception('Unable to access the configured upload storage directory.');
+            }
+
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($stagedRoot, FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $file) {
+                if (!$file->isFile() || $file->isLink()) {
+                    continue;
+                }
+
+                $relativePath = str_replace('\\', '/', substr($file->getPathname(), strlen($stagedRoot) + 1));
+                if (!$this->isSafeArchiveRelativePath($relativePath)) {
+                    throw new Exception('Invalid uploaded-file path in backup archive.');
+                }
+
+                $segments = explode('/', $relativePath);
+                $filename = array_pop($segments);
+                $targetDirectory = $destinationRoot;
+                foreach ($segments as $segment) {
+                    $targetDirectory .= DIRECTORY_SEPARATOR . $segment;
+                    if (is_link($targetDirectory)) {
+                        throw new Exception('A symbolic link in upload storage prevents safe restore.');
+                    }
+                    if (!is_dir($targetDirectory) && !mkdir($targetDirectory, 0755, true) && !is_dir($targetDirectory)) {
+                        throw new Exception('Unable to create an upload directory during restore.');
+                    }
+                }
+
+                $targetPath = $targetDirectory . DIRECTORY_SEPARATOR . $filename;
+                if (is_link($targetPath) || !copy($file->getPathname(), $targetPath)) {
+                    throw new Exception('Unable to restore an uploaded file. Check storage permissions.');
+                }
+            }
+        }
+    }
+
     private function restoreFromSql($sqlFilePath): void
     {
-        $dbHost = env('DB_HOST', 'localhost');
-        $dbName = env('DB_DATABASE', 'scholarship_portal');
-        $dbUser = env('DB_USERNAME', 'root');
-        $dbPassword = env('DB_PASSWORD', '');
-
-        $command = 'mysql --host=' . escapeshellarg($dbHost) . ' --user=' . escapeshellarg($dbUser);
-
-        if (!empty($dbPassword)) {
-            $command .= ' --password=' . escapeshellarg($dbPassword);
+        $connection = DB::connection();
+        if (!in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)) {
+            throw new Exception('SQL restore is supported only for a MySQL or MariaDB connection.');
+        }
+        if (!function_exists('exec')) {
+            throw new Exception('The PHP exec function is disabled; the mysql command-line client is required to restore database backups.');
         }
 
-        $command .= " " . escapeshellarg($dbName) . " < " . escapeshellarg($sqlFilePath) . " 2>&1";
+        $config = $connection->getConfig();
+        $database = (string) $connection->getDatabaseName();
+        $username = (string) ($config['username'] ?? '');
+        $password = (string) ($config['password'] ?? '');
+        $socket = (string) ($config['unix_socket'] ?? '');
+
+        $command = 'mysql';
+        if ($socket !== '') {
+            $command .= ' --socket=' . escapeshellarg($socket);
+        } else {
+            $command .= ' --host=' . escapeshellarg((string) ($config['host'] ?? '127.0.0.1'));
+            if (!empty($config['port'])) {
+                $command .= ' --port=' . escapeshellarg((string) $config['port']);
+            }
+        }
+        $command .= ' --user=' . escapeshellarg($username);
+
+        if ($password !== '') {
+            $command .= ' --password=' . escapeshellarg($password);
+        }
+
+        $command .= ' ' . escapeshellarg($database) . ' < ' . escapeshellarg($sqlFilePath) . ' 2>&1';
 
         $output = null;
         $returnCode = null;

@@ -27,6 +27,35 @@ function showNotification(message, type = 'success') {
     }, 3000);
 }
 
+function backupUrl(name, backupId) {
+    const template = window.backupRoutes?.[name];
+    if (!template) {
+        throw new Error(`Backup route "${name}" is unavailable on this page.`);
+    }
+
+    return backupId === undefined
+        ? template
+        : template.replace('__BACKUP_ID__', encodeURIComponent(String(backupId)));
+}
+
+async function requestJson(url, options = {}) {
+    let response;
+    try {
+        response = await fetch(url, {
+            credentials: 'same-origin',
+            ...options,
+            headers: {
+                Accept: 'application/json',
+                ...(options.headers || {}),
+            },
+        });
+    } catch (error) {
+        throw new Error(`Network request failed: ${error.message}`);
+    }
+
+    return parseJsonResponse(response);
+}
+
 // Initialize backup system
 document.addEventListener('DOMContentLoaded', function() {
     // Manual Backup Form
@@ -76,15 +105,13 @@ async function handleManualBackup(e) {
     button.innerHTML = '⏳ Creating backup...';
 
     try {
-        const response = await fetch('/api/backup/create', {
+        const data = await requestJson(backupUrl('create'), {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                 'Content-Type': 'application/json',
             },
         });
-
-        const data = await parseJsonResponse(response);
 
         if (data.status === 'success') {
             const backupId = data.backup_id;
@@ -93,7 +120,8 @@ async function handleManualBackup(e) {
             }
 
             showNotification('✓ Backup created successfully! Downloading...', 'success');
-            await triggerBackupDownload(backupId, data.filename || 'backup.zip');
+            const downloadUrl = data.download_url || backupUrl('download', backupId);
+            await triggerBackupDownload(backupId, data.filename || 'backup.zip', downloadUrl);
             loadBackupHistory();
         } else {
             throw new Error(data.message || 'Backup creation failed');
@@ -109,49 +137,73 @@ async function handleManualBackup(e) {
 async function parseJsonResponse(response) {
     const contentType = response.headers.get('content-type') || '';
 
-    if (contentType.includes('application/json')) {
-        return response.json();
+    if (response.redirected) {
+        let destination = response.url;
+        try {
+            destination = new URL(response.url, window.location.href).pathname;
+        } catch (error) {
+            destination = 'another page';
+        }
+        throw new Error(`Request was redirected to ${destination} (HTTP ${response.status}). Check your login/session and backup route.`);
     }
 
-    const text = await response.text();
-    if (!text.trim()) {
-        return {};
-    }
-
-    try {
-        return JSON.parse(text);
-    } catch (error) {
-        if (text.toLowerCase().includes('<!doctype html') || text.toLowerCase().includes('<html')) {
-            throw new Error('The server returned an HTML error page. Please make sure you are still logged in and the backup route is available.');
+    if (contentType.toLowerCase().includes('json')) {
+        let data;
+        try {
+            data = await response.json();
+        } catch (error) {
+            throw new Error(`The server returned invalid JSON (HTTP ${response.status}).`);
         }
 
-        throw new Error(text.slice(0, 180) || 'Request failed');
+        if (!response.ok || data.status === 'error') {
+            throw new Error(data.message || `Backup request failed (HTTP ${response.status}).`);
+        }
+
+        return data;
     }
+
+    const text = await response.text().catch(() => '');
+    const snippet = text
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 220);
+    const detail = snippet ? ` Response: ${snippet}` : '';
+    throw new Error(`Backup request returned non-JSON content (HTTP ${response.status}).${detail}`);
 }
 
-async function triggerBackupDownload(backupId, filename) {
-    const response = await fetch(`/api/backup/${backupId}/download`, {
-        method: 'GET',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    });
+async function triggerBackupDownload(backupId, filename, downloadUrl = backupUrl('download', backupId)) {
+    let response;
+    try {
+        response = await fetch(downloadUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/zip, application/octet-stream, application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+    } catch (error) {
+        throw new Error(`Backup download network request failed: ${error.message}`);
+    }
 
-    if (!response.ok) {
-        const errorData = await parseJsonResponse(response).catch(() => null);
-        const message = errorData && errorData.message ? errorData.message : 'Backup download failed.';
-        throw new Error(message);
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (response.redirected || !response.ok || (!contentType.includes('application/zip') && !contentType.includes('application/octet-stream'))) {
+        await parseJsonResponse(response);
+        throw new Error(`Backup download returned an unexpected content type (HTTP ${response.status}).`);
     }
 
     const blob = await response.blob();
-    const downloadUrl = URL.createObjectURL(blob);
+    const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = downloadUrl;
+    link.href = objectUrl;
     link.download = filename || 'backup.zip';
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(downloadUrl);
+    URL.revokeObjectURL(objectUrl);
 }
 
 /**
@@ -170,7 +222,7 @@ async function handleAutoBackupToggle(e) {
             day_of_week: document.getElementById('daySelect')?.value ?? schedule.day_of_week,
         };
 
-        const response = await fetch('/api/backup/schedule/update', {
+        const data = await requestJson(backupUrl('scheduleUpdate'), {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -178,8 +230,6 @@ async function handleAutoBackupToggle(e) {
             },
             body: JSON.stringify(validated),
         });
-
-        const data = await response.json();
 
         if (data.status === 'success') {
             statusText.textContent = enabled ? 'On' : 'Off';
@@ -209,7 +259,7 @@ async function handleFrequencyChange(e) {
 
     try {
         const schedule = await getBackupSchedule();
-        const response = await fetch('/api/backup/schedule/update', {
+        const data = await requestJson(backupUrl('scheduleUpdate'), {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -223,8 +273,6 @@ async function handleFrequencyChange(e) {
             }),
         });
 
-        const data = await response.json();
-        
         if (data.status === 'success') {
             showNotification('✓ Frequency updated', 'success');
         } else {
@@ -243,7 +291,7 @@ async function handleTimeChange(e) {
 
     try {
         const schedule = await getBackupSchedule();
-        const response = await fetch('/api/backup/schedule/update', {
+        const data = await requestJson(backupUrl('scheduleUpdate'), {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -257,8 +305,6 @@ async function handleTimeChange(e) {
             }),
         });
 
-        const data = await response.json();
-        
         if (data.status === 'success') {
             showNotification('✓ Time updated', 'success');
         } else {
@@ -277,7 +323,7 @@ async function handleDayChange(e) {
 
     try {
         const schedule = await getBackupSchedule();
-        const response = await fetch('/api/backup/schedule/update', {
+        const data = await requestJson(backupUrl('scheduleUpdate'), {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -291,8 +337,6 @@ async function handleDayChange(e) {
             }),
         });
 
-        const data = await response.json();
-        
         if (data.status === 'success') {
             showNotification('✓ Day updated', 'success');
         } else {
@@ -308,8 +352,7 @@ async function handleDayChange(e) {
  */
 async function getBackupSchedule() {
     try {
-        const response = await fetch('/api/backup/schedule/get');
-        const data = await response.json();
+        const data = await requestJson(backupUrl('scheduleGet'));
         
         if (data.status === 'success') {
             return data.data;
@@ -379,8 +422,7 @@ async function loadBackupSchedule() {
  */
 async function loadBackupHistory() {
     try {
-        const response = await fetch('/api/backup/list');
-        const data = await response.json();
+        const data = await requestJson(backupUrl('list'));
 
         if (data.status === 'success' && data.data.length > 0) {
             displayBackupHistory(data.data);
@@ -481,15 +523,13 @@ async function restoreBackup(backupId) {
     button.textContent = '⏳';
 
     try {
-        const response = await fetch(`/api/backup/${backupId}/restore`, {
+        const data = await requestJson(backupUrl('restore', backupId), {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                 'Content-Type': 'application/json',
             },
         });
-
-        const data = await response.json();
 
         if (data.status === 'success') {
             showNotification('✓ ' + data.message, 'success');
@@ -537,15 +577,13 @@ async function deleteBackup(backupId) {
     button.textContent = '⏳';
 
     try {
-        const response = await fetch(`/api/backup/${backupId}`, {
+        const data = await requestJson(backupUrl('delete', backupId), {
             method: 'DELETE',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                 'Content-Type': 'application/json',
             },
         });
-
-        const data = await response.json();
 
         if (data.status === 'success') {
             showNotification('✓ Backup deleted successfully', 'success');

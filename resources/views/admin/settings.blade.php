@@ -22,7 +22,8 @@
             }).then(async (result) => {
                 if (!result.isConfirmed) return;
                 try {
-                    const resp = await fetch(`/admin/backup/restore/${id}`, { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Content-Type': 'application/json' }});
+                    const restoreUrl = window.backupRoutes.applicantRestore.replace('__BACKUP_ID__', encodeURIComponent(id));
+                    const resp = await fetch(restoreUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Content-Type': 'application/json', 'Accept': 'application/json' }});
                     const data = await resp.json();
                     if (data.status === 'ok') {
                         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: data.message || 'Applicant restored successfully', showConfirmButton: false, timer: 1500, timerProgressBar: true });
@@ -35,6 +36,19 @@
                 }
             });
         }
+    </script>
+    <script>
+        window.backupRoutes = {
+            create: @json(route('backup.api.create')),
+            list: @json(route('backup.api.list')),
+            download: @json(route('backup.api.download', ['id' => '__BACKUP_ID__'])),
+            restore: @json(route('backup.api.restore', ['id' => '__BACKUP_ID__'])),
+            delete: @json(route('backup.api.delete', ['id' => '__BACKUP_ID__'])),
+            scheduleGet: @json(route('backup.api.schedule.get')),
+            scheduleUpdate: @json(route('backup.api.schedule.update')),
+            applicantRestore: @json(route('backup.restore-applicant', ['id' => '__BACKUP_ID__'])),
+            applicantInfo: @json(route('backup.applicant-info', ['id' => '__BACKUP_ID__']))
+        };
     </script>
     <script src="{{ asset('js/backup.js') }}" defer></script>
     <style>
@@ -663,7 +677,8 @@
                 } else {
                     // fallback
                     if (!confirm(`Are you sure you want to restore ${name}? They will be returned to their original grant section.`)) return;
-                    fetch(`/admin/backup/restore/${id}`, { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Content-Type': 'application/json' } })
+                    const restoreUrl = window.backupRoutes.applicantRestore.replace('__BACKUP_ID__', encodeURIComponent(id));
+                    fetch(restoreUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Content-Type': 'application/json', 'Accept': 'application/json' } })
                         .then(r=>r.json()).then(data=>{ if (data.status==='ok') { alert('✓ '+data.message); setTimeout(()=>location.reload(),500); } else alert('✗ Error: '+(data.error||'Failed to restore applicant')); }).catch(err=>alert('✗ Error: '+err.message));
                 }
             });
@@ -675,7 +690,8 @@
                 const name = this.dataset.name;
 
                 try {
-                    const response = await fetch(`/admin/backup/applicant-info/${id}`);
+                    const infoUrl = window.backupRoutes.applicantInfo.replace('__BACKUP_ID__', encodeURIComponent(id));
+                    const response = await fetch(infoUrl, { headers: { 'Accept': 'application/json' } });
                     const data = await response.json();
 
                     if (data.status === 'ok') {
