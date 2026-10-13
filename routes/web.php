@@ -7,6 +7,7 @@ use App\Http\Controllers\OldGrantController;
 use App\Http\Controllers\BackupSettingsController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\ScholarshipController;
+use App\Http\Controllers\ScholarshipLogoController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AdminAnnouncementController;
 use App\Http\Controllers\AnnouncementImageController;
@@ -164,6 +165,10 @@ Route::middleware(['auth', 'verified', 'approved.student'])->group(function (): 
 Route::get('/announcements/images/{image}', [AnnouncementImageController::class, 'show'])
     ->middleware(['auth', 'verified'])
     ->name('announcements.images.show');
+
+Route::get('/scholarship-logos/{scholarship}', [ScholarshipLogoController::class, 'show'])
+    ->middleware(['auth', 'verified'])
+    ->name('scholarships.logo');
 
 Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/announcements', [AdminAnnouncementController::class, 'index'])->name('announcements.index');

@@ -934,6 +934,10 @@ function openScholarshipDetailsModal(title, description, modalType = 'non', card
         }
 
         if (imageEl) {
+            imageEl.onerror = () => {
+                imageEl.onerror = null;
+                imageEl.src = imageEl.dataset.fallbackSrc;
+            };
             if (cardImageSrc) {
                 imageEl.src = cardImageSrc;
                 imageEl.alt = title || 'Scholarship logo';

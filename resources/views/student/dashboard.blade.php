@@ -172,9 +172,9 @@
     <!-- Academic Page 1 -->
     <div class="card-grid page-set active" id="acad-p1">
         @foreach($dynamicScholarships ?? [] as $scholarship)
-            <div class="s-card {{ $scholarship->status === 'inactive' ? 'card-unavailable' : '' }}" data-name="{{ strtolower($scholarship->name . ' ' . ($scholarship->type_label ?? '') . ' ' . ($scholarship->funding_type ?? '') . ' ' . ($scholarship->scholarship_classification ?? '')) }}" data-description="{{ $scholarship->description }}@if($scholarship->requirements) Eligibility Requirements @foreach($scholarship->requirements as $requirement) *{{ $requirement }} @endforeach @endif" data-image="{{ $scholarship->logo_path ? Storage::url($scholarship->logo_path) : '' }}" data-scholarship-id="{{ $scholarship->id }}" data-scholarship-type="{{ $scholarship->type_label }}" data-required-documents='@json($scholarship->required_documents ?? [])'>
+            <div class="s-card {{ $scholarship->status === 'inactive' ? 'card-unavailable' : '' }}" data-name="{{ strtolower($scholarship->name . ' ' . ($scholarship->type_label ?? '') . ' ' . ($scholarship->funding_type ?? '') . ' ' . ($scholarship->scholarship_classification ?? '')) }}" data-description="{{ $scholarship->description }}@if($scholarship->requirements) Eligibility Requirements @foreach($scholarship->requirements as $requirement) *{{ $requirement }} @endforeach @endif" data-image="{{ $scholarship->logo_path ? route('scholarships.logo', ['scholarship' => $scholarship, 'v' => $scholarship->updated_at?->timestamp], false) : '' }}" data-scholarship-id="{{ $scholarship->id }}" data-scholarship-type="{{ $scholarship->type_label }}" data-required-documents='@json($scholarship->required_documents ?? [])'>
                 <div class="card-head">
-                    <div class="card-icon"><img src="{{ $scholarship->logo_path ? Storage::url($scholarship->logo_path) : asset('images/csu.logo.png') }}" alt="{{ $scholarship->name }} logo"></div>
+                    <div class="card-icon"><img src="{{ $scholarship->logo_path ? route('scholarships.logo', ['scholarship' => $scholarship, 'v' => $scholarship->updated_at?->timestamp], false) : asset('images/csu.logo.png') }}" alt="{{ $scholarship->name }} logo" onerror="this.onerror=null;this.src='{{ asset('images/csu.logo.png') }}'"></div>
                     <div class="card-names">
                         <h3>{{ $scholarship->name }}</h3>
                         <p class="prog">{{ $scholarship->type_label ?: 'Scholarship' }}</p>
@@ -487,9 +487,9 @@ More info visits:https://web.facebook.com/cagayanvalleyassoofhawaii
     <!-- Non-Academic Page 1 -->
     <div class="card-grid page-set active" id="non-p1">
         @foreach($dynamicScholarships ?? [] as $scholarship)
-            <div class="s-card {{ $scholarship->status === 'inactive' ? 'card-unavailable' : '' }}" data-name="{{ strtolower($scholarship->name . ' ' . ($scholarship->type_label ?? '') . ' ' . ($scholarship->funding_type ?? '') . ' ' . ($scholarship->scholarship_classification ?? '')) }}" data-description="{{ $scholarship->description }}@if($scholarship->requirements) Eligibility Requirements @foreach($scholarship->requirements as $requirement) *{{ $requirement }} @endforeach @endif" data-image="{{ $scholarship->logo_path ? Storage::url($scholarship->logo_path) : '' }}" data-scholarship-id="{{ $scholarship->id }}" data-scholarship-type="{{ $scholarship->type_label }}" data-required-documents='@json($scholarship->required_documents ?? [])'>
+            <div class="s-card {{ $scholarship->status === 'inactive' ? 'card-unavailable' : '' }}" data-name="{{ strtolower($scholarship->name . ' ' . ($scholarship->type_label ?? '') . ' ' . ($scholarship->funding_type ?? '') . ' ' . ($scholarship->scholarship_classification ?? '')) }}" data-description="{{ $scholarship->description }}@if($scholarship->requirements) Eligibility Requirements @foreach($scholarship->requirements as $requirement) *{{ $requirement }} @endforeach @endif" data-image="{{ $scholarship->logo_path ? route('scholarships.logo', ['scholarship' => $scholarship, 'v' => $scholarship->updated_at?->timestamp], false) : '' }}" data-scholarship-id="{{ $scholarship->id }}" data-scholarship-type="{{ $scholarship->type_label }}" data-required-documents='@json($scholarship->required_documents ?? [])'>
                 <div class="card-head">
-                    <div class="card-icon"><img src="{{ $scholarship->logo_path ? Storage::url($scholarship->logo_path) : asset('images/csu.logo.png') }}" alt="{{ $scholarship->name }} logo"></div>
+                    <div class="card-icon"><img src="{{ $scholarship->logo_path ? route('scholarships.logo', ['scholarship' => $scholarship, 'v' => $scholarship->updated_at?->timestamp], false) : asset('images/csu.logo.png') }}" alt="{{ $scholarship->name }} logo" onerror="this.onerror=null;this.src='{{ asset('images/csu.logo.png') }}'"></div>
                     <div class="card-names">
                         <h3>{{ $scholarship->name }}</h3>
                         <p class="prog">{{ $scholarship->type_label ?: 'Scholarship' }}</p>
@@ -908,7 +908,7 @@ Students from municipalities without accessible colleges or higher education ins
                             <div id="detailsScholarshipTags" class="detail-tags"></div>
                         </div>
                         <div class="detail-logo">
-                            <img id="detailsScholarshipImage" src="" alt="Scholarship logo">
+                            <img id="detailsScholarshipImage" src="" data-fallback-src="{{ asset('images/csu.logo.png') }}" alt="Scholarship logo">
                         </div>
                     </div>
 

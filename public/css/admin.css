@@ -1704,6 +1704,23 @@ tr:hover td {
     gap: 14px;
 }
 
+.scholarship-logo-preview-wrap {
+    display: grid;
+    gap: 6px;
+    color: #463a34;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.scholarship-logo-preview {
+    width: 128px;
+    height: 128px;
+    object-fit: contain;
+    border: 1px solid #d8d0ca;
+    border-radius: 7px;
+    background: #fff;
+}
+
 .scholarship-edit-form-label,
 .scholarship-edit-modal label {
     display: flex;

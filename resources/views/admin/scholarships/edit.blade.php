@@ -37,6 +37,10 @@
 
                         <div class="scholarship-edit-grid">
                             <div class="scholarship-edit-column">
+                                <div class="scholarship-logo-preview-wrap">
+                                    <span>Current scholarship logo</span>
+                                    <img class="scholarship-logo-preview" src="{{ $scholarship->logo_path ? route('scholarships.logo', ['scholarship' => $scholarship, 'v' => $scholarship->updated_at?->timestamp], false) : asset('images/csu.logo.png') }}" alt="{{ $scholarship->name }} logo" onerror="this.onerror=null;this.src='{{ asset('images/csu.logo.png') }}'">
+                                </div>
                                 <label>Scholarship logo <input type="file" name="logo" accept="image/jpeg,image/png"></label>
                                 <label>Funding Type
                                     <select name="funding_type" required>

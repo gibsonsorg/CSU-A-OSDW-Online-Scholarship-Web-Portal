@@ -81,10 +81,10 @@
                                         <div class="scholarship-management-identity">
                                             @php
                                                 $scholarshipLogo = $scholarship->logo_path
-                                                    ? Storage::url($scholarship->logo_path)
+                                                    ? route('scholarships.logo', ['scholarship' => $scholarship, 'v' => $scholarship->updated_at?->timestamp], false)
                                                     : ($studentDashboardScholarshipLogos[$scholarship->name] ?? asset('images/csu.logo.png'));
                                             @endphp
-                                            <img src="{{ $scholarshipLogo }}" alt="{{ $scholarship->name }} logo">
+                                            <img src="{{ $scholarshipLogo }}" alt="{{ $scholarship->name }} logo" onerror="this.onerror=null;this.src='{{ asset('images/csu.logo.png') }}'">
                                             <div><strong>{{ $scholarship->name }}</strong><span>{{ Str::limit($scholarship->short_information ?: $scholarship->description, 95) }}</span></div>
                                         </div>
                                     </td>
